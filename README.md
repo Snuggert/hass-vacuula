@@ -216,3 +216,10 @@ action:
 ## 🏗️ Architecture & Design Highlights
 
 For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, and pure-Python RLE PNG rendering, see [**ARCHITECTURE.md**](ARCHITECTURE.md).
+
+---
+
+## 📄 License & Attribution
+
+- **Integration & Lovelace Card Code**: Licensed under the [**MIT License**](LICENSE).
+- **Brand Assets & Upstream Project**: The Vacuula vampire-bot icon and logo in [`custom_components/vacuula/brand/`](custom_components/vacuula/brand/) and [`docs/assets/vacuula_logo.svg`](docs/assets/vacuula_logo.svg) are courtesy of the [**Vacuula**](https://github.com/vacuula/vacuula) project (licensed under [GNU AGPL-3.0](https://github.com/vacuula/vacuula/blob/main/LICENSE)). This integration is an independent HTTP/SSE client and is not affiliated with Neato Robotics.
