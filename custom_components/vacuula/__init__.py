@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, TypeAlias
 import voluptuous as vol
 
-from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_URL
@@ -76,7 +75,6 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
             await hass.http.async_register_static_paths(
                 [StaticPathConfig(FRONTEND_URL, str(card_path), cache_headers=False)]
             )
-            add_extra_js_url(hass, versioned_url)
             hass.data[flag_key] = True
         await _async_register_lovelace_resource(hass, versioned_url)
     except Exception as err:  # noqa: BLE001
