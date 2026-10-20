@@ -1,18 +1,159 @@
 """The Vacuula integration."""
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias
+import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_URL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VacuulaApiClient
-from .const import PLATFORMS
-from .coordinator import VacuulaCoordinator
+from .const import (
+    DOMAIN,
+    PLATFORMS,
+    SERVICE_CLEAN_SPOT,
+    SERVICE_CLEAN_ZONES,
+    SERVICE_REFRESH_MAPS,
+)
+from .coordinator import VacuulaCoordinator, VacuulaRobotData
 
 VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
+
+
+def _resolve_target_robot(
+    hass: HomeAssistant, serial: str | None
+) -> tuple[VacuulaCoordinator, VacuulaRobotData]:
+    """Find the coordinator and robot matching serial, or the sole robot if omitted."""
+    entries: list[VacuulaConfigEntry] = hass.config_entries.async_loaded_entries(DOMAIN)
+    all_robots: list[tuple[VacuulaCoordinator, VacuulaRobotData]] = []
+    for entry in entries:
+        coord: VacuulaCoordinator = entry.runtime_data
+        if not coord.data:
+            continue
+        if serial and serial in coord.data:
+            return coord, coord.data[serial]
+        for robot in coord.data.values():
+            all_robots.append((coord, robot))
+
+    if serial:
+        raise HomeAssistantError(f"Robot '{serial}' not found in Vacuula")
+    if len(all_robots) == 1:
+        return all_robots[0]
+    if not all_robots:
+        raise HomeAssistantError("No robots found in Vacuula")
+    raise HomeAssistantError(
+        "Multiple robots are configured; please specify 'serial' in the action call"
+    )
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register domain-level actions for Vacuula (idempotent)."""
+    if hass.services.has_service(DOMAIN, SERVICE_CLEAN_ZONES):
+        return
+
+    async def _handle_clean_zones(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        raw_zones = call.data["zones"]
+        if isinstance(raw_zones, str):
+            zone_list = [z.strip() for z in raw_zones.split(",") if z.strip()]
+        elif isinstance(raw_zones, list):
+            zone_list = [str(z).strip() for z in raw_zones if str(z).strip()]
+        else:
+            zone_list = [str(raw_zones).strip()]
+
+        coord, robot = _resolve_target_robot(hass, serial)
+        map_id = call.data.get("map_id") or robot.active_map_id
+        if not map_id:
+            raise HomeAssistantError(
+                f"No active floor map available for robot {robot.name} ({robot.serial})"
+            )
+
+        zone_ids = robot.resolve_zone_ids(zone_list)
+        fan_speed = call.data.get("fan_speed") or robot.preferred_fan_speed
+        nav_mode = call.data.get("navigation_mode") or robot.preferred_navigation_mode
+
+        resp = await coord.client.async_start_zone_cleaning(
+            robot.serial,
+            robot.robot_type,
+            map_id,
+            zone_ids,
+            fan_speed=fan_speed,
+            navigation_mode=nav_mode,
+        )
+        await coord.async_apply_command_response(robot.serial, resp)
+
+    async def _handle_clean_spot(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        coord, robot = _resolve_target_robot(hass, serial)
+        width = int(call.data.get("width", 200))
+        height = int(call.data.get("height", 200))
+        fan_speed = call.data.get("fan_speed") or robot.preferred_fan_speed
+        nav_mode = call.data.get("navigation_mode") or robot.preferred_navigation_mode
+
+        resp = await coord.client.async_start_spot_cleaning(
+            robot.serial,
+            robot.robot_type,
+            width=width,
+            height=height,
+            fan_speed=fan_speed,
+            navigation_mode=nav_mode,
+        )
+        await coord.async_apply_command_response(robot.serial, resp)
+
+    async def _handle_refresh_maps(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        if serial:
+            coord, robot = _resolve_target_robot(hass, serial)
+            await coord.async_refresh_maps_and_runs(robot.serial)
+            return
+        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+            coord = entry.runtime_data
+            if coord.data:
+                for rob_serial in list(coord.data.keys()):
+                    await coord.async_refresh_maps_and_runs(rob_serial)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CLEAN_ZONES,
+        _handle_clean_zones,
+        schema=vol.Schema(
+            {
+                vol.Optional("serial"): cv.string,
+                vol.Required("zones"): vol.Any(cv.string, [cv.string]),
+                vol.Optional("map_id"): cv.string,
+                vol.Optional("fan_speed"): cv.string,
+                vol.Optional("navigation_mode"): cv.string,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CLEAN_SPOT,
+        _handle_clean_spot,
+        schema=vol.Schema(
+            {
+                vol.Optional("serial"): cv.string,
+                vol.Optional("width", default=200): vol.All(
+                    vol.Coerce(int), vol.Range(min=50, max=500)
+                ),
+                vol.Optional("height", default=200): vol.All(
+                    vol.Coerce(int), vol.Range(min=50, max=500)
+                ),
+                vol.Optional("fan_speed"): cv.string,
+                vol.Optional("navigation_mode"): cv.string,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REFRESH_MAPS,
+        _handle_refresh_maps,
+        schema=vol.Schema({vol.Optional("serial"): cv.string}),
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
@@ -24,6 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
+    _async_register_services(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await coordinator.async_start_sse()
@@ -33,4 +175,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
 async def async_unload_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
     """Unload a config entry."""
     await entry.runtime_data.async_stop_sse()
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok and not hass.config_entries.async_loaded_entries(DOMAIN):
+        for service in (
+            SERVICE_CLEAN_ZONES,
+            SERVICE_CLEAN_SPOT,
+            SERVICE_REFRESH_MAPS,
+        ):
+            hass.services.async_remove(DOMAIN, service)
+    return unload_ok

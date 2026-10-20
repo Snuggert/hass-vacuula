@@ -27,6 +27,11 @@ class VacuulaEntity(CoordinatorEntity[VacuulaCoordinator]):
         return self.coordinator.data.get(self._serial) if self.coordinator.data else None
 
     @property
+    def robot(self) -> VacuulaRobotData | None:
+        """Return current robot data from coordinator."""
+        return self._robot
+
+    @property
     def _gen4_body(self) -> dict[str, Any]:
         """Return the inner body dictionary for a Gen4 robot state."""
         robot = self._robot

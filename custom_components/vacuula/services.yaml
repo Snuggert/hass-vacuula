@@ -1,0 +1,110 @@
+clean_zones:
+  name: Clean zones
+  description: Start cleaning one or more named room zones (or boundary UUIDs) on a Neato robot managed by Vacuula.
+  fields:
+    serial:
+      name: Robot serial
+      description: Robot serial number (optional if only one robot is paired).
+      required: false
+      example: "GPC25319-f8369bfb9a1e"
+      selector:
+        text:
+    zones:
+      name: Zones
+      description: Room zone name(s) (case-insensitive, e.g. "Diningroom, Office") or boundary UUID(s).
+      required: true
+      example: "Diningroom, Hallway"
+      selector:
+        object:
+    map_id:
+      name: Map ID
+      description: Optional floorplan ID (defaults to the robot's active floorplan).
+      required: false
+      example: "2026-10-19T18:14:20Z"
+      selector:
+        text:
+    fan_speed:
+      name: Fan speed
+      description: Optional cleaning power mode (eco or turbo).
+      required: false
+      selector:
+        select:
+          options:
+            - "eco"
+            - "turbo"
+    navigation_mode:
+      name: Navigation mode
+      description: Optional navigation mode (normal, extra_care, deep, or gentle).
+      required: false
+      selector:
+        select:
+          options:
+            - "normal"
+            - "extra_care"
+            - "deep"
+            - "gentle"
+
+clean_spot:
+  name: Clean spot
+  description: Start a localized spot cleaning run (Gen3 robots).
+  fields:
+    serial:
+      name: Robot serial
+      description: Robot serial number (optional if only one robot is paired).
+      required: false
+      example: "GPC25319-f8369bfb9a1e"
+      selector:
+        text:
+    width:
+      name: Spot width (cm)
+      description: Width of the spot area in centimeters (default 200).
+      required: false
+      default: 200
+      selector:
+        number:
+          min: 100
+          max: 400
+          step: 50
+          unit_of_measurement: "cm"
+    height:
+      name: Spot height (cm)
+      description: Height of the spot area in centimeters (default 200).
+      required: false
+      default: 200
+      selector:
+        number:
+          min: 100
+          max: 400
+          step: 50
+          unit_of_measurement: "cm"
+    fan_speed:
+      name: Fan speed
+      description: Optional cleaning power mode (eco or turbo).
+      required: false
+      selector:
+        select:
+          options:
+            - "eco"
+            - "turbo"
+    navigation_mode:
+      name: Navigation mode
+      description: Optional navigation mode (normal, extra_care, or deep).
+      required: false
+      selector:
+        select:
+          options:
+            - "normal"
+            - "extra_care"
+            - "deep"
+
+refresh_maps:
+  name: Refresh maps and runs
+  description: Reload floor maps, room boundaries, and historical cleaning runs from the Vacuula server.
+  fields:
+    serial:
+      name: Robot serial
+      description: Optional robot serial (if omitted, refreshes all paired robots).
+      required: false
+      example: "GPC25319-f8369bfb9a1e"
+      selector:
+        text:

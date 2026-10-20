@@ -1,4 +1,4 @@
-"""Binary sensor platform for Vacuula robots (Docked, Charging)."""
+"""Binary sensor platform for Vacuula robots (Docked, Charging, Dock Seen)."""
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import (
@@ -32,6 +32,9 @@ async def async_setup_entry(
                     VacuulaChargingBinarySensor(coordinator, serial),
                 ]
             )
+            robot = coordinator.data.get(serial)
+            if robot and robot.robot_type == ROBOT_TYPE_GEN3:
+                entities.append(VacuulaDockSeenBinarySensor(coordinator, serial))
         async_add_entities(entities)
 
     entry.async_on_unload(
@@ -57,7 +60,8 @@ class VacuulaDockedBinarySensor(VacuulaEntity, BinarySensorEntity):
             return None
         if robot.robot_type == ROBOT_TYPE_GEN3:
             return bool(robot.state.get("details", {}).get("isDocked"))
-        return bool(self._gen4_body.get("details", {}).get("is_docked"))
+        details = self._gen4_body.get("details", {})
+        return bool(details.get("is_docked") or details.get("isDocked"))
 
 
 class VacuulaChargingBinarySensor(VacuulaEntity, BinarySensorEntity):
@@ -78,4 +82,24 @@ class VacuulaChargingBinarySensor(VacuulaEntity, BinarySensorEntity):
             return None
         if robot.robot_type == ROBOT_TYPE_GEN3:
             return bool(robot.state.get("details", {}).get("isCharging"))
-        return bool(self._gen4_body.get("details", {}).get("is_charging"))
+        details = self._gen4_body.get("details", {})
+        return bool(details.get("is_charging") or details.get("isCharging"))
+
+
+class VacuulaDockSeenBinarySensor(VacuulaEntity, BinarySensorEntity):
+    """Binary sensor indicating whether a Gen3 robot has seen its charging base."""
+
+    _attr_name = "Dock seen"
+    _attr_icon = "mdi:home-map-marker"
+
+    def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
+        """Initialize the dock seen binary sensor."""
+        super().__init__(coordinator, serial, "dock_seen")
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True if the robot has seen its dock."""
+        robot = self._robot
+        if not robot or not robot.state:
+            return None
+        return bool(robot.state.get("details", {}).get("dockHasBeenSeen"))

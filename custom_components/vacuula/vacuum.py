@@ -13,17 +13,18 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import VacuulaConfigEntry
 from .const import (
+    ALL_ZONES_OPTION,
     FAN_SPEED_TURBO,
+    FAN_SPEEDS_GEN3,
+    FAN_SPEEDS_GEN4,
     GEN3_ACTION_DOCKING,
     GEN3_ACTION_NAMES,
     GEN3_ACTION_SUSPENDED_CLEANING,
     GEN3_ACTION_SUSPENDED_EXPLORATION,
-    GEN3_FAN_SPEEDS,
     GEN3_STATE_BUSY,
     GEN3_STATE_ERROR,
     GEN3_STATE_IDLE,
     GEN3_STATE_PAUSED,
-    GEN4_FAN_SPEEDS,
     ROBOT_TYPE_GEN3,
 )
 from .coordinator import VacuulaCoordinator
@@ -72,8 +73,8 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         """Return the list of available fan speeds for this robot generation."""
         robot = self._robot
         if robot and robot.robot_type == ROBOT_TYPE_GEN3:
-            return GEN3_FAN_SPEEDS
-        return GEN4_FAN_SPEEDS
+            return FAN_SPEEDS_GEN3
+        return FAN_SPEEDS_GEN4
 
     @property
     def activity(self) -> VacuumActivity | None:
@@ -112,7 +113,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
                 )
             return VacuumActivity.IDLE
 
-        # Gen4 FullRobotState mapping (from app/src/types/neato/gen4/state.ts)
+        # Gen4 FullRobotState mapping
         body = self._gen4_body
         state_str = str(body.get("state", "")).lower()
         action_str = str(body.get("action", "")).lower()
@@ -127,7 +128,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
             if action_str == "docking":
                 return VacuumActivity.RETURNING
             return VacuumActivity.CLEANING
-        if details.get("is_docked"):
+        if details.get("is_docked") or details.get("isDocked"):
             return VacuumActivity.DOCKED
         return VacuumActivity.IDLE
 
@@ -139,33 +140,60 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return generation-specific state attributes."""
+        """Return generation-specific and map/zone state attributes."""
         robot = self._robot
         if not robot or not robot.state:
             return {}
+        zone_names = [str(z.get("name")) for z in robot.zones if z.get("name")]
+        base_attrs: dict[str, Any] = {
+            "navigation_mode": robot.preferred_navigation_mode,
+            "active_map_id": robot.active_map_id,
+            "active_map_name": robot.active_map_name,
+            "available_zones": zone_names,
+            "selected_zone": robot.selected_zone,
+        }
         if robot.robot_type == ROBOT_TYPE_GEN3:
             action_code = int(robot.state.get("action", 0))
-            return {
-                "action": GEN3_ACTION_NAMES.get(action_code, str(action_code)),
-                "navigation_mode": robot.preferred_navigation_mode,
-                "error": robot.state.get("error"),
-                "alert": robot.state.get("alert"),
-            }
+            base_attrs.update(
+                {
+                    "action": GEN3_ACTION_NAMES.get(action_code, str(action_code)),
+                    "error": robot.state.get("error"),
+                    "alert": robot.state.get("alert"),
+                }
+            )
+            return base_attrs
+
         body = self._gen4_body
-        return {
-            "action": body.get("action"),
-            "navigation_mode": robot.preferred_navigation_mode,
-            "errors": body.get("errors"),
-        }
+        base_attrs.update(
+            {
+                "action": body.get("action"),
+                "errors": body.get("errors"),
+            }
+        )
+        return base_attrs
 
     async def async_start(self) -> None:
-        """Start or resume cleaning."""
+        """Start or resume cleaning (full map/house or selected room zone)."""
         robot = self._robot
         if not robot:
             return
         if self.activity == VacuumActivity.PAUSED:
             resp = await self.coordinator.client.async_resume_cleaning(
                 self._serial, robot.robot_type
+            )
+        elif (
+            robot.selected_zone
+            and robot.selected_zone != ALL_ZONES_OPTION
+            and robot.active_map_id
+        ):
+            zone_ids = robot.resolve_zone_ids([robot.selected_zone])
+            resp = await self.coordinator.client.async_start_zone_cleaning(
+                self._serial,
+                robot.robot_type,
+                robot.active_map_id,
+                zone_ids,
+                fan_speed=robot.preferred_fan_speed,
+                navigation_mode=robot.preferred_navigation_mode,
             )
         else:
             resp = await self.coordinator.client.async_start_cleaning(
@@ -174,6 +202,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
                 fan_speed=robot.preferred_fan_speed,
                 navigation_mode=robot.preferred_navigation_mode,
                 category=robot.preferred_category,
+                map_id=robot.active_map_id,
             )
         await self.coordinator.async_apply_command_response(self._serial, resp)
 
@@ -213,4 +242,4 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         robot = self._robot
         if robot and fan_speed in self.fan_speed_list:
             robot.preferred_fan_speed = fan_speed
-            self.async_write_ha_state()
+            self.coordinator.async_update_listeners()
