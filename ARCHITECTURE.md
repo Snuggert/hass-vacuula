@@ -1,4 +1,4 @@
-# Architecture & Technical Design: `hass-vacuula` (`v0.5.0`)
+# Architecture & Technical Design: `hass-vacuula` (`v0.5.1`)
 
 ## 1. Overview & Goals
 `hass-vacuula` is a zero-dependency Home Assistant custom integration (distributable via **HACS**) that connects a local [Vacuula](https://github.com/vacuula/vacuula) server instance to Home Assistant. Because a single Vacuula server can manage multiple Neato robots across both **Gen3** (`D3`–`D7`, e.g., `BotVacD7Connected`) and **Gen4** (`D800`, `D8`–`D10`) generations, the integration models the **Vacuula Server** as the `ConfigEntry` hub and registers each paired robot as a Home Assistant `DeviceEntry`.
@@ -36,6 +36,7 @@ hass-vacuula/
         ├── button.py                      # Dismiss alert, refresh maps, explore map, dynamic per-room buttons
         ├── switch.py                      # Schedule Enable/Disable toggle
         ├── select.py                      # Navigation Mode & Target Zone / Cleaning Category selectors
+        ├── icons.json                     # Material Design icons for custom actions
         ├── services.yaml                  # Custom action schemas (clean_zones, clean_spot, refresh_maps)
         ├── strings.json                   # UI strings
         ├── translations/

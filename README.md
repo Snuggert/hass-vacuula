@@ -1,7 +1,8 @@
 # Vacuula for Home Assistant
 
+[![Validate](https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg)](https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-0.5.0-0ea5e9.svg?style=flat-square)](https://github.com/Snuggert/hass-vacuula/releases)
+[![Version](https://img.shields.io/badge/version-0.5.1-0ea5e9.svg?style=flat-square)](https://github.com/Snuggert/hass-vacuula/releases)
 [![IoT Class](https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square)](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square)](#architecture--design-highlights)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square)](LICENSE)

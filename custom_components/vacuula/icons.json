@@ -1,0 +1,13 @@
+{
+  "services": {
+    "clean_spot": {
+      "service": "mdi:target-variant"
+    },
+    "clean_zones": {
+      "service": "mdi:vector-polygon"
+    },
+    "refresh_maps": {
+      "service": "mdi:refresh"
+    }
+  }
+}
