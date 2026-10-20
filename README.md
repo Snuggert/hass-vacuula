@@ -4,8 +4,9 @@
 [![Version](https://img.shields.io/badge/version-0.5.0-0ea5e9.svg?style=flat-square)](https://github.com/Snuggert/hass-vacuula/releases)
 [![IoT Class](https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square)](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square)](#architecture--design-highlights)
+[![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square)](LICENSE)
 
-A full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for [**Vacuula**](https://github.com/CopyCat73/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
+A full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
 
 ---
 
