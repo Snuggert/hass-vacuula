@@ -53,9 +53,9 @@ The Vacuula server exposes a local HTTP JSON + Server-Sent Events (SSE) API (typ
 ### 3.1 Server & Discovery Endpoints
 | Method | Endpoint | Description | Sample Response |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/server` | Server version, ports, and timezone | `{"version": "1.0.0", "gen4_port": 3443, "timezone": "Europe/Oslo", "utc_offset_minutes": 120}` |
-| `GET` | `/api/robots` | Map of all paired robots keyed by serial | `{"GPC25319-f8369bfb9a1e": {"type": "neato.gen3", "connected": true, "name": "Mappa"}}` |
-| `GET` | `/api/events` | Server-wide SSE stream (`event: robots` on connect/disconnect/rename) | `event: robots\ndata: {"GPC25319-...": {...}}\n\n` |
+| `GET` | `/api/server` | Server version, ports, and timezone | `{"version": "1.0.0", "gen4_port": 3443, "timezone": "Europe/Amsterdam", "utc_offset_minutes": 120}` |
+| `GET` | `/api/robots` | Map of all paired robots keyed by serial | `{"OPS01234-001122334455": {"type": "neato.gen3", "connected": true, "name": "Mappa"}}` |
+| `GET` | `/api/events` | Server-wide SSE stream (`event: robots` on connect/disconnect/rename) | `event: robots\ndata: {"OPS01234-...": {...}}\n\n` |
 
 ### 3.2 Per-Robot Endpoints
 | Method | Endpoint | Description |
@@ -72,7 +72,7 @@ The Vacuula server exposes a local HTTP JSON + Server-Sent Events (SSE) API (typ
 
 ## 4. Generation-Specific Protocol Normalization (`neato.gen3` vs `neato.gen4`)
 
-Both generations use `POST /api/robot/{serial}/command`, abstracted behind [`VacuulaApiClient`](file:///home/abewi/hass-vacuula/custom_components/vacuula/api.py#L29-L376):
+Both generations use `POST /api/robot/{serial}/command`, abstracted behind [`VacuulaApiClient`](custom_components/vacuula/api.py):
 
 | Action | Gen3 (`neato.gen3` — D3 to D7) | Gen4 (`neato.gen4` — D800, D8 to D10) |
 | :--- | :--- | :--- |
@@ -90,7 +90,7 @@ Both generations use `POST /api/robot/{serial}/command`, abstracted behind [`Vac
 
 ## 5. Pure-Python High-DPI Map Renderer & Interactive Coordinate Pipeline
 
-1. **RLE Decoding & Scanline Polygon Rasterization ([`map_renderer.py`](file:///home/abewi/hass-vacuula/custom_components/vacuula/map_renderer.py))**:
+1. **RLE Decoding & Scanline Polygon Rasterization ([`map_renderer.py`](custom_components/vacuula/map_renderer.py))**:
    - Decodes Vacuula's run-length encoded (`rle`) floor grid (`0`=unknown, `1`=free floor, `2`=wall) onto a dark-slate (`#181c24`) RGBA canvas.
    - Rasterizes named room zone polygons (`type == "polygon"`) using scanline alpha blending (`alpha=0.40`) restricted to free-floor pixels so walls stay crisp.
    - Overlays `runmap.json` coverage (`val == 3` cyan tint, `val == 150` trajectory path) when rendering `image.<robot>_last_run_map`.
@@ -98,6 +98,6 @@ Both generations use `POST /api/robot/{serial}/command`, abstracted behind [`Vac
    - Auto-crops to the non-empty bounding box (`pad=16` pixels), applies 2× nearest-neighbor high-DPI upscaling (`_upscale_2x`), and encodes a standards-compliant RGBA PNG using only Python's standard library (`zlib` + `struct`).
 2. **Cropped Coordinate Normalization (`compute_cropped_zones`)**:
    - Computes the exact `[0..1]` normalized centroid (`x`, `y`) and polygon vertices (`points`) relative to the **cropped** bounding box and exposes them in `vacuum.<robot>.attributes.zone_boundaries`.
-   - [`vacuula-map-card.js`](file:///home/abewi/hass-vacuula/custom_components/vacuula/frontend/vacuula-map-card.js) uses these normalized coordinates to position interactive SVG polygon highlights and clickable room pills directly over the `image.<robot>_floor_map` / `image.<robot>_last_run_map` image with pixel-accurate alignment.
+   - [`vacuula-map-card.js`](custom_components/vacuula/frontend/vacuula-map-card.js) uses these normalized coordinates to position interactive SVG polygon highlights and clickable room pills directly over the `image.<robot>_floor_map` / `image.<robot>_last_run_map` image with pixel-accurate alignment.
 3. **Zero-Flicker Shadow DOM State Diffing**:
    - Because Home Assistant invokes `set hass(hass)` on custom cards whenever *any* entity in the home changes state, `VacuulaMapCard._computeSignature()` computes a lightweight state signature from only the target robot's vacuum, map images, schedule switch, and telemetry sensors—updating the DOM only when the robot's own state or user selection changes.

@@ -56,7 +56,7 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 
 1. Copy the `custom_components/vacuula` folder into your Home Assistant `<config>/custom_components/` directory.
 2. Restart Home Assistant.
-3. Add **Vacuula** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://192.168.88.253:8085`).
+3. Add **Vacuula** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://vacuula.local:8085`).
 
 ---
 
@@ -65,7 +65,7 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 When the integration loads, it serves `/vacuula_frontend/vacuula-map-card.js` and automatically registers it in your Lovelace resources.
 
 ### Adding via the Visual Editor
-1. Edit any Dashboard → **Add Card** → choose **Vacuula Map & Room Control**.
+1. Edit any Dashboard → **Add Card** → choose **Vacuula Map & Room Card**.
 2. Pick your `vacuum.<robot>` entity and customize the display toggles.
 
 ### YAML Configuration
@@ -74,10 +74,9 @@ When the integration loads, it serves `/vacuula_frontend/vacuula-map-card.js` an
 type: custom:vacuula-map-card
 entity: vacuum.mappa
 title: Mappa
-default_map: floor        # 'floor' (Floor Map) or 'run' (Last Run)
-show_zones: true          # Show clickable room pins & zone chip bar
+default_view: floor       # 'floor' (Floor Map) or 'run' (Last Run)
+show_zone_labels: true    # Show clickable room pins & zone chip bar
 show_controls: true       # Show Start / Pause / Dock / Locate + Power & Nav dropdowns
-show_telemetry: true      # Show Last Clean Area, Duration, and Total Runs ribbon
 ```
 
 ---
@@ -91,6 +90,7 @@ Entities are organized into primary controls, **Configuration**, and **Diagnosti
 | `vacuum` | `vacuum.<robot>` | Primary | No | Start, pause, stop, return to dock, locate, spot clean, and fan speed (`eco` / `turbo`). Exposes `available_zones`, `zone_boundaries`, and `active_map_name` attributes. |
 | `image` | `image.<robot>_floor_map` | Primary | **Yes** | High-DPI cropped PNG of the active floorplan with colored room polygons, No-Go lines, and dock location. |
 | `image` | `image.<robot>_last_run_map` | Primary | **Yes** | High-DPI cropped PNG overlaying the latest cleaning coverage and trajectory onto the floorplan. |
+| `select` | `select.<robot>_target_zone` | Primary | No | Target zone used when `vacuum.start` is called: `all` (full map) or any discovered room name on the active floorplan. |
 | `button` | `button.<robot>_clean_<zone>` | Primary | No | Auto-generated per-room button for every named polygon boundary on the active map (e.g. *Clean Diningroom*, *Clean Office*). |
 | `button` | `button.<robot>_dismiss_alert` | Primary | No | Clears the active alert on Gen3 robots. |
 | `sensor` | `sensor.<robot>_battery` | Primary | No | Battery percentage (`%`) with dynamic charging icon. |
@@ -98,8 +98,8 @@ Entities are organized into primary controls, **Configuration**, and **Diagnosti
 | `sensor` | `sensor.<robot>_last_clean_area` | Primary | **Yes** | Area covered in the most recent cleaning run (`m²`), with map/run metadata attributes. |
 | `sensor` | `sensor.<robot>_last_clean_duration` | Primary | **Yes** | Duration of the most recent cleaning run (`min`). |
 | `switch` | `switch.<robot>_schedule` | Config | No | Enables or disables the robot's internal cleaning schedule (Gen3). |
-| `select` | `select.<robot>_navigation_mode` | Config | No | Selects navigation profile (`Normal`, `Extra Care`, `Deep` on Gen3; `Normal`, `Gentle`, `Deep` on Gen4). |
-| `select` | `select.<robot>_cleaning_category` | Config | No | Target used when `vacuum.start` is called: `Map (All Rooms)`, `House (No Map)`, `Spot`, or any named room (`Zone: <Room>`). |
+| `select` | `select.<robot>_navigation_mode` | Config | No | Selects navigation profile (`normal`, `extra_care`, `deep` on Gen3; `normal`, `gentle`, `deep` on Gen4). |
+| `select` | `select.<robot>_cleaning_mode` | Config | No | Selects Gen3 cleaning category: `map` (persistent map with No-Go lines) vs `house` (unmapped clean). |
 | `button` | `button.<robot>_refresh_maps` | Config | **Yes** | Reloads floor maps, room boundaries, and run history from the Vacuula server. |
 | `button` | `button.<robot>_explore_map` | Config | No | Starts an initial map-exploration run on Gen4 robots. |
 | `binary_sensor` | `binary_sensor.<robot>_connected` | Diagnostic | **Yes** | Live WebSocket connectivity between the Vacuula server and the robot (`connectivity`). |

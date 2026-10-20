@@ -23,7 +23,7 @@ class VacuulaMapCard extends HTMLElement {
           hass.states[id]?.attributes?.active_map_id !== undefined
       ) ||
       Object.keys(hass?.states || {}).find((id) => id.startsWith("vacuum.")) ||
-      "vacuum.mappa";
+      "vacuum.neato_botvac";
 
     return {
       entity: vacuumEntity,
@@ -39,14 +39,18 @@ class VacuulaMapCard extends HTMLElement {
 
   setConfig(config) {
     if (!config || !config.entity) {
-      throw new Error("Please specify a Vacuula vacuum entity (e.g. vacuum.mappa)");
+      throw new Error("Please specify a Vacuula vacuum entity (e.g. vacuum.neato_botvac)");
     }
+    const defaultView = config.default_view ?? config.default_map ?? "floor";
+    const showZoneLabels = config.show_zone_labels ?? config.show_zones ?? true;
     this._config = {
-      default_view: "floor",
-      show_zone_labels: true,
+      default_view: defaultView,
+      show_zone_labels: showZoneLabels,
       show_controls: true,
       ...config,
     };
+    this._config.default_view = defaultView;
+    this._config.show_zone_labels = showZoneLabels;
     if (!this._initialized) {
       this._viewMode = this._config.default_view === "run" ? "run" : "floor";
       this._initialized = true;

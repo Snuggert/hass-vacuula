@@ -15,7 +15,7 @@ clean_zones:
       name: Robot serial
       description: Robot serial number (optional alternative to entity_id).
       required: false
-      example: "GPC25319-f8369bfb9a1e"
+      example: "OPS01234-001122334455"
       selector:
         text:
     zones:
@@ -70,7 +70,7 @@ clean_spot:
       name: Robot serial
       description: Robot serial number (optional alternative to entity_id).
       required: false
-      example: "GPC25319-f8369bfb9a1e"
+      example: "OPS01234-001122334455"
       selector:
         text:
     width:
@@ -132,6 +132,6 @@ refresh_maps:
       name: Robot serial
       description: Optional robot serial (if omitted, refreshes all paired robots).
       required: false
-      example: "GPC25319-f8369bfb9a1e"
+      example: "OPS01234-001122334455"
       selector:
         text:
