@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Vacuula Server",
+        "description": "Enter the URL of your local Vacuula server.",
+        "data": {
+          "url": "Vacuula Server URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Vacuula server."
+    },
+    "abort": {
+      "already_configured": "This Vacuula server is already configured."
+    }
+  }
+}
