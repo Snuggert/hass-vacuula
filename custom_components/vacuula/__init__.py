@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TypeAlias
+from typing import Any, TypeAlias
 import voluptuous as vol
 
 from homeassistant.components.frontend import add_extra_js_url
@@ -28,25 +28,57 @@ from .coordinator import VacuulaCoordinator, VacuulaRobotData
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.4.0"
+FRONTEND_VERSION = "0.4.1"
 
 VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
+
+
+async def _async_register_lovelace_resource(
+    hass: HomeAssistant, url: str
+) -> None:
+    """Automatically register or update the card in Lovelace storage resources."""
+    lovelace_data: Any = hass.data.get("lovelace")
+    if lovelace_data is None:
+        return
+    resources = (
+        getattr(lovelace_data, "resources", None)
+        if hasattr(lovelace_data, "resources")
+        else lovelace_data.get("resources")
+        if isinstance(lovelace_data, dict)
+        else None
+    )
+    if resources is None or not hasattr(resources, "async_items"):
+        return
+    if hasattr(resources, "loaded") and not resources.loaded:
+        await resources.async_load()
+
+    for entry in resources.async_items():
+        entry_url = str(entry.get("url", ""))
+        if entry_url.startswith(FRONTEND_URL):
+            if entry_url != url and hasattr(resources, "async_update_item"):
+                await resources.async_update_item(entry["id"], {"url": url})
+            return
+
+    if hasattr(resources, "async_create_item"):
+        await resources.async_create_item({"res_type": "module", "url": url})
+        _LOGGER.info("Registered Vacuula Lovelace resource: %s", url)
 
 
 async def _async_register_frontend(hass: HomeAssistant) -> None:
     """Register static path and auto-inject the bundled Vacuula Lovelace map card."""
     flag_key = f"{DOMAIN}_frontend_registered"
-    if hass.data.get(flag_key):
-        return
     card_path = Path(__file__).parent / "frontend" / "vacuula-map-card.js"
     if not card_path.is_file():
         return
+    versioned_url = f"{FRONTEND_URL}?v={FRONTEND_VERSION}"
     try:
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(FRONTEND_URL, str(card_path), cache_headers=False)]
-        )
-        add_extra_js_url(hass, f"{FRONTEND_URL}?v={FRONTEND_VERSION}")
-        hass.data[flag_key] = True
+        if not hass.data.get(flag_key):
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(FRONTEND_URL, str(card_path), cache_headers=False)]
+            )
+            add_extra_js_url(hass, versioned_url)
+            hass.data[flag_key] = True
+        await _async_register_lovelace_resource(hass, versioned_url)
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not register Vacuula Lovelace card: %s", err)
 
