@@ -1,9 +1,13 @@
 """The Vacuula integration."""
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+import logging
+from pathlib import Path
+from typing import TypeAlias
 import voluptuous as vol
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -21,7 +25,30 @@ from .const import (
 )
 from .coordinator import VacuulaCoordinator, VacuulaRobotData
 
+_LOGGER = logging.getLogger(__name__)
+
+FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
+FRONTEND_VERSION = "0.4.0"
+
 VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Register static path and auto-inject the bundled Vacuula Lovelace map card."""
+    flag_key = f"{DOMAIN}_frontend_registered"
+    if hass.data.get(flag_key):
+        return
+    card_path = Path(__file__).parent / "frontend" / "vacuula-map-card.js"
+    if not card_path.is_file():
+        return
+    try:
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(FRONTEND_URL, str(card_path), cache_headers=False)]
+        )
+        add_extra_js_url(hass, f"{FRONTEND_URL}?v={FRONTEND_VERSION}")
+        hass.data[flag_key] = True
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning("Could not register Vacuula Lovelace card: %s", err)
 
 
 def _resolve_target_robot(
@@ -158,6 +185,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
     """Set up Vacuula from a config entry."""
+    await _async_register_frontend(hass)
+
     session = async_get_clientsession(hass)
     client = VacuulaApiClient(entry.data[CONF_URL], session)
     coordinator = VacuulaCoordinator(hass, client)

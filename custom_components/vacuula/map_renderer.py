@@ -6,7 +6,9 @@ from typing import Any
 import zlib
 
 
-def _parse_hex_color(hex_str: str, default: tuple[int, int, int] = (90, 169, 255)) -> tuple[int, int, int]:
+def _parse_hex_color(
+    hex_str: str, default: tuple[int, int, int] = (90, 169, 255)
+) -> tuple[int, int, int]:
     """Parse a #RRGGBB hex string into an (R, G, B) tuple."""
     if not isinstance(hex_str, str):
         return default
@@ -71,7 +73,7 @@ def _draw_line(
             err += dy
             x0 += sx
         if e2 <= dx:
-            err += dx
+            err += dy if False else dx
             y0 += sy
 
 
@@ -108,7 +110,6 @@ def _fill_polygon(
             x_end = min(width - 1, nodes[k + 1])
             for x in range(x_start, x_end + 1):
                 cell_idx = y * width + x
-                # Only tint interior free-floor pixels (1) if floor_grid is present
                 if floor_grid is not None and floor_grid[cell_idx] != 1:
                     continue
                 idx = cell_idx * 4
@@ -138,6 +139,114 @@ def _encode_png(rgba: bytearray, width: int, height: int) -> bytes:
         + _chunk(b"IDAT", idat)
         + _chunk(b"IEND", b"")
     )
+
+
+def get_crop_box(
+    floormap: dict[str, Any] | None,
+    runmap: dict[str, Any] | None = None,
+    pad: int = 16,
+) -> tuple[int, int, int, int, int, int]:
+    """Compute (c_x0, c_y0, c_w, c_h, width, height) for the auto-cropped map."""
+    base_map = floormap or runmap
+    if not base_map:
+        return (0, 0, 1, 1, 1, 1)
+    width = int(base_map.get("width", 0))
+    height = int(base_map.get("height", 0))
+    if width <= 0 or height <= 0:
+        return (0, 0, 1, 1, 1, 1)
+
+    total = width * height
+    min_x, min_y = width, height
+    max_x, max_y = 0, 0
+
+    if floormap and isinstance(floormap.get("rle"), list):
+        floor_grid = _decode_rle(floormap["rle"], total, 0)
+        for idx_cell, val in enumerate(floor_grid):
+            if val == 0:
+                continue
+            y, x = divmod(idx_cell, width)
+            if x < min_x:
+                min_x = x
+            if x > max_x:
+                max_x = x
+            if y < min_y:
+                min_y = y
+            if y > max_y:
+                max_y = y
+
+    if runmap and isinstance(runmap.get("rle"), list):
+        r_width = int(runmap.get("width", width))
+        r_height = int(runmap.get("height", height))
+        if r_width == width and r_height == height:
+            run_grid = _decode_rle(runmap["rle"], total, 128)
+            for idx_cell, val in enumerate(run_grid):
+                if val == 128:
+                    continue
+                y, x = divmod(idx_cell, width)
+                if x < min_x:
+                    min_x = x
+                if x > max_x:
+                    max_x = x
+                if y < min_y:
+                    min_y = y
+                if y > max_y:
+                    max_y = y
+
+    if min_x <= max_x and min_y <= max_y:
+        c_x0 = max(0, min_x - pad)
+        c_y0 = max(0, min_y - pad)
+        c_x1 = min(width - 1, max_x + pad)
+        c_y1 = min(height - 1, max_y + pad)
+        return (c_x0, c_y0, c_x1 - c_x0 + 1, c_y1 - c_y0 + 1, width, height)
+
+    return (0, 0, width, height, width, height)
+
+
+def compute_cropped_zones(
+    floormap: dict[str, Any] | None,
+    boundaries: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Return zone metadata with coordinates normalized [0..1] to the cropped PNG."""
+    if not floormap or not boundaries:
+        return []
+    c_x0, c_y0, c_w, c_h, width, height = get_crop_box(floormap)
+    result: list[dict[str, Any]] = []
+
+    for bnd in boundaries:
+        if bnd.get("type") != "polygon" or not bnd.get("name"):
+            continue
+        verts = bnd.get("vertices")
+        if not isinstance(verts, list) or len(verts) < 3:
+            continue
+
+        pts: list[list[float]] = []
+        for v in verts:
+            if isinstance(v, (list, tuple)) and len(v) >= 2:
+                px = float(v[0]) * width
+                py = float(v[1]) * height
+                nx = round(max(0.0, min(1.0, (px - c_x0) / c_w)), 4)
+                ny = round(max(0.0, min(1.0, (py - c_y0) / c_h)), 4)
+                pts.append([nx, ny])
+
+        if len(pts) < 3:
+            continue
+
+        # Remove duplicate closing vertex for centroid calculation
+        unique_pts = pts[:-1] if len(pts) > 3 and pts[0] == pts[-1] else pts
+        cx = round(sum(p[0] for p in unique_pts) / len(unique_pts), 4)
+        cy = round(sum(p[1] for p in unique_pts) / len(unique_pts), 4)
+
+        result.append(
+            {
+                "id": bnd.get("id"),
+                "name": bnd.get("name"),
+                "color": bnd.get("color", "#5aa9ff"),
+                "x": cx,
+                "y": cy,
+                "points": pts,
+            }
+        )
+    return result
 
 
 def render_map_png(
@@ -214,9 +323,18 @@ def render_map_png(
                 for i in range(len(pts)):
                     p0 = pts[i]
                     p1 = pts[(i + 1) % len(pts)]
-                    _draw_line(rgba, width, height, p0[0], p0[1], p1[0], p1[1], outline_rgba, thickness=1)
+                    _draw_line(
+                        rgba,
+                        width,
+                        height,
+                        p0[0],
+                        p0[1],
+                        p1[0],
+                        p1[1],
+                        outline_rgba,
+                        thickness=1,
+                    )
             else:
-                # No-Go line (polyline) in red
                 for i in range(len(pts) - 1):
                     _draw_line(
                         rgba,
@@ -256,7 +374,12 @@ def render_map_png(
                     rgba[p + 2] = int(rgba[p + 2] * (1.0 - alpha) + 248 * alpha)
                     rgba[p + 3] = 255
                 elif val == 150:  # Robot path
-                    rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (14, 165, 233, 255)
+                    rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (
+                        14,
+                        165,
+                        233,
+                        255,
+                    )
                 elif val in (100, 200):  # Dock marker
                     rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (34, 197, 94, 255)
 
@@ -271,9 +394,19 @@ def render_map_png(
                 if 0 <= px < width and 0 <= py < height and ox * ox + oy * oy <= 18:
                     p = (py * width + px) * 4
                     if ox * ox + oy * oy <= 9:
-                        rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (34, 197, 94, 255)
+                        rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (
+                            34,
+                            197,
+                            94,
+                            255,
+                        )
                     else:
-                        rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (255, 255, 255, 255)
+                        rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (
+                            255,
+                            255,
+                            255,
+                            255,
+                        )
 
     # Auto-crop to non-empty bounding box with 16px padding
     if min_x <= max_x and min_y <= max_y:
@@ -288,7 +421,9 @@ def render_map_png(
         for row in range(c_h):
             src_start = ((c_y0 + row) * width + c_x0) * 4
             dst_start = row * c_w * 4
-            cropped[dst_start : dst_start + c_w * 4] = rgba[src_start : src_start + c_w * 4]
+            cropped[dst_start : dst_start + c_w * 4] = rgba[
+                src_start : src_start + c_w * 4
+            ]
         return _encode_png(cropped, c_w, c_h)
 
     return _encode_png(rgba, width, height)

@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import VacuulaConfigEntry
 from .coordinator import VacuulaCoordinator
 from .entity import VacuulaEntity
-from .map_renderer import render_map_png
+from .map_renderer import compute_cropped_zones, render_map_png
 
 
 async def async_setup_entry(
@@ -56,17 +56,15 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return metadata about the active floor plan and zones."""
+        """Return metadata about the active floor plan and interactive cropped zones."""
         robot = self._robot
         if not robot:
             return {}
         return {
+            "serial": self._serial,
             "map_id": robot.active_map_id,
             "map_name": robot.active_map_name,
-            "zones": [
-                {"id": z.get("id"), "name": z.get("name"), "color": z.get("color")}
-                for z in robot.zones
-            ],
+            "zones": compute_cropped_zones(robot.floormap, robot.boundaries),
         }
 
     @callback
@@ -118,11 +116,13 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         if not robot or not robot.last_run:
             return {}
         return {
+            "serial": self._serial,
             "run_id": robot.last_run_id,
             "cleaned_area_m2": robot.last_run.get("cleaned_area"),
             "start_at": robot.last_run.get("start_at"),
             "end_at": robot.last_run.get("end_at"),
             "status": robot.last_run.get("status"),
+            "zones": compute_cropped_zones(robot.floormap, robot.boundaries),
         }
 
     @callback

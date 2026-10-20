@@ -1,0 +1,65 @@
+# ============================================================================
+# Option 1 (Recommended): Bundled Interactive Vacuula Map & Room Card
+# ============================================================================
+# Automatically registered by the Vacuula integration — no extra HACS plugins
+# or Lovelace resource entries needed! Just click "+ Add Card" in any dashboard
+# and search for "Vacuula Map & Room Card", or paste this YAML:
+
+type: custom:vacuula-map-card
+entity: vacuum.mappa
+default_view: floor
+show_zone_labels: true
+show_controls: true
+
+---
+# ============================================================================
+# Option 2: Pure Native Home Assistant Card Stack (No Custom JS)
+# ============================================================================
+# Uses only built-in Home Assistant cards (vertical-stack, tile, picture-entity,
+# and entities) if you prefer a standard native layout:
+
+type: vertical-stack
+cards:
+  - type: tile
+    entity: vacuum.mappa
+    features:
+      - type: vacuum-commands
+        commands:
+          - start_pause
+          - stop
+          - return_home
+          - locate
+      - type: fan-speed
+  - type: horizontal-stack
+    cards:
+      - type: picture-entity
+        entity: image.mappa_floor_map
+        name: Floor Plan & Zones
+        show_state: false
+      - type: picture-entity
+        entity: image.mappa_last_run_map
+        name: Last Cleaning Run
+        show_state: false
+  - type: entities
+    title: Room Cleaning & Settings
+    show_header_toggle: false
+    entities:
+      - entity: select.mappa_target_zone
+        name: Target Room Zone
+      - entity: select.mappa_navigation_mode
+        name: Navigation Mode
+      - entity: select.mappa_cleaning_mode
+        name: Cleaning Mode (Map vs House)
+      - entity: switch.mappa_schedule
+        name: Schedule Enabled
+      - entity: sensor.mappa_battery
+        name: Battery
+      - entity: sensor.mappa_last_clean_area
+        name: Last Clean Area
+      - entity: sensor.mappa_last_clean_duration
+        name: Last Clean Duration
+      - entity: button.mappa_clean_livingroom
+      - entity: button.mappa_clean_diningroom
+      - entity: button.mappa_clean_bedroom
+      - entity: button.mappa_clean_hallway
+      - entity: button.mappa_clean_office

@@ -6,16 +6,33 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design outline, API specific
 
 ## Features
 - **Auto-Discovery & Manual Setup**: Automatically discovers your Vacuula server on the LAN via mDNS (`_vacuula._tcp.local.`) with confirmation, or connects via URL (e.g., `http://vacuula.lan`).
+- **Bundled Interactive Lovelace Map Card (`custom:vacuula-map-card`)**: Automatically registered in Home Assistant's frontend when the integration loads — no separate HACS frontend installation or manual resource setup needed! Features:
+  - Interactive floor plan with clickable SVG room polygons and floating room pins right on the map.
+  - Multi-room selection: tap one or more rooms on the map (or via the room chips bar) and press **Clean N Rooms** to trigger a multi-room zone clean.
+  - One-click toggle between **Floor Plan** and **Last Run** coverage map.
+  - Built-in controls for Start/Resume, Pause, Stop, Return to Dock, Locate, Fan Speed (`Eco`/`Turbo`), and Navigation Mode (`Normal`/`Extra Care`/`Deep`).
+  - Full visual card editor inside Home Assistant's **+ Add Card** dialog.
 - **Real-Time SSE Push + Fallback Polling**: Subscribes to `/api/events` and `/api/robot/{serial}/connect` Server-Sent Events for instant state updates and dynamic discovery of newly connected robots, backed by concurrent 30-second fallback polling.
 - **Multi-Robot & Multi-Generation**: Supports both **Gen3** (`D3`, `D4`, `D5`, `D6`, `D7`) and **Gen4** (`D800`, `D8`, `D9`, `D10`) Neato robots managed by a single Vacuula server, with per-robot `asyncio.Lock` command serialization.
 - **Live Floor Map & Last Run Map Rendering (`image.*`)**: Pure-Python RLE-to-PNG renderer (`map_renderer.py`, zero external dependencies) rendering walls, floor space, colored room zones, No-Go lines, charging dock marker, and last cleaning run coverage.
-- **Room / Zone Cleaning & Custom Actions**:
-  - Automatically discovers all named room zones on your floor plan (e.g., `Livingroom`, `Diningroom`, `Bedroom`, `Hallway`, `Office`) and creates one-tap **`button.<name>_clean_<room>`** buttons and a **`select.<name>_target_zone`** selector.
-  - Provides custom actions **`vacuula.clean_zones`** (clean one or more rooms by name or boundary ID), **`vacuula.clean_spot`** (localized spot cleaning), and **`vacuula.refresh_maps`**.
+
+## Dashboard Card Usage
+
+Once the integration is loaded, open any Home Assistant dashboard, click **Edit → + Add Card**, and select **Vacuula Map & Room Card** from the card picker, or use YAML:
+
+```yaml
+type: custom:vacuula-map-card
+entity: vacuum.mappa
+default_view: floor
+show_zone_labels: true
+show_controls: true
+```
+
+See [`dashboards/vacuula_dashboard_card.yaml`](dashboards/vacuula_dashboard_card.yaml) for both the `custom:vacuula-map-card` configuration and a pure native Home Assistant card stack.
 
 ## Complete Entity Suite per Robot
 - **`vacuum.<name>`**: Start (full map/house or selected target room zone), Pause, Resume, Stop, Return to Base, Locate (`findMe`), and Fan Speed (`eco` / `turbo`).
-- **`image.<name>_floor_map`**: Rendered PNG of the active floor plan with colored room zones, No-Go lines, and dock location.
+- **`image.<name>_floor_map`**: Rendered PNG of the active floor plan with colored room zones, No-Go lines, dock location, and normalized room polygon coordinates.
 - **`image.<name>_last_run_map`**: Rendered PNG of the most recent cleaning run overlaid on the floor plan.
 - **`sensor.<name>_battery`**: Battery level (`%`, `SensorDeviceClass.BATTERY`).
 - **`sensor.<name>_action`**: Current robot action (`house_cleaning`, `map_cleaning`, `docking`, `suspended_cleaning`, `idle`, etc.).
