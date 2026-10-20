@@ -8,21 +8,26 @@ from homeassistant.components.vacuum import (
     VacuumActivity,
     VacuumEntityFeature,
 )
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .const import (
-    DOMAIN,
-    FAN_SPEED_ECO,
     FAN_SPEED_TURBO,
-    FAN_SPEEDS,
-    GEN3_MODE_ECO,
+    GEN3_ACTION_DOCKING,
+    GEN3_ACTION_NAMES,
+    GEN3_ACTION_SUSPENDED_CLEANING,
+    GEN3_ACTION_SUSPENDED_EXPLORATION,
+    GEN3_FAN_SPEEDS,
+    GEN3_STATE_BUSY,
+    GEN3_STATE_ERROR,
+    GEN3_STATE_IDLE,
+    GEN3_STATE_PAUSED,
+    GEN4_FAN_SPEEDS,
     ROBOT_TYPE_GEN3,
 )
-from .coordinator import VacuulaCoordinator, VacuulaRobotData
+from .coordinator import VacuulaCoordinator
+from .entity import VacuulaEntity
 
 SUPPORTED_FEATURES = (
     VacuumEntityFeature.STATE
@@ -32,7 +37,6 @@ SUPPORTED_FEATURES = (
     | VacuumEntityFeature.RETURN_HOME
     | VacuumEntityFeature.LOCATE
     | VacuumEntityFeature.FAN_SPEED
-    | VacuumEntityFeature.BATTERY
 )
 
 
@@ -41,51 +45,35 @@ async def async_setup_entry(
     entry: VacuulaConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Vacuula vacuum entities from a config entry."""
+    """Set up Vacuula vacuum entities with dynamic robot discovery."""
     coordinator: VacuulaCoordinator = entry.runtime_data
-    async_add_entities(
-        VacuulaVacuumEntity(coordinator, serial) for serial in coordinator.data
+
+    @callback
+    def _async_add_new_robots(serials: list[str]) -> None:
+        async_add_entities(VacuulaVacuumEntity(coordinator, s) for s in serials)
+
+    entry.async_on_unload(
+        coordinator.register_new_robot_callback(_async_add_new_robots)
     )
 
 
-class VacuulaVacuumEntity(CoordinatorEntity[VacuulaCoordinator], StateVacuumEntity):
+class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
     """Representation of a Neato robot vacuum managed by Vacuula."""
 
-    _attr_has_entity_name = True
     _attr_name = None
     _attr_supported_features = SUPPORTED_FEATURES
-    _attr_fan_speed_list = FAN_SPEEDS
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the vacuum entity."""
-        super().__init__(coordinator)
-        self._serial = serial
-        self._attr_unique_id = f"{serial}_vacuum"
+        super().__init__(coordinator, serial, "vacuum")
 
     @property
-    def _robot(self) -> VacuulaRobotData | None:
-        """Return current robot data from coordinator."""
-        return self.coordinator.data.get(self._serial)
-
-    @property
-    def available(self) -> bool:
-        """Return True if the robot is currently connected to Vacuula."""
-        return bool(super().available and self._robot and self._robot.connected)
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device registry info for this robot."""
+    def fan_speed_list(self) -> list[str]:
+        """Return the list of available fan speeds for this robot generation."""
         robot = self._robot
-        state = robot.state if robot else {}
-        meta = state.get("meta", {})
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._serial)},
-            name=robot.name if robot else self._serial,
-            manufacturer="Neato Robotics",
-            model=meta.get("modelName") or (robot.robot_type if robot else "Neato"),
-            sw_version=meta.get("firmware"),
-            serial_number=self._serial,
-        )
+        if robot and robot.robot_type == ROBOT_TYPE_GEN3:
+            return GEN3_FAN_SPEEDS
+        return GEN4_FAN_SPEEDS
 
     @property
     def activity(self) -> VacuumActivity | None:
@@ -96,64 +84,58 @@ class VacuulaVacuumEntity(CoordinatorEntity[VacuulaCoordinator], StateVacuumEnti
 
         if robot.robot_type == ROBOT_TYPE_GEN3:
             state_code = robot.state.get("state")
-            action_code = robot.state.get("action")
+            action_code = robot.state.get("action", 0)
             details = robot.state.get("details", {})
-            if state_code == 1:
+
+            if state_code == GEN3_STATE_ERROR or robot.state.get("error"):
+                return VacuumActivity.ERROR
+            if state_code == GEN3_STATE_PAUSED:
+                return VacuumActivity.PAUSED
+            if state_code == GEN3_STATE_BUSY:
+                if action_code == GEN3_ACTION_DOCKING:
+                    return VacuumActivity.RETURNING
+                if action_code in (
+                    GEN3_ACTION_SUSPENDED_CLEANING,
+                    GEN3_ACTION_SUSPENDED_EXPLORATION,
+                ):
+                    return (
+                        VacuumActivity.DOCKED
+                        if details.get("isDocked")
+                        else VacuumActivity.PAUSED
+                    )
+                return VacuumActivity.CLEANING
+            if state_code == GEN3_STATE_IDLE:
                 return (
                     VacuumActivity.DOCKED
                     if details.get("isDocked")
                     else VacuumActivity.IDLE
                 )
-            if state_code == 2:
-                return (
-                    VacuumActivity.RETURNING
-                    if action_code == 6
-                    else VacuumActivity.CLEANING
-                )
-            if state_code == 3:
-                return VacuumActivity.PAUSED
-            if state_code == 4 or robot.state.get("error"):
-                return VacuumActivity.ERROR
             return VacuumActivity.IDLE
 
-        # Gen4 state mapping
-        body = robot.state.get("body", robot.state)
-        gen4_state = str(body.get("state", "")).lower()
-        if "clean" in gen4_state or "busy" in gen4_state:
-            return VacuumActivity.CLEANING
-        if "pause" in gen4_state:
-            return VacuumActivity.PAUSED
-        if "return" in gen4_state:
-            return VacuumActivity.RETURNING
-        if "error" in gen4_state:
+        # Gen4 FullRobotState mapping (from app/src/types/neato/gen4/state.ts)
+        body = self._gen4_body
+        state_str = str(body.get("state", "")).lower()
+        action_str = str(body.get("action", "")).lower()
+        details = body.get("details", {})
+        errors = body.get("errors")
+
+        if state_str == "error" or (isinstance(errors, list) and len(errors) > 0):
             return VacuumActivity.ERROR
-        if body.get("docked") or "dock" in gen4_state or "idle" in gen4_state:
+        if state_str == "paused":
+            return VacuumActivity.PAUSED
+        if state_str == "busy":
+            if action_str == "docking":
+                return VacuumActivity.RETURNING
+            return VacuumActivity.CLEANING
+        if details.get("is_docked"):
             return VacuumActivity.DOCKED
         return VacuumActivity.IDLE
 
     @property
-    def battery_level(self) -> int | None:
-        """Return the battery level of the vacuum cleaner."""
-        robot = self._robot
-        if not robot or not robot.state:
-            return None
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            charge = robot.state.get("details", {}).get("charge")
-            return int(charge) if charge is not None else None
-        body = robot.state.get("body", robot.state)
-        charge = body.get("battery_level") or body.get("charge")
-        return int(charge) if charge is not None else None
-
-    @property
     def fan_speed(self) -> str | None:
-        """Return the current fan speed (eco or turbo)."""
+        """Return the currently selected fan speed."""
         robot = self._robot
-        if not robot or not robot.state:
-            return FAN_SPEED_TURBO
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            mode = robot.state.get("cleaning", {}).get("mode")
-            return FAN_SPEED_ECO if mode == GEN3_MODE_ECO else FAN_SPEED_TURBO
-        return FAN_SPEED_TURBO
+        return robot.preferred_fan_speed if robot else FAN_SPEED_TURBO
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -162,15 +144,19 @@ class VacuulaVacuumEntity(CoordinatorEntity[VacuulaCoordinator], StateVacuumEnti
         if not robot or not robot.state:
             return {}
         if robot.robot_type == ROBOT_TYPE_GEN3:
-            details = robot.state.get("details", {})
+            action_code = int(robot.state.get("action", 0))
             return {
-                "is_charging": details.get("isCharging"),
-                "is_docked": details.get("isDocked"),
-                "is_schedule_enabled": details.get("isScheduleEnabled"),
+                "action": GEN3_ACTION_NAMES.get(action_code, str(action_code)),
+                "navigation_mode": robot.preferred_navigation_mode,
                 "error": robot.state.get("error"),
                 "alert": robot.state.get("alert"),
             }
-        return {}
+        body = self._gen4_body
+        return {
+            "action": body.get("action"),
+            "navigation_mode": robot.preferred_navigation_mode,
+            "errors": body.get("errors"),
+        }
 
     async def async_start(self) -> None:
         """Start or resume cleaning."""
@@ -178,38 +164,42 @@ class VacuulaVacuumEntity(CoordinatorEntity[VacuulaCoordinator], StateVacuumEnti
         if not robot:
             return
         if self.activity == VacuumActivity.PAUSED:
-            await self.coordinator.client.async_resume_cleaning(
+            resp = await self.coordinator.client.async_resume_cleaning(
                 self._serial, robot.robot_type
             )
         else:
-            await self.coordinator.client.async_start_cleaning(
-                self._serial, robot.robot_type, self.fan_speed or FAN_SPEED_TURBO
+            resp = await self.coordinator.client.async_start_cleaning(
+                self._serial,
+                robot.robot_type,
+                fan_speed=robot.preferred_fan_speed,
+                navigation_mode=robot.preferred_navigation_mode,
+                category=robot.preferred_category,
             )
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_apply_command_response(self._serial, resp)
 
     async def async_pause(self) -> None:
         """Pause the cleaning task."""
         if robot := self._robot:
-            await self.coordinator.client.async_pause_cleaning(
+            resp = await self.coordinator.client.async_pause_cleaning(
                 self._serial, robot.robot_type
             )
-            await self.coordinator.async_request_refresh()
+            await self.coordinator.async_apply_command_response(self._serial, resp)
 
     async def async_stop(self, **kwargs: Any) -> None:
         """Stop the vacuum cleaner."""
         if robot := self._robot:
-            await self.coordinator.client.async_stop_cleaning(
+            resp = await self.coordinator.client.async_stop_cleaning(
                 self._serial, robot.robot_type
             )
-            await self.coordinator.async_request_refresh()
+            await self.coordinator.async_apply_command_response(self._serial, resp)
 
     async def async_return_to_base(self, **kwargs: Any) -> None:
         """Set the vacuum cleaner to return to the dock."""
         if robot := self._robot:
-            await self.coordinator.client.async_return_to_base(
+            resp = await self.coordinator.client.async_return_to_base(
                 self._serial, robot.robot_type
             )
-            await self.coordinator.async_request_refresh()
+            await self.coordinator.async_apply_command_response(self._serial, resp)
 
     async def async_locate(self, **kwargs: Any) -> None:
         """Locate the vacuum cleaner."""
@@ -219,7 +209,8 @@ class VacuulaVacuumEntity(CoordinatorEntity[VacuulaCoordinator], StateVacuumEnti
             )
 
     async def async_set_fan_speed(self, fan_speed: str, **kwargs: Any) -> None:
-        """Set fan speed (applied on next cleaning start)."""
-        if fan_speed in FAN_SPEEDS:
-            self._attr_fan_speed = fan_speed
+        """Set preferred fan speed for the next cleaning run."""
+        robot = self._robot
+        if robot and fan_speed in self.fan_speed_list:
+            robot.preferred_fan_speed = fan_speed
             self.async_write_ha_state()

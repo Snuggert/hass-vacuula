@@ -1,13 +1,13 @@
 {
   "domain": "vacuula",
   "name": "Vacuula",
-  "codeowners": ["@abewi"],
+  "codeowners": ["@Snuggert"],
   "config_flow": true,
-  "documentation": "https://github.com/vacuula/vacuula",
+  "documentation": "https://github.com/Snuggert/hass-vacuula",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/vacuula/vacuula/issues",
+  "issue_tracker": "https://github.com/Snuggert/hass-vacuula/issues",
   "requirements": [],
-  "version": "0.1.0",
+  "version": "0.2.0",
   "zeroconf": [
     {
       "type": "_vacuula._tcp.local."

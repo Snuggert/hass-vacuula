@@ -7,13 +7,18 @@
         "data": {
           "url": "Vacuula Server URL"
         }
+      },
+      "zeroconf_confirm": {
+        "title": "Discovered Vacuula Server",
+        "description": "Do you want to add the Vacuula server ({version}) at {url} to Home Assistant?"
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the Vacuula server."
     },
     "abort": {
-      "already_configured": "This Vacuula server is already configured."
+      "already_configured": "This Vacuula server is already configured.",
+      "cannot_connect": "Failed to connect to the discovered Vacuula server."
     }
   }
 }
