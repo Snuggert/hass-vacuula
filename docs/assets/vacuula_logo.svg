@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <filter id="drop-shadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="15" stdDeviation="12" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="body-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a4e54" />
+      <stop offset="50%" stop-color="#2c2f33" />
+      <stop offset="100%" stop-color="#151719" />
+    </linearGradient>
+
+    <linearGradient id="bumper-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#111" />
+      <stop offset="10%" stop-color="#222" />
+      <stop offset="90%" stop-color="#222" />
+      <stop offset="100%" stop-color="#111" />
+    </linearGradient>
+
+    <radialGradient id="lidar-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#333" />
+      <stop offset="70%" stop-color="#111" />
+      <stop offset="100%" stop-color="#000" />
+    </radialGradient>
+
+    <linearGradient id="dustbin-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#222" />
+      <stop offset="100%" stop-color="#111" />
+    </linearGradient>
+  </defs>
+<g transform="rotate(180 200 200)">
+  <g style="display:none">
+    <path d="M 50 180 L 50 80 A 30 30 0 0 1 80 50 L 320 50 A 30 30 0 0 1 350 80 L 350 180 A 150 150 0 0 1 50 180 Z"
+          fill="#000" opacity="0.5"/>
+  </g>
+
+<g id="robot-body">
+  <path d="M 50 180 L 50 80 A 30 30 0 0 1 80 50 L 320 50 A 30 30 0 0 1 350 80 L 350 180 A 150 150 0 0 1 50 180 Z"
+        fill="url(#body-grad)" stroke="#555" stroke-width="2"/>
+
+  <!-- Bumper follows body corners but stays straight across -->
+  <path d="
+    M 50 90
+    L 50 80
+    A 30 30 0 0 1 80 50
+    L 320 50
+    A 30 30 0 0 1 350 80
+    L 350 90
+    Z"
+    fill="url(#bumper-grad)"/>
+
+  <!-- Straight lower bumper edge -->
+  <line x1="50" y1="90" x2="350" y2="90"
+        stroke="#111" stroke-width="3"/>
+</g>
+
+
+  <g id="lidar">
+    <circle cx="200" cy="285" r="34.66"
+            fill="#222" stroke="#444" stroke-width="2"/>
+    <circle cx="200" cy="285" r="30"
+            fill="url(#lidar-grad)"/>
+    <circle cx="200" cy="285" r="12"
+            fill="#000" stroke="#111" stroke-width="4"/>
+  </g>
+
+  <g id="vampire-fangs">
+
+<!-- FANGS -->
+<g id="vampire-fangs"
+   transform="rotate(180 200 210)">
+
+  <!-- LEFT FANG -->
+  <g id="left-fang">
+    <!-- placed at bottom of dustbin -->
+    <g transform="translate(160 325)">
+      <path d="M -12 -20 L 0 22 L 0 -23 Z"
+            fill="#ffffff"/>
+
+      <path d="M 0 22 L 12 -20 L 0 -23 Z"
+            fill="#cccccc"/>
+    </g>
+  </g>
+
+  <!-- RIGHT FANG -->
+  <g id="right-fang">
+    <g transform="translate(240 325)">
+      <path d="M -12 -20 L 0 22 L 0 -23 Z"
+            fill="#ffffff"/>
+
+      <path d="M 0 22 L 12 -20 L 0 -23 Z"
+            fill="#cccccc"/>
+    </g>
+  </g>
+</g>
+
+  </g>
+
+    <g id="dustbin">
+    <path d="M 120 120 L 280 120 L 270 180 C 270 200 230 210 200 210 C 170 210 130 200 130 180 Z"
+          fill="url(#dustbin-grad)" stroke="#3a3e42" stroke-width="2" transform="translate(200 165) scale(1.5) translate(-200 -160)"/>
+  </g>
+
+<g id="vampire-eyes"
+   transform="translate(200 205)">
+
+  <!-- LEFT EYE -->
+  <polygon points="-60,-10 -25,0 -55,10"
+           fill="#ff0033"
+           filter="url(#glow)"/>
+
+  <!-- RIGHT EYE -->
+  <polygon points="60,-10 25,0 55,10"
+           fill="#ff0033"
+           filter="url(#glow)"/>
+</g>
+
+</g>
+</svg>

@@ -1,11 +1,17 @@
-# Vacuula for Home Assistant
+<p align="center">
+  <img src="docs/assets/vacuula_logo.svg" alt="Vacuula Logo" width="120" />
+</p>
 
-[![Validate](https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg)](https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml)
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-0.5.1-0ea5e9.svg?style=flat-square)](https://github.com/Snuggert/hass-vacuula/releases)
-[![IoT Class](https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square)](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square)](#architecture--design-highlights)
-[![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square)](LICENSE)
+<h1 align="center">Vacuula for Home Assistant</h1>
+
+<p align="center">
+  <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square" alt="HACS Custom" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.5.1-0ea5e9.svg?style=flat-square" alt="Version 0.5.1" /></a>
+  <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
+  <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square" alt="License: MIT" /></a>
+</p>
 
 A full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
 
