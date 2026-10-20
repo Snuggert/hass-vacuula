@@ -1,81 +1,210 @@
-# Vacuula Home Assistant Integration (`hass-vacuula`)
+# Vacuula for Home Assistant
 
-Custom [Home Assistant](https://www.home-assistant.io/) integration (HACS-compatible) for [Vacuula](https://github.com/vacuula/vacuula) — the local replacement cloud server for Neato Botvac Connected (Gen3: D3–D7, Gen4: D800/D8–D10) robot vacuums.
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
+[![Version](https://img.shields.io/badge/version-0.5.0-0ea5e9.svg?style=flat-square)](https://github.com/Snuggert/hass-vacuula/releases)
+[![IoT Class](https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square)](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/)
+[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square)](#architecture--design-highlights)
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design outline, API specification, and Gen3/Gen4 protocol mapping.
+A full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for [**Vacuula**](https://github.com/CopyCat73/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
 
-## Features
-- **Auto-Discovery & Manual Setup**: Automatically discovers your Vacuula server on the LAN via mDNS (`_vacuula._tcp.local.`) with confirmation, or connects via URL (e.g., `http://vacuula.lan`).
-- **Bundled Interactive Lovelace Map Card (`custom:vacuula-map-card`)**: Automatically registered in Home Assistant's frontend when the integration loads — no separate HACS frontend installation or manual resource setup needed! Features:
-  - Interactive floor plan with clickable SVG room polygons and floating room pins right on the map.
-  - Multi-room selection: tap one or more rooms on the map (or via the room chips bar) and press **Clean N Rooms** to trigger a multi-room zone clean.
-  - One-click toggle between **Floor Plan** and **Last Run** coverage map.
-  - Built-in controls for Start/Resume, Pause, Stop, Return to Dock, Locate, Fan Speed (`Eco`/`Turbo`), and Navigation Mode (`Normal`/`Extra Care`/`Deep`).
-  - Full visual card editor inside Home Assistant's **+ Add Card** dialog.
-- **Real-Time SSE Push + Fallback Polling**: Subscribes to `/api/events` and `/api/robot/{serial}/connect` Server-Sent Events for instant state updates and dynamic discovery of newly connected robots, backed by concurrent 30-second fallback polling.
-- **Multi-Robot & Multi-Generation**: Supports both **Gen3** (`D3`, `D4`, `D5`, `D6`, `D7`) and **Gen4** (`D800`, `D8`, `D9`, `D10`) Neato robots managed by a single Vacuula server, with per-robot `asyncio.Lock` command serialization.
-- **Live Floor Map & Last Run Map Rendering (`image.*`)**: Pure-Python RLE-to-PNG renderer (`map_renderer.py`, zero external dependencies) rendering walls, floor space, colored room zones, No-Go lines, charging dock marker, and last cleaning run coverage.
+---
 
-## Dashboard Card Usage
+## ✨ Visual Showcase
 
-Once the integration is loaded, open any Home Assistant dashboard, click **Edit → + Add Card**, and select **Vacuula Map & Room Card** from the card picker, or use YAML:
+### Bundled Interactive Map Card (`custom:vacuula-map-card`)
+
+The integration automatically registers a zero-dependency Web Component (`custom:vacuula-map-card`) into your Home Assistant Lovelace resources — no separate HACS frontend plugin install required.
+
+<p align="center">
+  <img src="docs/assets/card_preview.svg" alt="Vacuula Interactive Map Card Preview" width="480" />
+</p>
+
+### Pure-Python High-DPI Map Rendering (`image` entities)
+
+Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, and cleaning run coverage paths are rendered directly in Python with zero external image library dependencies (`zlib`/`struct` RGBA encoder with 2× high-DPI upscaling and automatic bounding-box cropping):
+
+| Saved Floorplan & Room Boundaries (`image.<robot>_floor_map`) | Latest Cleaning Run Coverage (`image.<robot>_last_run_map`) |
+| :---: | :---: |
+| <img src="docs/assets/floor_map.png" alt="Rendered Floor Map" width="380" /> | <img src="docs/assets/last_run_map.png" alt="Rendered Last Run Map" width="380" /> |
+
+---
+
+## 🚀 Key Capabilities
+
+- **Instant Local Push (SSE) + Fallback Polling**: Subscribes to `/api/events` and per-robot `/api/robot/{serial}/connect` Server-Sent Events streams for sub-second status updates, backed by a 30-second health/state poll.
+- **Interactive Room Zone Selection**:
+  - Click room pins **directly on the floor map** or toggle room chips in `custom:vacuula-map-card` to dispatch single- or multi-room cleaning runs.
+  - Exposes a `select.<robot>_cleaning_category` entity (`Map (All Rooms)`, `House (No Map)`, `Spot`, plus every named room zone on the active map) so `vacuum.start` automatically cleans the chosen target.
+  - Dynamically creates one-tap `button.<robot>_clean_<room>` entities for every polygon boundary on the robot's active floorplan.
+- **Offline History & Map Persistence**: Server-backed entities (`floor_map`, `last_run_map`, `last_clean_area`, `last_clean_duration`, `total_cleans`, `connected`, `refresh_maps`) remain available in Home Assistant even when the robot is powered down or in deep sleep, as long as the Vacuula server is reachable.
+- **Per-Robot Command Serialization**: Built-in `asyncio.Lock` per robot serial prevents concurrent WebSocket command collisions on Gen3 Botvac hardware.
+- **Config Entry Reconfiguration & Diagnostics**: Update your Vacuula server URL anytime via **Reconfigure** in the Home Assistant UI, and download redacted JSON diagnostics for the server or individual robots.
+
+---
+
+## 📦 Installation
+
+### Option 1: HACS (Recommended)
+
+1. Open **HACS** in Home Assistant → **Integrations** → top-right menu (**⋮**) → **Custom repositories**.
+2. Add `https://github.com/Snuggert/hass-vacuula` with category **Integration**.
+3. Click **Download** on **Vacuula** and restart Home Assistant.
+4. Go to **Settings → Devices & Services → Add Integration** and search for **Vacuula** (or accept the automatic Zeroconf discovery prompt if `_vacuula._tcp.local.` is advertised on your LAN).
+
+### Option 2: Manual Installation
+
+1. Copy the `custom_components/vacuula` folder into your Home Assistant `<config>/custom_components/` directory.
+2. Restart Home Assistant.
+3. Add **Vacuula** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://192.168.88.253:8085`).
+
+---
+
+## 🗺️ Dashboard Card (`custom:vacuula-map-card`)
+
+When the integration loads, it serves `/vacuula_frontend/vacuula-map-card.js` and automatically registers it in your Lovelace resources.
+
+### Adding via the Visual Editor
+1. Edit any Dashboard → **Add Card** → choose **Vacuula Map & Room Control**.
+2. Pick your `vacuum.<robot>` entity and customize the display toggles.
+
+### YAML Configuration
 
 ```yaml
 type: custom:vacuula-map-card
 entity: vacuum.mappa
-default_view: floor
-show_zone_labels: true
-show_controls: true
+title: Mappa
+default_map: floor        # 'floor' (Floor Map) or 'run' (Last Run)
+show_zones: true          # Show clickable room pins & zone chip bar
+show_controls: true       # Show Start / Pause / Dock / Locate + Power & Nav dropdowns
+show_telemetry: true      # Show Last Clean Area, Duration, and Total Runs ribbon
 ```
 
-See [`dashboards/vacuula_dashboard_card.yaml`](dashboards/vacuula_dashboard_card.yaml) for both the `custom:vacuula-map-card` configuration and a pure native Home Assistant card stack.
+---
 
-## Complete Entity Suite per Robot
-- **`vacuum.<name>`**: Start (full map/house or selected target room zone), Pause, Resume, Stop, Return to Base, Locate (`findMe`), and Fan Speed (`eco` / `turbo`).
-- **`image.<name>_floor_map`**: Rendered PNG of the active floor plan with colored room zones, No-Go lines, dock location, and normalized room polygon coordinates.
-- **`image.<name>_last_run_map`**: Rendered PNG of the most recent cleaning run overlaid on the floor plan.
-- **`sensor.<name>_battery`**: Battery level (`%`, `SensorDeviceClass.BATTERY`).
-- **`sensor.<name>_action`**: Current robot action (`house_cleaning`, `map_cleaning`, `docking`, `suspended_cleaning`, `idle`, etc.).
-- **`sensor.<name>_alert`**: Active alert or error code (`dustbin_full`, `clean_completed_to_start`, etc., or `none`).
-- **`sensor.<name>_last_clean_area`**: Cleaned area of the last run (`m²`, `SensorDeviceClass.AREA`).
-- **`sensor.<name>_last_clean_duration`**: Duration of the last run (`min`, `SensorDeviceClass.DURATION`).
-- **`sensor.<name>_total_cleans`**: Total historical cleaning runs recorded in Vacuula (`SensorStateClass.TOTAL_INCREASING`).
-- **`binary_sensor.<name>_docked`**: Dock connection status (`BinarySensorDeviceClass.PLUG`).
-- **`binary_sensor.<name>_charging`**: Battery charging status (`BinarySensorDeviceClass.BATTERY_CHARGING`).
-- **`binary_sensor.<name>_dock_seen`**: Whether the robot has seen its charging base (Gen3).
-- **`button.<name>_locate`**: Trigger `findMe` beep.
-- **`button.<name>_dismiss_alert`**: Dismiss active robot alert (`dismissCurrentAlert` on Gen3).
-- **`button.<name>_refresh_maps`**: Reload floor maps, room boundaries, and run history from Vacuula.
-- **`button.<name>_explore_new_map`**: Start persistent map exploration (`startPersistentMapExploration`).
-- **`button.<name>_clean_<room>`**: Dynamic one-tap button created for every room zone defined on the active floor plan.
-- **`switch.<name>_schedule`**: Enable or disable the robot's internal cleaning schedule (Gen3).
-- **`select.<name>_navigation_mode`**: Select navigation mode (`normal`, `extra_care`, `deep` on Gen3; `normal`, `gentle` on Gen4).
-- **`select.<name>_cleaning_mode`**: Select Gen3 cleaning category (`map` with persistent floor plan & No-Go lines vs `house`).
-- **`select.<name>_target_zone`**: Select `"all"` (entire map) or a specific room name for the next `vacuum.start` command.
+## 🧩 Provided Entities (Per Robot)
 
-## Custom Actions (`services.yaml`)
+Entities are organized into primary controls, **Configuration**, and **Diagnostic** categories so your device page stays clean:
+
+| Domain | Entity Suffix | Category | Available When Robot Offline? | Description |
+| :--- | :--- | :---: | :---: | :--- |
+| `vacuum` | `vacuum.<robot>` | Primary | No | Start, pause, stop, return to dock, locate, spot clean, and fan speed (`eco` / `turbo`). Exposes `available_zones`, `zone_boundaries`, and `active_map_name` attributes. |
+| `image` | `image.<robot>_floor_map` | Primary | **Yes** | High-DPI cropped PNG of the active floorplan with colored room polygons, No-Go lines, and dock location. |
+| `image` | `image.<robot>_last_run_map` | Primary | **Yes** | High-DPI cropped PNG overlaying the latest cleaning coverage and trajectory onto the floorplan. |
+| `button` | `button.<robot>_clean_<zone>` | Primary | No | Auto-generated per-room button for every named polygon boundary on the active map (e.g. *Clean Diningroom*, *Clean Office*). |
+| `button` | `button.<robot>_dismiss_alert` | Primary | No | Clears the active alert on Gen3 robots. |
+| `sensor` | `sensor.<robot>_battery` | Primary | No | Battery percentage (`%`) with dynamic charging icon. |
+| `sensor` | `sensor.<robot>_status_detail` | Primary | No | Human-readable robot state (`Docked`, `Cleaning`, `Returning to Dock`, etc.). |
+| `sensor` | `sensor.<robot>_last_clean_area` | Primary | **Yes** | Area covered in the most recent cleaning run (`m²`), with map/run metadata attributes. |
+| `sensor` | `sensor.<robot>_last_clean_duration` | Primary | **Yes** | Duration of the most recent cleaning run (`min`). |
+| `switch` | `switch.<robot>_schedule` | Config | No | Enables or disables the robot's internal cleaning schedule (Gen3). |
+| `select` | `select.<robot>_navigation_mode` | Config | No | Selects navigation profile (`Normal`, `Extra Care`, `Deep` on Gen3; `Normal`, `Gentle`, `Deep` on Gen4). |
+| `select` | `select.<robot>_cleaning_category` | Config | No | Target used when `vacuum.start` is called: `Map (All Rooms)`, `House (No Map)`, `Spot`, or any named room (`Zone: <Room>`). |
+| `button` | `button.<robot>_refresh_maps` | Config | **Yes** | Reloads floor maps, room boundaries, and run history from the Vacuula server. |
+| `button` | `button.<robot>_explore_map` | Config | No | Starts an initial map-exploration run on Gen4 robots. |
+| `binary_sensor` | `binary_sensor.<robot>_connected` | Diagnostic | **Yes** | Live WebSocket connectivity between the Vacuula server and the robot (`connectivity`). |
+| `binary_sensor` | `binary_sensor.<robot>_docked` | Diagnostic | No | `on` when the robot is resting on its charging base. |
+| `binary_sensor` | `binary_sensor.<robot>_charging` | Diagnostic | No | `on` when the battery is actively charging (`battery_charging`). |
+| `binary_sensor` | `binary_sensor.<robot>_bin_full` | Diagnostic | No | `on` when the dustbin is full or missing (`problem`). |
+| `binary_sensor` | `binary_sensor.<robot>_dock_seen` | Diagnostic | No | `on` when the robot has localized its charging base during a run. |
+| `sensor` | `sensor.<robot>_alert` | Diagnostic | No | Active error or alert code (`none`, `dustbin_full`, `brush_stuck`, etc.). |
+| `sensor` | `sensor.<robot>_total_cleans` | Diagnostic | **Yes** | Total historical cleaning runs stored on the Vacuula server. |
+
+---
+
+## ⚡ Custom Actions (Services)
+
+All custom actions accept either `entity_id` (via the standard Home Assistant entity picker) or `serial` (optional when only one robot is paired).
+
+### `vacuula.clean_zones`
+Clean one or more named rooms (case-insensitive) or boundary UUIDs on the robot's active floorplan:
+
 ```yaml
-# Clean one or more rooms by name (case-insensitive) or boundary UUID
 action: vacuula.clean_zones
 data:
+  entity_id: vacuum.mappa
   zones:
     - Diningroom
-    - Hallway
+    - Office
   fan_speed: turbo
   navigation_mode: normal
+```
 
-# Clean a 200x200 cm spot (Gen3)
+### `vacuula.clean_spot`
+Start a localized spot clean with custom dimensions (`100`–`400` cm):
+
+```yaml
 action: vacuula.clean_spot
 data:
+  entity_id: vacuum.mappa
   width: 200
   height: 200
   fan_speed: turbo
 ```
 
-## Installation into Home Assistant (`home`)
-To deploy directly to your Home Assistant server on `home`:
-```bash
-scp -r /home/abewi/hass-vacuula/custom_components/vacuula home:~/docker-images/home-assistant/config/custom_components/
-ssh home "sudo docker restart homeassistant"
+### `vacuula.refresh_maps`
+Force an immediate reload of floor maps, room boundaries, and historical run maps from the Vacuula server:
+
+```yaml
+action: vacuula.refresh_maps
+data:
+  entity_id: vacuum.mappa
 ```
-Then in Home Assistant, go to **Settings → Devices & Services → Add Integration → Vacuula** and enter `http://vacuula.lan` (or `http://172.18.0.1:8085`).
+
+---
+
+## 🤖 Automation Examples
+
+### 1. Clean the Dining Room After Dinner When Everyone Leaves the Room
+```yaml
+alias: "Vacuum: Clean Diningroom After Dinner"
+trigger:
+  - platform: state
+    entity_id: binary_sensor.dining_room_occupancy
+    from: "on"
+    to: "off"
+    for: "00:15:00"
+condition:
+  - condition: time
+    after: "19:00:00"
+    before: "21:30:00"
+  - condition: state
+    entity_id: vacuum.mappa
+    state: "docked"
+action:
+  - action: vacuula.clean_zones
+    data:
+      entity_id: vacuum.mappa
+      zones:
+        - Diningroom
+      fan_speed: eco
+      navigation_mode: extra_care
+```
+
+### 2. Send a Mobile Notification With the Coverage Map When Cleaning Finishes
+```yaml
+alias: "Vacuum: Cleaning Complete Summary with Map"
+trigger:
+  - platform: state
+    entity_id: vacuum.mappa
+    from: "returning"
+    to: "docked"
+action:
+  - action: vacuula.refresh_maps
+    data:
+      entity_id: vacuum.mappa
+  - delay: "00:00:05"
+  - action: notify.mobile_app_phone
+    data:
+      title: "🧹 Mappa finished cleaning!"
+      message: >-
+        Cleaned {{ states('sensor.mappa_last_clean_area') }} m² in
+        {{ states('sensor.mappa_last_clean_duration') }} minutes.
+      data:
+        image: "/api/image_proxy/image.mappa_last_run_map"
+```
+
+---
+
+## 🏗️ Architecture & Design Highlights
+
+For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, and pure-Python RLE PNG rendering, see [**ARCHITECTURE.md**](ARCHITECTURE.md).

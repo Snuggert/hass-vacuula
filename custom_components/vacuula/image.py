@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.image import ImageEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .coordinator import VacuulaCoordinator
@@ -53,6 +54,15 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         self._cached_key: tuple[str | None, int] | None = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(timezone.utc)
+
+    @property
+    def available(self) -> bool:
+        """Remain available while server is reachable and floor map is loaded."""
+        return bool(
+            CoordinatorEntity.available.fget(self)
+            and self._robot is not None
+            and self._robot.floormap is not None
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -108,6 +118,15 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         self._cached_key: tuple[str | None, str | None, int] | None = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(timezone.utc)
+
+    @property
+    def available(self) -> bool:
+        """Remain available while server is reachable and run or floor map is loaded."""
+        return bool(
+            CoordinatorEntity.available.fget(self)
+            and self._robot is not None
+            and (self._robot.last_runmap is not None or self._robot.floormap is not None)
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

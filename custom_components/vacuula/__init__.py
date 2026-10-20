@@ -8,10 +8,10 @@ import voluptuous as vol
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_URL
+from homeassistant.const import ATTR_ENTITY_ID, CONF_URL
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VacuulaApiClient
@@ -27,7 +27,7 @@ from .coordinator import VacuulaCoordinator, VacuulaRobotData
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.4.1"
+FRONTEND_VERSION = "0.5.0"
 
 VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
 
@@ -81,29 +81,53 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         _LOGGER.warning("Could not register Vacuula Lovelace card: %s", err)
 
 
+def _serial_from_entity_id(hass: HomeAssistant, entity_id: str | list[str] | None) -> str | None:
+    """Resolve a robot serial from a Home Assistant entity_id if provided."""
+    if not entity_id:
+        return None
+    target_eid = entity_id[0] if isinstance(entity_id, list) else str(entity_id)
+    state = hass.states.get(target_eid)
+    if state and state.attributes.get("serial"):
+        return str(state.attributes["serial"])
+    ent_reg = er.async_get(hass)
+    reg_entry = ent_reg.async_get(target_eid)
+    if reg_entry and reg_entry.unique_id:
+        uid = reg_entry.unique_id
+        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+            coord: VacuulaCoordinator = entry.runtime_data
+            if coord.data:
+                for rob_serial in coord.data:
+                    if uid == rob_serial or uid.startswith(f"{rob_serial}_"):
+                        return rob_serial
+    return None
+
+
 def _resolve_target_robot(
-    hass: HomeAssistant, serial: str | None
+    hass: HomeAssistant,
+    serial: str | None = None,
+    entity_id: str | list[str] | None = None,
 ) -> tuple[VacuulaCoordinator, VacuulaRobotData]:
-    """Find the coordinator and robot matching serial, or the sole robot if omitted."""
+    """Find the coordinator and robot matching serial/entity_id, or the sole robot if omitted."""
+    resolved_serial = serial or _serial_from_entity_id(hass, entity_id)
     entries: list[VacuulaConfigEntry] = hass.config_entries.async_loaded_entries(DOMAIN)
     all_robots: list[tuple[VacuulaCoordinator, VacuulaRobotData]] = []
     for entry in entries:
         coord: VacuulaCoordinator = entry.runtime_data
         if not coord.data:
             continue
-        if serial and serial in coord.data:
-            return coord, coord.data[serial]
+        if resolved_serial and resolved_serial in coord.data:
+            return coord, coord.data[resolved_serial]
         for robot in coord.data.values():
             all_robots.append((coord, robot))
 
-    if serial:
-        raise HomeAssistantError(f"Robot '{serial}' not found in Vacuula")
+    if resolved_serial:
+        raise HomeAssistantError(f"Robot '{resolved_serial}' not found in Vacuula")
     if len(all_robots) == 1:
         return all_robots[0]
     if not all_robots:
         raise HomeAssistantError("No robots found in Vacuula")
     raise HomeAssistantError(
-        "Multiple robots are configured; please specify 'serial' in the action call"
+        "Multiple robots are configured; please specify 'entity_id' or 'serial' in the action call"
     )
 
 
@@ -114,6 +138,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def _handle_clean_zones(call: ServiceCall) -> None:
         serial = call.data.get("serial")
+        entity_id = call.data.get(ATTR_ENTITY_ID)
         raw_zones = call.data["zones"]
         if isinstance(raw_zones, str):
             zone_list = [z.strip() for z in raw_zones.split(",") if z.strip()]
@@ -122,7 +147,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         else:
             zone_list = [str(raw_zones).strip()]
 
-        coord, robot = _resolve_target_robot(hass, serial)
+        coord, robot = _resolve_target_robot(hass, serial, entity_id)
         map_id = call.data.get("map_id") or robot.active_map_id
         if not map_id:
             raise HomeAssistantError(
@@ -145,7 +170,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def _handle_clean_spot(call: ServiceCall) -> None:
         serial = call.data.get("serial")
-        coord, robot = _resolve_target_robot(hass, serial)
+        entity_id = call.data.get(ATTR_ENTITY_ID)
+        coord, robot = _resolve_target_robot(hass, serial, entity_id)
         width = int(call.data.get("width", 200))
         height = int(call.data.get("height", 200))
         fan_speed = call.data.get("fan_speed") or robot.preferred_fan_speed
@@ -163,8 +189,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def _handle_refresh_maps(call: ServiceCall) -> None:
         serial = call.data.get("serial")
-        if serial:
-            coord, robot = _resolve_target_robot(hass, serial)
+        entity_id = call.data.get(ATTR_ENTITY_ID)
+        if serial or entity_id:
+            coord, robot = _resolve_target_robot(hass, serial, entity_id)
             await coord.async_refresh_maps_and_runs(robot.serial)
             return
         for entry in hass.config_entries.async_loaded_entries(DOMAIN):
@@ -179,6 +206,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         _handle_clean_zones,
         schema=vol.Schema(
             {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
                 vol.Optional("serial"): cv.string,
                 vol.Required("zones"): vol.Any(cv.string, [cv.string]),
                 vol.Optional("map_id"): cv.string,
@@ -193,6 +221,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         _handle_clean_spot,
         schema=vol.Schema(
             {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
                 vol.Optional("serial"): cv.string,
                 vol.Optional("width", default=200): vol.All(
                     vol.Coerce(int), vol.Range(min=50, max=500)
@@ -209,7 +238,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_REFRESH_MAPS,
         _handle_refresh_maps,
-        schema=vol.Schema({vol.Optional("serial"): cv.string}),
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
+                vol.Optional("serial"): cv.string,
+            }
+        ),
     )
 
 

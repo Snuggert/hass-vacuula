@@ -51,6 +51,35 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration of the Vacuula server URL."""
+        reconfigure_entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            url = user_input[CONF_URL].rstrip("/")
+            session = async_get_clientsession(self.hass)
+            client = VacuulaApiClient(url, session)
+            try:
+                info = await client.async_get_server_info()
+            except VacuulaApiError:
+                errors["base"] = "cannot_connect"
+            else:
+                return self.async_update_reload_and_abort(
+                    reconfigure_entry,
+                    title=f"Vacuula ({info.get('version', 'Server')})",
+                    data_updates={CONF_URL: url},
+                )
+
+        current_url = reconfigure_entry.data.get(CONF_URL, DEFAULT_URL)
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({vol.Required(CONF_URL, default=current_url): str}),
+            errors=errors,
+        )
+
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:

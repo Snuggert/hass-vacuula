@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 720" width="520" height="720" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c202b"/>
+      <stop offset="100%" stop-color="#151821"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="pillShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Outer Card Frame -->
+  <rect x="10" y="10" width="500" height="700" rx="18" fill="url(#cardBg)" stroke="#2c3344" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Header -->
+  <g transform="translate(28, 28)">
+    <circle cx="20" cy="20" r="20" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="20" y="26" font-size="18" text-anchor="middle">🤖</text>
+    <text x="52" y="19" fill="#f8fafc" font-size="17" font-weight="700">Mappa</text>
+    <circle cx="57" cy="33" r="4.5" fill="#22c55e"/>
+    <text x="68" y="37" fill="#94a3b8" font-size="12.5" font-weight="600">Docked · Thuis</text>
+
+    <!-- Header Right Badges -->
+    <g transform="translate(280, 6)">
+      <rect x="0" y="0" width="88" height="28" rx="14" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+      <text x="44" y="18" fill="#60a5fa" font-size="11.5" font-weight="600" text-anchor="middle">📅 Sched On</text>
+
+      <rect x="96" y="0" width="68" height="28" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="130" y="18" fill="#4ade80" font-size="12" font-weight="700" text-anchor="middle">🔋 96%</text>
+    </g>
+  </g>
+
+  <!-- Telemetry Ribbon -->
+  <g transform="translate(28, 82)">
+    <rect x="0" y="0" width="464" height="32" rx="9" fill="#11141c" stroke="#242a38" stroke-width="1"/>
+    <text x="16" y="20" fill="#94a3b8" font-size="11.5">Last clean: <tspan fill="#e2e8f0" font-weight="600">42.8 m²</tspan></text>
+    <text x="175" y="20" fill="#94a3b8" font-size="11.5">Duration: <tspan fill="#e2e8f0" font-weight="600">51 min</tspan></text>
+    <text x="325" y="20" fill="#94a3b8" font-size="11.5">Total runs: <tspan fill="#e2e8f0" font-weight="600">154</tspan></text>
+  </g>
+
+  <!-- Map Canvas Container -->
+  <g transform="translate(28, 126)">
+    <rect x="0" y="0" width="464" height="340" rx="14" fill="#181c24" stroke="#2a3142" stroke-width="1.5"/>
+
+    <!-- Map Mode Switcher Tabs -->
+    <g transform="translate(12, 12)">
+      <rect x="0" y="0" width="176" height="30" rx="8" fill="#0f131a" opacity="0.9"/>
+      <rect x="3" y="3" width="84" height="24" rx="6" fill="#38bdf8"/>
+      <text x="45" y="19" fill="#0f172a" font-size="11.5" font-weight="700" text-anchor="middle">Floor Map</text>
+      <text x="132" y="19" fill="#cbd5e1" font-size="11.5" font-weight="600" text-anchor="middle">Last Run</text>
+    </g>
+
+    <!-- Refresh Button -->
+    <g transform="translate(422, 12)">
+      <rect x="0" y="0" width="30" height="30" rx="8" fill="#0f131a" opacity="0.9"/>
+      <text x="15" y="20" fill="#cbd5e1" font-size="14" text-anchor="middle">↻</text>
+    </g>
+
+    <!-- Stylized Floorplan Polygons Matching Mappa's 'Thuis' Map -->
+    <g transform="translate(75, 22)">
+      <!-- Diningroom (Coral/Orange, Selected) -->
+      <polygon points="65,18 195,18 195,148 65,148" fill="#e47251" fill-opacity="0.52" stroke="#38bdf8" stroke-width="2.5"/>
+      <!-- Livingroom (Blue) -->
+      <polygon points="195,16 325,16 325,136 195,136" fill="#5aa9ff" fill-opacity="0.38" stroke="#5aa9ff" stroke-width="2"/>
+      <!-- Hallway (Lime Green) -->
+      <polygon points="65,148 198,148 198,256 155,256 155,226 105,226 105,182 65,182" fill="#9cd34a" fill-opacity="0.38" stroke="#9cd34a" stroke-width="2"/>
+      <!-- Bedroom (Gold/Amber) -->
+      <polygon points="65,182 105,182 105,275 18,275 18,200 65,200" fill="#e5a93c" fill-opacity="0.38" stroke="#e5a93c" stroke-width="2"/>
+      <!-- Office (Mint/Teal, Selected) -->
+      <polygon points="198,226 308,228 308,284 198,284" fill="#3cd298" fill-opacity="0.52" stroke="#38bdf8" stroke-width="2.5"/>
+
+      <!-- Dock Marker (Green Pin in Hallway) -->
+      <circle cx="112" cy="188" r="7" fill="#22c55e" stroke="#ffffff" stroke-width="2.5"/>
+
+      <!-- Interactive Room Pin Pills -->
+      <!-- Diningroom (Selected) -->
+      <g transform="translate(130, 82)" filter="url(#pillShadow)">
+        <rect x="-52" y="-13" width="104" height="26" rx="13" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5"/>
+        <text x="0" y="4" fill="#0f172a" font-size="11" font-weight="700" text-anchor="middle">✓ Diningroom</text>
+      </g>
+
+      <!-- Livingroom -->
+      <g transform="translate(260, 76)" filter="url(#pillShadow)">
+        <rect x="-46" y="-12" width="92" height="24" rx="12" fill="#131720" fill-opacity="0.88" stroke="#5aa9ff" stroke-width="1.5"/>
+        <circle cx="-32" cy="0" r="4" fill="#5aa9ff"/>
+        <text x="6" y="4" fill="#f8fafc" font-size="11" font-weight="600" text-anchor="middle">Livingroom</text>
+      </g>
+
+      <!-- Hallway -->
+      <g transform="translate(148, 194)" filter="url(#pillShadow)">
+        <rect x="-38" y="-12" width="76" height="24" rx="12" fill="#131720" fill-opacity="0.88" stroke="#9cd34a" stroke-width="1.5"/>
+        <circle cx="-25" cy="0" r="4" fill="#9cd34a"/>
+        <text x="5" y="4" fill="#f8fafc" font-size="11" font-weight="600" text-anchor="middle">Hallway</text>
+      </g>
+
+      <!-- Bedroom -->
+      <g transform="translate(60, 240)" filter="url(#pillShadow)">
+        <rect x="-40" y="-12" width="80" height="24" rx="12" fill="#131720" fill-opacity="0.88" stroke="#e5a93c" stroke-width="1.5"/>
+        <circle cx="-27" cy="0" r="4" fill="#e5a93c"/>
+        <text x="5" y="4" fill="#f8fafc" font-size="11" font-weight="600" text-anchor="middle">Bedroom</text>
+      </g>
+
+      <!-- Office (Selected) -->
+      <g transform="translate(253, 256)" filter="url(#pillShadow)">
+        <rect x="-38" y="-13" width="76" height="26" rx="13" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5"/>
+        <text x="0" y="4" fill="#0f172a" font-size="11" font-weight="700" text-anchor="middle">✓ Office</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Primary Action Controls -->
+  <g transform="translate(28, 480)">
+    <rect x="0" y="0" width="110" height="38" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="55" y="24" fill="#f8fafc" font-size="12.5" font-weight="600" text-anchor="middle">▶ Start</text>
+
+    <rect x="118" y="0" width="110" height="38" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="173" y="24" fill="#f8fafc" font-size="12.5" font-weight="600" text-anchor="middle">⏸ Pause</text>
+
+    <rect x="236" y="0" width="110" height="38" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="291" y="24" fill="#f8fafc" font-size="12.5" font-weight="600" text-anchor="middle">⌂ Dock</text>
+
+    <rect x="354" y="0" width="110" height="38" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="409" y="24" fill="#f8fafc" font-size="12.5" font-weight="600" text-anchor="middle">🔔 Locate</text>
+  </g>
+
+  <!-- Mode & Navigation Dropdown Row -->
+  <g transform="translate(28, 530)">
+    <rect x="0" y="0" width="226" height="34" rx="9" fill="#141821" stroke="#2a3142" stroke-width="1"/>
+    <text x="12" y="21" fill="#94a3b8" font-size="11" font-weight="700">POWER</text>
+    <text x="72" y="21" fill="#f8fafc" font-size="12.5" font-weight="600">Turbo</text>
+    <text x="206" y="21" fill="#64748b" font-size="11">▾</text>
+
+    <rect x="238" y="0" width="226" height="34" rx="9" fill="#141821" stroke="#2a3142" stroke-width="1"/>
+    <text x="250" y="21" fill="#94a3b8" font-size="11" font-weight="700">NAV</text>
+    <text x="292" y="21" fill="#f8fafc" font-size="12.5" font-weight="600">Normal</text>
+    <text x="444" y="21" fill="#64748b" font-size="11">▾</text>
+  </g>
+
+  <!-- Room Zones Section -->
+  <g transform="translate(28, 578)">
+    <text x="2" y="12" fill="#94a3b8" font-size="11" font-weight="700" letter-spacing="0.6">ROOM ZONES (TAP MAP OR CHIPS TO SELECT)</text>
+    <text x="462" y="12" fill="#38bdf8" font-size="11" font-weight="600" text-anchor="end">Clear (2)</text>
+
+    <g transform="translate(0, 22)">
+      <!-- Bedroom -->
+      <rect x="0" y="0" width="84" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <circle cx="15" cy="15" r="4" fill="#e5a93c"/>
+      <text x="47" y="19" fill="#e2e8f0" font-size="12" font-weight="500" text-anchor="middle">Bedroom</text>
+
+      <!-- Diningroom (Selected) -->
+      <rect x="92" y="0" width="102" height="30" rx="15" fill="#172554" stroke="#38bdf8" stroke-width="1.5"/>
+      <circle cx="107" cy="15" r="4" fill="#e47251"/>
+      <text x="148" y="19" fill="#38bdf8" font-size="12" font-weight="700" text-anchor="middle">Diningroom</text>
+
+      <!-- Hallway -->
+      <rect x="202" y="0" width="80" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <circle cx="217" cy="15" r="4" fill="#9cd34a"/>
+      <text x="247" y="19" fill="#e2e8f0" font-size="12" font-weight="500" text-anchor="middle">Hallway</text>
+
+      <!-- Livingroom -->
+      <rect x="290" y="0" width="98" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <circle cx="305" cy="15" r="4" fill="#5aa9ff"/>
+      <text x="344" y="19" fill="#e2e8f0" font-size="12" font-weight="500" text-anchor="middle">Livingroom</text>
+
+      <!-- Office (Selected) -->
+      <rect x="396" y="0" width="68" height="30" rx="15" fill="#172554" stroke="#38bdf8" stroke-width="1.5"/>
+      <circle cx="411" cy="15" r="4" fill="#3cd298"/>
+      <text x="436" y="19" fill="#38bdf8" font-size="12" font-weight="700" text-anchor="middle">Office</text>
+    </g>
+
+    <!-- Clean Selected Action Bar -->
+    <g transform="translate(0, 64)">
+      <rect x="0" y="0" width="464" height="40" rx="10" fill="#38bdf8"/>
+      <text x="232" y="25" fill="#0f172a" font-size="13.5" font-weight="700" text-anchor="middle">🧹 Clean 2 Selected Rooms (Diningroom, Office)</text>
+    </g>
+  </g>
+</svg>

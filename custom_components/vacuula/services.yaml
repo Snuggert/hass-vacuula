@@ -2,9 +2,18 @@ clean_zones:
   name: Clean zones
   description: Start cleaning one or more named room zones (or boundary UUIDs) on a Neato robot managed by Vacuula.
   fields:
+    entity_id:
+      name: Robot vacuum entity
+      description: Vacuum entity to target (optional if only one robot is paired).
+      required: false
+      example: "vacuum.mappa"
+      selector:
+        entity:
+          integration: vacuula
+          domain: vacuum
     serial:
       name: Robot serial
-      description: Robot serial number (optional if only one robot is paired).
+      description: Robot serial number (optional alternative to entity_id).
       required: false
       example: "GPC25319-f8369bfb9a1e"
       selector:
@@ -48,9 +57,18 @@ clean_spot:
   name: Clean spot
   description: Start a localized spot cleaning run (Gen3 robots).
   fields:
+    entity_id:
+      name: Robot vacuum entity
+      description: Vacuum entity to target (optional if only one robot is paired).
+      required: false
+      example: "vacuum.mappa"
+      selector:
+        entity:
+          integration: vacuula
+          domain: vacuum
     serial:
       name: Robot serial
-      description: Robot serial number (optional if only one robot is paired).
+      description: Robot serial number (optional alternative to entity_id).
       required: false
       example: "GPC25319-f8369bfb9a1e"
       selector:
@@ -101,6 +119,15 @@ refresh_maps:
   name: Refresh maps and runs
   description: Reload floor maps, room boundaries, and historical cleaning runs from the Vacuula server.
   fields:
+    entity_id:
+      name: Robot vacuum entity
+      description: Optional vacuum entity (if omitted, refreshes all paired robots).
+      required: false
+      example: "vacuum.mappa"
+      selector:
+        entity:
+          integration: vacuula
+          domain: vacuum
     serial:
       name: Robot serial
       description: Optional robot serial (if omitted, refreshes all paired robots).

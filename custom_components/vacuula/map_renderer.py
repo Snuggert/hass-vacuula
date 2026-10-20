@@ -73,7 +73,7 @@ def _draw_line(
             err += dy
             x0 += sx
         if e2 <= dx:
-            err += dy if False else dx
+            err += dx
             y0 += sy
 
 
@@ -116,6 +116,30 @@ def _fill_polygon(
                 rgba[idx] = int(rgba[idx] * (1.0 - alpha) + r * alpha)
                 rgba[idx + 1] = int(rgba[idx + 1] * (1.0 - alpha) + g * alpha)
                 rgba[idx + 2] = int(rgba[idx + 2] * (1.0 - alpha) + b * alpha)
+
+
+def _upscale_2x(rgba: bytearray, width: int, height: int) -> tuple[bytearray, int, int]:
+    """Upscale an RGBA buffer by 2x using nearest-neighbor for crisp high-DPI rendering."""
+    out_w = width * 2
+    out_h = height * 2
+    out = bytearray(out_w * out_h * 4)
+    src_row_bytes = width * 4
+    dst_row_bytes = out_w * 4
+
+    for y in range(height):
+        src_offset = y * src_row_bytes
+        dst_row0 = (y * 2) * dst_row_bytes
+        for x in range(width):
+            sp = src_offset + x * 4
+            pixel = rgba[sp : sp + 4]
+            dp = dst_row0 + (x * 2) * 4
+            out[dp : dp + 4] = pixel
+            out[dp + 4 : dp + 8] = pixel
+        # Duplicate row y*2 into y*2 + 1
+        out[dst_row0 + dst_row_bytes : dst_row0 + 2 * dst_row_bytes] = out[
+            dst_row0 : dst_row0 + dst_row_bytes
+        ]
+    return out, out_w, out_h
 
 
 def _encode_png(rgba: bytearray, width: int, height: int) -> bytes:
@@ -231,7 +255,6 @@ def compute_cropped_zones(
         if len(pts) < 3:
             continue
 
-        # Remove duplicate closing vertex for centroid calculation
         unique_pts = pts[:-1] if len(pts) > 3 and pts[0] == pts[-1] else pts
         cx = round(sum(p[0] for p in unique_pts) / len(unique_pts), 4)
         cy = round(sum(p[1] for p in unique_pts) / len(unique_pts), 4)
@@ -254,7 +277,7 @@ def render_map_png(
     boundaries: list[dict[str, Any]] | None = None,
     runmap: dict[str, Any] | None = None,
 ) -> bytes | None:
-    """Render a Vacuula floor map and/or run map into a cropped RGBA PNG."""
+    """Render a Vacuula floor map and/or run map into a cropped 2x high-DPI RGBA PNG."""
     base_map = floormap or runmap
     if not base_map:
         return None
@@ -299,7 +322,8 @@ def render_map_png(
             elif val == 2:  # Wall
                 rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (45, 55, 72, 255)
 
-    # Draw zone polygons and no-go lines if boundaries provided
+    # Fill zone polygons on base floor grid
+    parsed_boundaries: list[tuple[str, tuple[int, int, int], list[tuple[int, int]]]] = []
     if boundaries and floormap:
         for bnd in boundaries:
             verts = bnd.get("vertices")
@@ -315,38 +339,11 @@ def render_map_png(
             ]
             if len(pts) < 2:
                 continue
-            btype = bnd.get("type", "polygon")
+            btype = str(bnd.get("type", "polygon"))
+            rgb = _parse_hex_color(bnd.get("color", "#5aa9ff"))
+            parsed_boundaries.append((btype, rgb, pts))
             if btype == "polygon":
-                rgb = _parse_hex_color(bnd.get("color", "#5aa9ff"))
                 _fill_polygon(rgba, floor_grid, width, height, pts, rgb, alpha=0.40)
-                outline_rgba = (rgb[0], rgb[1], rgb[2], 255)
-                for i in range(len(pts)):
-                    p0 = pts[i]
-                    p1 = pts[(i + 1) % len(pts)]
-                    _draw_line(
-                        rgba,
-                        width,
-                        height,
-                        p0[0],
-                        p0[1],
-                        p1[0],
-                        p1[1],
-                        outline_rgba,
-                        thickness=1,
-                    )
-            else:
-                for i in range(len(pts) - 1):
-                    _draw_line(
-                        rgba,
-                        width,
-                        height,
-                        pts[i][0],
-                        pts[i][1],
-                        pts[i + 1][0],
-                        pts[i + 1][1],
-                        (239, 68, 68, 255),
-                        thickness=2,
-                    )
 
     # Overlay runmap if provided
     if runmap and isinstance(runmap.get("rle"), list):
@@ -383,6 +380,30 @@ def render_map_png(
                 elif val in (100, 200):  # Dock marker
                     rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (34, 197, 94, 255)
 
+    # Draw zone outlines and no-go lines on top of run overlay so borders stay sharp
+    for btype, rgb, pts in parsed_boundaries:
+        if btype == "polygon":
+            outline_rgba = (rgb[0], rgb[1], rgb[2], 255)
+            for i in range(len(pts)):
+                p0 = pts[i]
+                p1 = pts[(i + 1) % len(pts)]
+                _draw_line(
+                    rgba, width, height, p0[0], p0[1], p1[0], p1[1], outline_rgba, thickness=1
+                )
+        else:
+            for i in range(len(pts) - 1):
+                _draw_line(
+                    rgba,
+                    width,
+                    height,
+                    pts[i][0],
+                    pts[i][1],
+                    pts[i + 1][0],
+                    pts[i + 1][1],
+                    (239, 68, 68, 255),
+                    thickness=2,
+                )
+
     # Draw dock marker from floormap metadata
     dock = (floormap or {}).get("dock")
     if isinstance(dock, dict) and "pixel_x" in dock and "pixel_y" in dock:
@@ -408,7 +429,7 @@ def render_map_png(
                             255,
                         )
 
-    # Auto-crop to non-empty bounding box with 16px padding
+    # Auto-crop to non-empty bounding box with 16px padding, then 2x upscale
     if min_x <= max_x and min_y <= max_y:
         pad = 16
         c_x0 = max(0, min_x - pad)
@@ -424,6 +445,8 @@ def render_map_png(
             cropped[dst_start : dst_start + c_w * 4] = rgba[
                 src_start : src_start + c_w * 4
             ]
-        return _encode_png(cropped, c_w, c_h)
+        up_rgba, up_w, up_h = _upscale_2x(cropped, c_w, c_h)
+        return _encode_png(up_rgba, up_w, up_h)
 
-    return _encode_png(rgba, width, height)
+    up_rgba, up_w, up_h = _upscale_2x(rgba, width, height)
+    return _encode_png(up_rgba, up_w, up_h)

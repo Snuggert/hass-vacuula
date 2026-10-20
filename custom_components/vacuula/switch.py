@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -31,7 +32,9 @@ async def async_setup_entry(
         if entities:
             async_add_entities(entities)
 
-    entry.async_on_unload(coordinator.register_new_robot_callback(_async_add_new_robots))
+    entry.async_on_unload(
+        coordinator.register_new_robot_callback(_async_add_new_robots)
+    )
 
 
 class VacuulaScheduleSwitch(VacuulaEntity, SwitchEntity):
@@ -39,6 +42,7 @@ class VacuulaScheduleSwitch(VacuulaEntity, SwitchEntity):
 
     _attr_name = "Schedule"
     _attr_icon = "mdi:calendar-clock"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the schedule switch."""

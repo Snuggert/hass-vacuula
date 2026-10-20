@@ -12,6 +12,7 @@ class VacuulaMapCard extends HTMLElement {
     this._viewMode = "floor"; // "floor" | "run"
     this._selectedZones = new Set();
     this._initialized = false;
+    this._lastRenderSignature = "";
   }
 
   static getStubConfig(hass) {
@@ -50,12 +51,17 @@ class VacuulaMapCard extends HTMLElement {
       this._viewMode = this._config.default_view === "run" ? "run" : "floor";
       this._initialized = true;
     }
+    this._lastRenderSignature = "";
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._updateContent();
+    const sig = this._computeSignature();
+    if (sig !== this._lastRenderSignature) {
+      this._lastRenderSignature = sig;
+      this._updateContent();
+    }
   }
 
   getCardSize() {
@@ -71,18 +77,66 @@ class VacuulaMapCard extends HTMLElement {
     return this._hass?.states?.[entityId] || null;
   }
 
+  _computeSignature() {
+    if (!this._hass || !this._config.entity) return "";
+    const slug = this._slug();
+    const vac = this._getState(this._config.entity);
+    const floor = this._getState(
+      this._config.floor_map_entity || `image.${slug}_floor_map`
+    );
+    const run = this._getState(
+      this._config.last_run_map_entity || `image.${slug}_last_run_map`
+    );
+    const batt = this._getState(`sensor.${slug}_battery`);
+    const chg = this._getState(`binary_sensor.${slug}_charging`);
+    const area = this._getState(`sensor.${slug}_last_clean_area`);
+    const dur = this._getState(`sensor.${slug}_last_clean_duration`);
+    const nav = this._getState(`select.${slug}_navigation_mode`);
+    const sched = this._getState(`switch.${slug}_schedule`);
+
+    return JSON.stringify([
+      this._viewMode,
+      Array.from(this._selectedZones),
+      vac?.state,
+      vac?.attributes?.fan_speed,
+      vac?.attributes?.navigation_mode,
+      vac?.attributes?.action,
+      vac?.attributes?.alert,
+      vac?.attributes?.error,
+      floor?.state,
+      floor?.attributes?.entity_picture,
+      floor?.attributes?.zones?.length,
+      run?.state,
+      run?.attributes?.entity_picture,
+      batt?.state,
+      chg?.state,
+      area?.state,
+      dur?.state,
+      nav?.state,
+      sched?.state,
+      this._config.title,
+      this._config.show_zone_labels,
+      this._config.show_controls,
+    ]);
+  }
+
+  _forceUpdate() {
+    this._lastRenderSignature = this._computeSignature();
+    this._updateContent();
+  }
+
   _toggleZone(zoneName) {
     if (this._selectedZones.has(zoneName)) {
       this._selectedZones.delete(zoneName);
     } else {
       this._selectedZones.add(zoneName);
     }
-    this._updateContent();
+    this._forceUpdate();
   }
 
   _clearZones() {
     this._selectedZones.clear();
-    this._updateContent();
+    this._forceUpdate();
   }
 
   _handleStart() {
@@ -96,6 +150,7 @@ class VacuulaMapCard extends HTMLElement {
       );
       const serial = floorImg?.attributes?.serial;
       const serviceData = {
+        entity_id: this._config.entity,
         zones: Array.from(this._selectedZones),
       };
       if (serial) {
@@ -103,7 +158,7 @@ class VacuulaMapCard extends HTMLElement {
       }
       this._hass.callService("vacuula", "clean_zones", serviceData);
       this._selectedZones.clear();
-      this._updateContent();
+      this._forceUpdate();
       return;
     }
 
@@ -131,13 +186,25 @@ class VacuulaMapCard extends HTMLElement {
     }
   }
 
+  _toggleSchedule() {
+    if (!this._hass) return;
+    const schedEntity = `switch.${this._slug()}_schedule`;
+    if (this._getState(schedEntity)) {
+      this._hass.callService("switch", "toggle", {
+        entity_id: schedEntity,
+      });
+    }
+  }
+
   _refreshMaps() {
     if (!this._hass) return;
     const btnEntity = `button.${this._slug()}_refresh_maps`;
     if (this._getState(btnEntity)) {
       this._hass.callService("button", "press", { entity_id: btnEntity });
     } else {
-      this._hass.callService("vacuula", "refresh_maps", {});
+      this._hass.callService("vacuula", "refresh_maps", {
+        entity_id: this._config.entity,
+      });
     }
   }
 
@@ -170,6 +237,7 @@ class VacuulaMapCard extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
         }
         .robot-name {
           font-size: 1.1rem;
@@ -209,8 +277,8 @@ class VacuulaMapCard extends HTMLElement {
         .telemetry {
           display: flex;
           align-items: center;
-          gap: 8px;
-          font-size: 0.82rem;
+          gap: 6px;
+          font-size: 0.8rem;
           font-weight: 600;
         }
         .pill {
@@ -220,6 +288,17 @@ class VacuulaMapCard extends HTMLElement {
           padding: 4px 10px;
           border-radius: 999px;
           background: rgba(148, 163, 184, 0.14);
+          border: none;
+          color: var(--primary-text-color);
+          font-size: 0.78rem;
+          font-weight: 600;
+        }
+        .pill.clickable {
+          cursor: pointer;
+        }
+        .pill.active {
+          background: rgba(34, 197, 94, 0.2);
+          color: #4ade80;
         }
         .map-wrapper {
           position: relative;
@@ -244,6 +323,7 @@ class VacuulaMapCard extends HTMLElement {
           width: 100%;
           max-height: 380px;
           object-fit: contain;
+          image-rendering: crisp-edges;
           user-select: none;
           -webkit-user-drag: none;
         }
@@ -448,7 +528,7 @@ class VacuulaMapCard extends HTMLElement {
         <div id="root"></div>
       </ha-card>
     `;
-    this._updateContent();
+    this._forceUpdate();
   }
 
   _updateContent() {
@@ -483,6 +563,7 @@ class VacuulaMapCard extends HTMLElement {
     const areaState = this._getState(`sensor.${slug}_last_clean_area`);
     const durState = this._getState(`sensor.${slug}_last_clean_duration`);
     const navSelectState = this._getState(`select.${slug}_navigation_mode`);
+    const schedState = this._getState(`switch.${slug}_schedule`);
 
     const name =
       this._config.title ||
@@ -495,10 +576,12 @@ class VacuulaMapCard extends HTMLElement {
       vacState.attributes?.active_map_name ||
       "Floor Plan";
 
-    const batteryVal = battState?.state && battState.state !== "unavailable"
-      ? `${battState.state}%`
-      : null;
+    const batteryVal =
+      battState?.state && !["unknown", "unavailable"].includes(battState.state)
+        ? `${battState.state}%`
+        : null;
     const isCharging = chargingState?.state === "on";
+    const isScheduleOn = schedState?.state === "on";
 
     const lastRunParts = [];
     if (areaState?.state && !["unknown", "unavailable"].includes(areaState.state)) {
@@ -508,8 +591,10 @@ class VacuulaMapCard extends HTMLElement {
       lastRunParts.push(`${durState.state} min`);
     }
     const subtitleParts = [mapName];
-    if (actionStr && actionStr !== "idle") subtitleParts.push(actionStr.replace(/_/g, " "));
-    if (lastRunParts.length) subtitleParts.push(`Last: ${lastRunParts.join(" · ")}`);
+    if (actionStr && actionStr !== "idle")
+      subtitleParts.push(actionStr.replace(/_/g, " "));
+    if (lastRunParts.length)
+      subtitleParts.push(`Last: ${lastRunParts.join(" · ")}`);
 
     const selectedCount = this._selectedZones.size;
     let startLabel = "Clean All";
@@ -523,7 +608,11 @@ class VacuulaMapCard extends HTMLElement {
 
     const fanSpeeds = vacState.attributes?.fan_speed_list || ["eco", "turbo"];
     const currentFan = vacState.attributes?.fan_speed || "turbo";
-    const navModes = navSelectState?.attributes?.options || ["normal", "extra_care", "deep"];
+    const navModes = navSelectState?.attributes?.options || [
+      "normal",
+      "extra_care",
+      "deep",
+    ];
     const currentNav =
       navSelectState?.state ||
       vacState.attributes?.navigation_mode ||
@@ -591,6 +680,11 @@ class VacuulaMapCard extends HTMLElement {
           <div class="subtitle">${subtitleParts.join(" • ")}</div>
         </div>
         <div class="telemetry">
+          ${
+            schedState
+              ? `<button class="pill clickable ${isScheduleOn ? "active" : ""}" id="btn-schedule" title="Toggle Robot Schedule">📅 ${isScheduleOn ? "Sched On" : "Sched Off"}</button>`
+              : ""
+          }
           ${
             batteryVal
               ? `<span class="pill" title="Battery">${isCharging ? "⚡" : "🔋"} ${batteryVal}</span>`
@@ -662,14 +756,17 @@ class VacuulaMapCard extends HTMLElement {
     // Bind event listeners
     root.querySelector("#tab-floor")?.addEventListener("click", () => {
       this._viewMode = "floor";
-      this._updateContent();
+      this._forceUpdate();
     });
     root.querySelector("#tab-run")?.addEventListener("click", () => {
       this._viewMode = "run";
-      this._updateContent();
+      this._forceUpdate();
     });
     root.querySelector("#btn-refresh-map")?.addEventListener("click", () => {
       this._refreshMaps();
+    });
+    root.querySelector("#btn-schedule")?.addEventListener("click", () => {
+      this._toggleSchedule();
     });
 
     root.querySelectorAll("[data-zone]").forEach((el) => {

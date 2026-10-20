@@ -4,8 +4,10 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from . import VacuulaConfigEntry
@@ -103,10 +105,16 @@ class VacuulaRefreshMapsButton(VacuulaEntity, ButtonEntity):
 
     _attr_name = "Refresh maps"
     _attr_icon = "mdi:map-search-outline"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the refresh maps button."""
         super().__init__(coordinator, serial, "refresh_maps")
+
+    @property
+    def available(self) -> bool:
+        """Available whenever the Vacuula server is reachable."""
+        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
 
     async def async_press(self) -> None:
         """Trigger a refresh of maps, boundaries, and historical runs."""
@@ -118,6 +126,7 @@ class VacuulaExploreMapButton(VacuulaEntity, ButtonEntity):
 
     _attr_name = "Explore new map"
     _attr_icon = "mdi:compass-outline"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the explore map button."""

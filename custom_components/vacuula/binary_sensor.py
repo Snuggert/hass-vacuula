@@ -1,12 +1,14 @@
-"""Binary sensor platform for Vacuula robots (Docked, Charging, Dock Seen)."""
+"""Binary sensor platform for Vacuula robots (Connected, Docked, Charging, Dock Seen)."""
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .const import ROBOT_TYPE_GEN3
@@ -28,6 +30,7 @@ async def async_setup_entry(
         for serial in serials:
             entities.extend(
                 [
+                    VacuulaConnectedBinarySensor(coordinator, serial),
                     VacuulaDockedBinarySensor(coordinator, serial),
                     VacuulaChargingBinarySensor(coordinator, serial),
                 ]
@@ -40,6 +43,28 @@ async def async_setup_entry(
     entry.async_on_unload(
         coordinator.register_new_robot_callback(_async_add_new_robots)
     )
+
+
+class VacuulaConnectedBinarySensor(VacuulaEntity, BinarySensorEntity):
+    """Diagnostic binary sensor indicating whether the robot is connected to Vacuula."""
+
+    _attr_name = "Connected"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
+        """Initialize the connected binary sensor."""
+        super().__init__(coordinator, serial, "connected")
+
+    @property
+    def available(self) -> bool:
+        """Available whenever the Vacuula server itself is reachable."""
+        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if the robot is currently connected to Vacuula."""
+        return bool(self._robot and self._robot.connected)
 
 
 class VacuulaDockedBinarySensor(VacuulaEntity, BinarySensorEntity):
@@ -91,6 +116,7 @@ class VacuulaDockSeenBinarySensor(VacuulaEntity, BinarySensorEntity):
 
     _attr_name = "Dock seen"
     _attr_icon = "mdi:home-map-marker"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the dock seen binary sensor."""

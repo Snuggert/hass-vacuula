@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -52,6 +53,7 @@ class VacuulaNavigationModeSelect(VacuulaEntity, SelectEntity):
 
     _attr_name = "Navigation mode"
     _attr_icon = "mdi:map-marker-path"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the navigation mode select entity."""
@@ -88,6 +90,7 @@ class VacuulaCleaningCategorySelect(VacuulaEntity, SelectEntity):
     _attr_name = "Cleaning mode"
     _attr_icon = "mdi:floor-plan"
     _attr_options = GEN3_CLEAN_CATEGORIES
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the cleaning category select entity."""
@@ -134,7 +137,6 @@ class VacuulaTargetZoneSelect(VacuulaEntity, SelectEntity):
         zone_names = [
             str(z["name"]) for z in self.robot.zones if z.get("name")
         ]
-        # Preserve order while deduplicating
         seen: set[str] = {ALL_ZONES_OPTION}
         opts = [ALL_ZONES_OPTION]
         for name in zone_names:

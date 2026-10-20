@@ -8,6 +8,13 @@
           "url": "Vacuula Server URL"
         }
       },
+      "reconfigure": {
+        "title": "Reconfigure Vacuula Server",
+        "description": "Update the URL of your local Vacuula server.",
+        "data": {
+          "url": "Vacuula Server URL"
+        }
+      },
       "zeroconf_confirm": {
         "title": "Discovered Vacuula Server",
         "description": "Do you want to add the Vacuula server ({version}) at {url} to Home Assistant?"
@@ -18,7 +25,8 @@
     },
     "abort": {
       "already_configured": "This Vacuula server is already configured.",
-      "cannot_connect": "Failed to connect to the discovered Vacuula server."
+      "cannot_connect": "Failed to connect to the discovered Vacuula server.",
+      "reconfigure_successful": "Vacuula server URL updated successfully."
     }
   }
 }

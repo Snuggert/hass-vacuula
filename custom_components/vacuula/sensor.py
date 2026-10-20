@@ -9,9 +9,10 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, UnitOfArea, UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfArea, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .const import GEN3_ACTION_NAMES, ROBOT_TYPE_GEN3
@@ -102,6 +103,7 @@ class VacuulaAlertSensor(VacuulaEntity, SensorEntity):
     _attr_translation_key = "alert"
     _attr_name = "Alert"
     _attr_icon = "mdi:alert-circle-outline"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the alert sensor."""
@@ -138,6 +140,11 @@ class VacuulaLastCleanAreaSensor(VacuulaEntity, SensorEntity):
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the last clean area sensor."""
         super().__init__(coordinator, serial, "last_clean_area")
+
+    @property
+    def available(self) -> bool:
+        """Remain available while server is reachable even if robot is asleep."""
+        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
 
     @property
     def native_value(self) -> float | None:
@@ -181,6 +188,11 @@ class VacuulaLastCleanDurationSensor(VacuulaEntity, SensorEntity):
         super().__init__(coordinator, serial, "last_clean_duration")
 
     @property
+    def available(self) -> bool:
+        """Remain available while server is reachable even if robot is asleep."""
+        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+
+    @property
     def native_value(self) -> float | None:
         """Return duration of the last cleaning run in minutes."""
         robot = self._robot
@@ -205,10 +217,16 @@ class VacuulaTotalCleansSensor(VacuulaEntity, SensorEntity):
     _attr_name = "Total cleans"
     _attr_icon = "mdi:counter"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the total cleans sensor."""
         super().__init__(coordinator, serial, "total_cleans")
+
+    @property
+    def available(self) -> bool:
+        """Remain available while server is reachable even if robot is asleep."""
+        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
 
     @property
     def native_value(self) -> int:
