@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
-  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square" alt="HACS Custom" /></a>
+  <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
   <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.5.2-0ea5e9.svg?style=flat-square" alt="Version 0.5.2" /></a>
   <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
   <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>
@@ -55,10 +55,19 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 
 ### Option 1: HACS (Recommended)
 
-1. Open **HACS** in Home Assistant → **Integrations** → top-right menu (**⋮**) → **Custom repositories**.
+1. Open **HACS** in Home Assistant → **Integrations**.
+2. Search for **Vacuula**.
+3. Click **Download** and restart Home Assistant.
+4. Go to **Settings → Devices & Services → Add Integration** and search for **Vacuula** (or accept the automatic Zeroconf discovery prompt if `_vacuula._tcp.local.` is advertised on your LAN).
+
+<details>
+<summary><b>Custom Repository Fallback (HACS)</b></summary>
+
+If the integration does not appear in your HACS search results yet:
+1. Open **HACS** → **Integrations** → top-right menu (**⋮**) → **Custom repositories**.
 2. Add `https://github.com/Snuggert/hass-vacuula` with category **Integration**.
 3. Click **Download** on **Vacuula** and restart Home Assistant.
-4. Go to **Settings → Devices & Services → Add Integration** and search for **Vacuula** (or accept the automatic Zeroconf discovery prompt if `_vacuula._tcp.local.` is advertised on your LAN).
+</details>
 
 ### Option 2: Manual Installation
 
