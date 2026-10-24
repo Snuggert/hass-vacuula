@@ -30,12 +30,12 @@ jobs:
           fetch-depth: 1
 
       - name: Run Ruff check
-        uses: astral-sh/ruff-action@v4
+        uses: astral-sh/ruff-action@v3
         with:
           args: "check ."
 
       - name: Run Ruff format check
-        uses: astral-sh/ruff-action@v4
+        uses: astral-sh/ruff-action@v3
         with:
           args: "format --check ."
 
@@ -49,13 +49,14 @@ jobs:
           fetch-depth: 1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           python-version: "3.12"
+          activate-environment: true
 
       - name: Install dependencies
-        run: uv pip install --system -r requirements_test.txt
+        run: uv pip install -r requirements_test.txt
 
       - name: Run Mypy
         run: mypy custom_components/vacuula
@@ -99,13 +100,14 @@ jobs:
           fetch-depth: 1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
+          activate-environment: true
 
       - name: Install dependencies
-        run: uv pip install --system -r requirements_test.txt
+        run: uv pip install -r requirements_test.txt
 
       - name: Run Pytest with Coverage
         shell: bash
