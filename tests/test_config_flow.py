@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -14,8 +15,24 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 try:
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-except ImportError:
-    from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[no-redef]
+except (ImportError, ModuleNotFoundError):
+    try:
+        from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[no-redef]
+    except (ImportError, ModuleNotFoundError):
+        from dataclasses import dataclass
+
+        @dataclass
+        class ZeroconfServiceInfo:  # type: ignore[no-redef]
+            ip_address: Any = None
+            ip_addresses: list[Any] | None = None
+            host: str = ""
+            addresses: list[str] | None = None
+            port: int = 80
+            hostname: str = ""
+            type: str = ""
+            name: str = ""
+            properties: dict[str, Any] | None = None
+
 
 from custom_components.vacuula.api import VacuulaApiError
 from custom_components.vacuula.const import DOMAIN

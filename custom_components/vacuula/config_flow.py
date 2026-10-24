@@ -17,8 +17,11 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 try:
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-except ImportError:  # pragma: no cover
-    from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[attr-defined,no-redef]
+except (ImportError, ModuleNotFoundError):  # pragma: no cover
+    try:
+        from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[attr-defined,no-redef]
+    except (ImportError, ModuleNotFoundError):  # pragma: no cover
+        ZeroconfServiceInfo = Any  # type: ignore[assignment,misc]
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import DEFAULT_URL, DOMAIN
