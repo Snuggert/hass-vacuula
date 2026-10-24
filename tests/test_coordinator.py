@@ -44,10 +44,16 @@ async def test_coordinator_init_and_state(hass: HomeAssistant) -> None:
     }
 
     async def mock_iter_events(_serial: str):
-        if False:
-            yield {}
+        try:
+            while True:
+                await asyncio.sleep(3600)
+                yield {}
+        except asyncio.CancelledError:
+            return
 
     client.async_iter_robot_events = mock_iter_events
+    client.async_get_maps.return_value = []
+    client.async_get_runs.return_value = []
 
     coordinator = VacuulaCoordinator(hass, entry, client)
     data = await coordinator._async_update_data()

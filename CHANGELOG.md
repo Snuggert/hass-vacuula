@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.5.2] - 2026-10-24
 
 ### Added
+- **Vacuula Target Platform:** Tested and validated against Vacuula server `1.1.0` (specifically build `1.1.0-b9` from upstream/fork). Going forward, `hass-vacuula` intends to closely follow the upstream Vacuula release schedule to ensure ongoing protocol, schema, and API compatibility.
 - **Quality & Testing Suite:** Comprehensive automated test suite with pytest covering config flow, API client, map renderer, diagnostics, coordinator, domain services, and vacuum platform.
 - **Continuous Integration:** Hardened GitHub Actions CI pipeline running Hassfest, HACS validation (9/9 checks), Ruff linting & formatting, Mypy static type checking, and Pytest across Python 3.12 and 3.13 matrix.
 - **Gated Releases:** Release pipeline automatically gated on passing quality validations before publishing GitHub Releases.

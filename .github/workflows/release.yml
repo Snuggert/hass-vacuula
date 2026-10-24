@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish as a GitHub Release (e.g. v0.5.2)"
+        description: "Tag to promote to public GitHub Release (e.g. v0.5.2)"
         required: true
         default: "v0.5.2"
+      promote:
+        description: "Promote to public release (true = publish publicly, false = draft only)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -20,21 +24,23 @@ jobs:
     uses: ./.github/workflows/validate.yml
 
   release:
-    name: Create GitHub Release
+    name: Publish or Prepare Release
     needs: [validate]
     runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://github.com/${{ github.repository }}/releases/tag/${{ github.event.inputs.tag || github.ref_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Publish GitHub Release
+      - name: Create or Promote GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release delete "$TAG" --yes
-          fi
+          IS_DISPATCH="${{ github.event_name == 'workflow_dispatch' }}"
+          SHOULD_PROMOTE="${{ github.event.inputs.promote || 'false' }}"
 
           # Extract release notes for this tag from CHANGELOG.md if present
           python3 -c '
@@ -66,8 +72,31 @@ jobs:
                   out.write(extracted + "\n")
           ' "$TAG"
 
+          NOTES_ARG="--generate-notes"
           if [ -s "RELEASE_NOTES.md" ]; then
-            gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md
+            NOTES_ARG="--notes-file RELEASE_NOTES.md"
+          fi
+
+          # Check if a release for this tag already exists
+          EXISTS=false
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            EXISTS=true
+          fi
+
+          if [ "$IS_DISPATCH" = "true" ] && [ "$SHOULD_PROMOTE" = "true" ]; then
+            echo "🚀 Promoting $TAG to full public release after manual approval..."
+            if [ "$EXISTS" = "true" ]; then
+              gh release edit "$TAG" --draft=false $NOTES_ARG
+            else
+              gh release create "$TAG" --title "$TAG" --draft=false $NOTES_ARG
+            fi
+            echo "✅ Release $TAG is now publicly published!"
           else
-            gh release create "$TAG" --title "$TAG" --generate-notes
+            echo "📝 Preparing draft release for $TAG (awaiting manual testing & promotion)..."
+            if [ "$EXISTS" = "true" ]; then
+              gh release edit "$TAG" --draft=true $NOTES_ARG
+            else
+              gh release create "$TAG" --title "$TAG" --draft=true $NOTES_ARG
+            fi
+            echo "📌 Draft release created for $TAG. Test it, then promote it to release!"
           fi

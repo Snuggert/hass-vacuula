@@ -8,7 +8,6 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from . import VacuulaConfigEntry
@@ -109,7 +108,7 @@ class VacuulaRefreshMapsButton(VacuulaEntity, ButtonEntity):
     @property
     def available(self) -> bool:
         """Available whenever the Vacuula server is reachable."""
-        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+        return bool(self.coordinator.last_update_success and self._robot is not None)
 
     async def async_press(self) -> None:
         """Trigger a refresh of maps, boundaries, and historical runs."""

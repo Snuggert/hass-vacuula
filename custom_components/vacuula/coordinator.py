@@ -318,6 +318,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
             if not task.done():
                 task.cancel()
         self._robot_sse_tasks.clear()
+        await asyncio.sleep(0)
 
     def _sync_robot_sse_tasks(self) -> None:
         """Ensure an active SSE listener exists for each connected robot."""
@@ -428,6 +429,8 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                     err,
                 )
                 await asyncio.sleep(10)
+            if not self._stopping:
+                await asyncio.sleep(1)
 
     async def async_apply_command_response(
         self, serial: str, response: dict[str, Any] | None

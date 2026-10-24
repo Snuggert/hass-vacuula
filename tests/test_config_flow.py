@@ -21,6 +21,13 @@ from custom_components.vacuula.api import VacuulaApiError
 from custom_components.vacuula.const import DOMAIN
 
 
+@pytest.fixture(autouse=True)
+def bypass_setup_entry():
+    """Bypass entry setup during config flow tests."""
+    with patch("custom_components.vacuula.async_setup_entry", return_value=True):
+        yield
+
+
 async def test_user_step_success(hass: HomeAssistant) -> None:
     """Test standard successful setup initiated by user."""
     with patch(

@@ -8,7 +8,6 @@ from typing import Any
 from homeassistant.components.image import ImageEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .coordinator import VacuulaCoordinator
@@ -60,7 +59,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
     def available(self) -> bool:
         """Remain available while server is reachable and floor map is loaded."""
         return bool(
-            CoordinatorEntity.available.fget(self)
+            self.coordinator.last_update_success
             and self._robot is not None
             and self._robot.floormap is not None
         )
@@ -124,7 +123,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
     def available(self) -> bool:
         """Remain available while server is reachable and run or floor map is loaded."""
         return bool(
-            CoordinatorEntity.available.fget(self)
+            self.coordinator.last_update_success
             and self._robot is not None
             and (
                 self._robot.last_runmap is not None or self._robot.floormap is not None

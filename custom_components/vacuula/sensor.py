@@ -13,7 +13,6 @@ from homeassistant.components.sensor import (
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfArea, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .const import GEN3_ACTION_NAMES, ROBOT_TYPE_GEN3
@@ -143,7 +142,7 @@ class VacuulaLastCleanAreaSensor(VacuulaEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Remain available while server is reachable even if robot is asleep."""
-        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+        return bool(self.coordinator.last_update_success and self._robot is not None)
 
     @property
     def native_value(self) -> float | None:
@@ -189,7 +188,7 @@ class VacuulaLastCleanDurationSensor(VacuulaEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Remain available while server is reachable even if robot is asleep."""
-        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+        return bool(self.coordinator.last_update_success and self._robot is not None)
 
     @property
     def native_value(self) -> float | None:
@@ -225,7 +224,7 @@ class VacuulaTotalCleansSensor(VacuulaEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Remain available while server is reachable even if robot is asleep."""
-        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+        return bool(self.coordinator.last_update_success and self._robot is not None)
 
     @property
     def native_value(self) -> int:

@@ -9,7 +9,6 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
 from .const import ROBOT_TYPE_GEN3
@@ -60,7 +59,7 @@ class VacuulaConnectedBinarySensor(VacuulaEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         """Available whenever the Vacuula server itself is reachable."""
-        return bool(CoordinatorEntity.available.fget(self) and self._robot is not None)
+        return bool(self.coordinator.last_update_success and self._robot is not None)
 
     @property
     def is_on(self) -> bool:

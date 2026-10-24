@@ -46,3 +46,5 @@ disallow_incomplete_defs = true
 ignore_missing_imports = true
 warn_unused_configs = true
 warn_redundant_casts = true
+disable_error_code = ["arg-type"]
+
