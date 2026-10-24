@@ -1,4 +1,5 @@
 """Config flow for Vacuula integration."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,10 +7,18 @@ from urllib.parse import urlsplit
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+try:
+    from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+except ImportError:  # pragma: no cover
+    from homeassistant.config_entries import ConfigFlow
+    from homeassistant.data_entry_flow import FlowResult as ConfigFlowResult  # type: ignore[assignment]
 from homeassistant.const import CONF_URL
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+
+try:
+    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+except ImportError:  # pragma: no cover
+    from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[no-redef]
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import DEFAULT_URL, DOMAIN
@@ -38,7 +47,7 @@ def _normalize_url(raw: str) -> str | None:
     return value.rstrip("/")
 
 
-class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
+class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for Vacuula."""
 
     VERSION = 1
@@ -122,7 +131,11 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle zeroconf discovery of a Vacuula server (_vacuula._tcp.local.)."""
-        ip_addr = discovery_info.ip_address
+        ip_addr = getattr(discovery_info, "ip_address", None)
+        if ip_addr is None:
+            import ipaddress
+
+            ip_addr = ipaddress.ip_address(discovery_info.host)
         if ip_addr.is_link_local:
             return self.async_abort(reason="link_local_address")
 

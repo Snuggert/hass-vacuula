@@ -1,11 +1,12 @@
 """DataUpdateCoordinator for Vacuula Server with hybrid SSE push, maps, zones, and run history."""
+
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
-import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -104,19 +105,29 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
     def __init__(
         self, hass: HomeAssistant, entry: ConfigEntry, client: VacuulaApiClient
     ) -> None:
-        """Initialize the coordinator."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            config_entry=entry,
-            name=DOMAIN,
-            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
-        )
+        self.config_entry = entry
+        try:
+            super().__init__(
+                hass,
+                _LOGGER,
+                config_entry=entry,
+                name=DOMAIN,
+                update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            )
+        except TypeError:  # pragma: no cover
+            super().__init__(
+                hass,
+                _LOGGER,
+                name=DOMAIN,
+                update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            )
         self.client = client
         self._known_serials: set[str] = set()
         self._known_zones: dict[str, set[str]] = {}
         self._new_robot_callbacks: list[Callable[[list[str]], None]] = []
-        self._new_zones_callbacks: list[Callable[[str, list[dict[str, Any]]], None]] = []
+        self._new_zones_callbacks: list[
+            Callable[[str, list[dict[str, Any]]], None]
+        ] = []
         self._server_sse_task: asyncio.Task[None] | None = None
         self._robot_sse_tasks: dict[str, asyncio.Task[None]] = {}
         self._stopping = False
@@ -165,9 +176,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
     def _notify_new_zones(self, serial: str, zones: list[dict[str, Any]]) -> None:
         """Notify registered callbacks about newly discovered zones for a robot."""
         known = self._known_zones.setdefault(serial, set())
-        new_zones = [
-            z for z in zones if z.get("id") and str(z["id"]) not in known
-        ]
+        new_zones = [z for z in zones if z.get("id") and str(z["id"]) not in known]
         if not new_zones:
             return
         for z in new_zones:
@@ -202,6 +211,8 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
         robot = self.data[serial]
 
         try:
+            maps_res: Any
+            runs_res: Any
             maps_res, runs_res = await asyncio.gather(
                 self.client.async_get_maps(serial),
                 self.client.async_get_runs(serial),
@@ -264,10 +275,10 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                 latest_entry = sorted_runs[-1]
                 run_id = str(latest_entry.get("id") or "")
                 run_obj = latest_entry.get("run")
-                robot.last_run = (
-                    run_obj if isinstance(run_obj, dict) else latest_entry
-                )
-                if run_id and (run_id != robot.last_run_id or robot.last_runmap is None):
+                robot.last_run = run_obj if isinstance(run_obj, dict) else latest_entry
+                if run_id and (
+                    run_id != robot.last_run_id or robot.last_runmap is None
+                ):
                     robot.last_run_id = run_id
                     try:
                         robot.last_runmap = await self.client.async_get_run_detail(
@@ -278,6 +289,16 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
 
         robot.maps_loaded = True
         self.async_set_updated_data(dict(self.data))
+
+    def _async_create_background_task(
+        self, target: Any, name: str
+    ) -> asyncio.Task[Any]:
+        """Create a background task tied to config entry if available, falling back to hass."""
+        if hasattr(self.config_entry, "async_create_background_task"):
+            return self.config_entry.async_create_background_task(
+                self.hass, target, name
+            )
+        return self.hass.async_create_background_task(target, name)
 
     async def async_start_sse(self) -> None:
         """Start background SSE listeners for server and robot events."""
@@ -348,13 +369,11 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                         self._notify_new_robots(set(updated.keys()))
                         self._sync_robot_sse_tasks()
                         for serial in newly_connected:
-                            self.config_entry.async_create_background_task(
-                                self.hass,
+                            self._async_create_background_task(
                                 self.async_refresh_robot(serial),
                                 f"{DOMAIN}_refresh_robot_{serial}",
                             )
-                            self.config_entry.async_create_background_task(
-                                self.hass,
+                            self._async_create_background_task(
                                 self.async_refresh_maps_and_runs(serial),
                                 f"{DOMAIN}_refresh_maps_{serial}",
                             )
@@ -396,8 +415,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                     if new_state and self._did_finish_cleaning(
                         current.robot_type, old_state, new_state
                     ):
-                        self.config_entry.async_create_background_task(
-                            self.hass,
+                        self._async_create_background_task(
                             self.async_refresh_maps_and_runs(serial),
                             f"{DOMAIN}_refresh_maps_{serial}",
                         )
@@ -455,7 +473,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
         except VacuulaApiError as err:
             raise UpdateFailed(f"Failed to fetch robots from Vacuula: {err}") from err
 
-        previous = self.data or {}
+        previous: dict[str, VacuulaRobotData] = getattr(self, "data", None) or {}
         need_maps_refresh: list[str] = []
 
         async def _poll_one(

@@ -1,14 +1,14 @@
 """Async API client for Vacuula Server (Gen3 & Gen4 robots) with per-robot locking and SSE."""
+
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator
 import json
+from collections.abc import AsyncGenerator
 from typing import Any
 from urllib.parse import quote
 
 import aiohttp
-
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
@@ -79,7 +79,9 @@ class VacuulaApiClient:
 
     async def async_get_map_detail(self, serial: str, map_id: str) -> dict[str, Any]:
         """GET /api/robot/{serial}/maps/{map_id} - fetch RLE floormap.json."""
-        res = await self._request("GET", f"/api/robot/{_seg(serial)}/maps/{_seg(map_id)}")
+        res = await self._request(
+            "GET", f"/api/robot/{_seg(serial)}/maps/{_seg(map_id)}"
+        )
         return res if isinstance(res, dict) else {}
 
     async def async_get_map_boundaries(
@@ -105,7 +107,9 @@ class VacuulaApiClient:
 
     async def async_get_run_detail(self, serial: str, run_id: str) -> dict[str, Any]:
         """GET /api/robot/{serial}/run/{run_id} - fetch RLE runmap.json."""
-        res = await self._request("GET", f"/api/robot/{_seg(serial)}/run/{_seg(run_id)}")
+        res = await self._request(
+            "GET", f"/api/robot/{_seg(serial)}/run/{_seg(run_id)}"
+        )
         return res if isinstance(res, dict) else {}
 
     async def async_send_command(
@@ -269,7 +273,9 @@ class VacuulaApiClient:
             },
         )
 
-    async def async_pause_cleaning(self, serial: str, robot_type: str) -> dict[str, Any]:
+    async def async_pause_cleaning(
+        self, serial: str, robot_type: str
+    ) -> dict[str, Any]:
         """Pause cleaning."""
         payload = (
             {"cmd": "pauseCleaning"}
@@ -278,7 +284,9 @@ class VacuulaApiClient:
         )
         return await self.async_send_command(serial, payload)
 
-    async def async_resume_cleaning(self, serial: str, robot_type: str) -> dict[str, Any]:
+    async def async_resume_cleaning(
+        self, serial: str, robot_type: str
+    ) -> dict[str, Any]:
         """Resume cleaning."""
         payload = (
             {"cmd": "resumeCleaning"}
@@ -296,7 +304,9 @@ class VacuulaApiClient:
         )
         return await self.async_send_command(serial, payload)
 
-    async def async_return_to_base(self, serial: str, robot_type: str) -> dict[str, Any]:
+    async def async_return_to_base(
+        self, serial: str, robot_type: str
+    ) -> dict[str, Any]:
         """Send robot back to its charging base."""
         payload = (
             {"cmd": "sendToBase"}
@@ -327,7 +337,9 @@ class VacuulaApiClient:
     ) -> dict[str, Any]:
         """Enable or disable the schedule on a Gen3 robot."""
         if robot_type != ROBOT_TYPE_GEN3:
-            raise VacuulaApiError("Schedule toggle switch is only supported on Gen3 robots")
+            raise VacuulaApiError(
+                "Schedule toggle switch is only supported on Gen3 robots"
+            )
         cmd = "enableSchedule" if enabled else "disableSchedule"
         return await self.async_send_command(serial, {"cmd": cmd})
 
@@ -352,7 +364,9 @@ class VacuulaApiClient:
                         continue
                     event_name = "message"
 
-    async def async_iter_robot_events(self, serial: str) -> AsyncGenerator[dict[str, Any]]:
+    async def async_iter_robot_events(
+        self, serial: str
+    ) -> AsyncGenerator[dict[str, Any]]:
         """Subscribe to GET /api/robot/{serial}/connect SSE stream yielding parsed JSON."""
         url = f"{self.base_url}/api/robot/{_seg(serial)}/connect"
         timeout = aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=45)

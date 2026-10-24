@@ -1,4 +1,5 @@
 """Switch entities for Vacuula robot vacuums (Gen3 schedule toggle)."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -15,8 +15,13 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    name: Run Quality Gates
+    uses: ./.github/workflows/validate.yml
+
   release:
     name: Create GitHub Release
+    needs: [validate]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

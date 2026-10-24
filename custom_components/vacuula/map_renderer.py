@@ -1,9 +1,10 @@
 """Pure-Python RLE map and boundary PNG renderer for Vacuula floorplans and run maps."""
+
 from __future__ import annotations
 
 import struct
-from typing import Any
 import zlib
+from typing import Any
 
 
 def _parse_hex_color(
@@ -330,7 +331,9 @@ def render_map_png(
                 rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (45, 55, 72, 255)
 
     # Fill zone polygons on base floor grid
-    parsed_boundaries: list[tuple[str, tuple[int, int, int], list[tuple[int, int]]]] = []
+    parsed_boundaries: list[
+        tuple[str, tuple[int, int, int], list[tuple[int, int]]]
+    ] = []
     if boundaries and floormap:
         for bnd in boundaries:
             verts = bnd.get("vertices")
@@ -395,7 +398,15 @@ def render_map_png(
                 p0 = pts[i]
                 p1 = pts[(i + 1) % len(pts)]
                 _draw_line(
-                    rgba, width, height, p0[0], p0[1], p1[0], p1[1], outline_rgba, thickness=1
+                    rgba,
+                    width,
+                    height,
+                    p0[0],
+                    p0[1],
+                    p1[0],
+                    p1[1],
+                    outline_rgba,
+                    thickness=1,
                 )
         else:
             for i in range(len(pts) - 1):

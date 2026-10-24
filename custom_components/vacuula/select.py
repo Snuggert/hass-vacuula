@@ -1,4 +1,5 @@
 """Select entities for Vacuula robot vacuums (Navigation mode, Cleaning category, Target zone)."""
+
 from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
@@ -112,9 +113,7 @@ class VacuulaCleaningCategorySelect(VacuulaEntity, SelectEntity):
         if not self.robot:
             return
         self.robot.preferred_category = (
-            GEN3_CATEGORY_HOUSE
-            if option == CLEAN_CATEGORY_HOUSE
-            else GEN3_CATEGORY_MAP
+            GEN3_CATEGORY_HOUSE if option == CLEAN_CATEGORY_HOUSE else GEN3_CATEGORY_MAP
         )
         self.coordinator.async_update_listeners()
 
@@ -134,9 +133,7 @@ class VacuulaTargetZoneSelect(VacuulaEntity, SelectEntity):
         """Return 'all' plus all discovered room zone names on the active floorplan."""
         if not self.robot:
             return [ALL_ZONES_OPTION]
-        zone_names = [
-            str(z["name"]) for z in self.robot.zones if z.get("name")
-        ]
+        zone_names = [str(z["name"]) for z in self.robot.zones if z.get("name")]
         seen: set[str] = {ALL_ZONES_OPTION}
         opts = [ALL_ZONES_OPTION]
         for name in zone_names:

@@ -1,0 +1,48 @@
+[project]
+name = "hass-vacuula"
+version = "0.5.2"
+description = "Home Assistant integration for local Vacuula servers and Neato Botvac robots"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Snuggert" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "UP040", # TypeAlias annotation (standard in HA custom components)
+    "UP042", # StrEnum fallback for older python environments
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.vacuula"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_redundant_casts = true

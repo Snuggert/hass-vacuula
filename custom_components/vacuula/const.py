@@ -1,4 +1,5 @@
 """Constants for the Vacuula integration."""
+
 from homeassistant.const import Platform
 
 DOMAIN = "vacuula"
@@ -38,9 +39,7 @@ GEN3_NAV_MODE_TO_CODE: dict[str, int] = {
     NAV_MODE_EXTRA_CARE: 2,
     NAV_MODE_DEEP: 3,
 }
-GEN3_NAV_CODE_TO_NAME: dict[int, str] = {
-    v: k for k, v in GEN3_NAV_MODE_TO_CODE.items()
-}
+GEN3_NAV_CODE_TO_NAME: dict[int, str] = {v: k for k, v in GEN3_NAV_MODE_TO_CODE.items()}
 
 # Cleaning categories (Gen3)
 CLEAN_CATEGORY_MAP = "map"

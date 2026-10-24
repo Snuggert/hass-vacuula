@@ -1,7 +1,8 @@
 """Image platform for Vacuula robot floor maps and last cleaning run maps."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.image import ImageEntity
@@ -53,7 +54,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         ImageEntity.__init__(self, coordinator.hass)
         self._cached_key: tuple[str | None, int] | None = None
         self._cached_png: bytes | None = None
-        self._attr_image_last_updated = datetime.now(timezone.utc)
+        self._attr_image_last_updated = datetime.now(UTC)
 
     @property
     def available(self) -> bool:
@@ -84,7 +85,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         if robot:
             new_key = (robot.active_map_id, len(robot.boundaries))
             if new_key != self._cached_key:
-                self._attr_image_last_updated = datetime.now(timezone.utc)
+                self._attr_image_last_updated = datetime.now(UTC)
         super()._handle_coordinator_update()
 
     async def async_image(self) -> bytes | None:
@@ -117,7 +118,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         ImageEntity.__init__(self, coordinator.hass)
         self._cached_key: tuple[str | None, str | None, int] | None = None
         self._cached_png: bytes | None = None
-        self._attr_image_last_updated = datetime.now(timezone.utc)
+        self._attr_image_last_updated = datetime.now(UTC)
 
     @property
     def available(self) -> bool:
@@ -125,7 +126,9 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         return bool(
             CoordinatorEntity.available.fget(self)
             and self._robot is not None
-            and (self._robot.last_runmap is not None or self._robot.floormap is not None)
+            and (
+                self._robot.last_runmap is not None or self._robot.floormap is not None
+            )
         )
 
     @property
@@ -155,7 +158,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
                 len(robot.boundaries),
             )
             if new_key != self._cached_key:
-                self._attr_image_last_updated = datetime.now(timezone.utc)
+                self._attr_image_last_updated = datetime.now(UTC)
         super()._handle_coordinator_update()
 
     async def async_image(self) -> bytes | None:

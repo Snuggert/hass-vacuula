@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.5.2] - 2026-10-24
 
+### Added
+- **Quality & Testing Suite:** Comprehensive automated test suite with pytest covering config flow, API client, map renderer, diagnostics, coordinator, domain services, and vacuum platform.
+- **Continuous Integration:** Hardened GitHub Actions CI pipeline running Hassfest, HACS validation (9/9 checks), Ruff linting & formatting, Mypy static type checking, and Pytest across Python 3.12 and 3.13 matrix.
+- **Gated Releases:** Release pipeline automatically gated on passing quality validations before publishing GitHub Releases.
+
 ### Security
 - **Lovelace card:** every value interpolated into `innerHTML` is now HTML-escaped (`&`, `<`, `>`, `"`, `'`) in both the card and the visual editor. This covers entity IDs, titles and friendly names, states, subtitles, zone names, the start button label, fan speeds, navigation modes and battery values. Room names containing markup are no longer rendered as HTML.
 - **Lovelace card:** zone colors are validated before use in inline styles, and map image URLs are restricted to relative or `http(s)` URLs.

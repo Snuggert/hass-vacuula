@@ -1,4 +1,5 @@
 """Button platform for Vacuula robots (Locate, Dismiss Alert, Explore Map, Refresh Maps, Per-Room Zone Clean)."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -41,9 +42,7 @@ async def async_setup_entry(
         async_add_entities(entities)
 
     @callback
-    def _async_add_new_zones(
-        serial: str, zones: list[dict[str, Any]]
-    ) -> None:
+    def _async_add_new_zones(serial: str, zones: list[dict[str, Any]]) -> None:
         async_add_entities(
             VacuulaCleanZoneButton(
                 coordinator,
@@ -58,9 +57,7 @@ async def async_setup_entry(
     entry.async_on_unload(
         coordinator.register_new_robot_callback(_async_add_new_robots)
     )
-    entry.async_on_unload(
-        coordinator.register_new_zones_callback(_async_add_new_zones)
-    )
+    entry.async_on_unload(coordinator.register_new_zones_callback(_async_add_new_zones))
 
 
 class VacuulaLocateButton(VacuulaEntity, ButtonEntity):
@@ -76,9 +73,7 @@ class VacuulaLocateButton(VacuulaEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Play locate sound on the robot."""
         if robot := self._robot:
-            await self.coordinator.client.async_locate(
-                self._serial, robot.robot_type
-            )
+            await self.coordinator.client.async_locate(self._serial, robot.robot_type)
 
 
 class VacuulaDismissAlertButton(VacuulaEntity, ButtonEntity):

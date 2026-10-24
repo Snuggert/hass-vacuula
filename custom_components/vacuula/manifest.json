@@ -1,10 +1,10 @@
 {
   "domain": "vacuula",
   "name": "Vacuula",
-  "after_dependencies": ["lovelace"],
+  "after_dependencies": ["http", "lovelace"],
   "codeowners": ["@Snuggert"],
   "config_flow": true,
-  "dependencies": ["http", "frontend"],
+  "dependencies": [],
   "documentation": "https://github.com/Snuggert/hass-vacuula",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Snuggert/hass-vacuula/issues",

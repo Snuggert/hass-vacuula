@@ -1,4 +1,5 @@
 """Sensor platform for Vacuula robots (Battery, Action, Alert, Last Clean Area/Duration, Total Cleans)."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -116,9 +117,7 @@ class VacuulaAlertSensor(VacuulaEntity, SensorEntity):
         if not robot or not robot.state:
             return "none"
         if robot.robot_type == ROBOT_TYPE_GEN3:
-            return str(
-                robot.state.get("error") or robot.state.get("alert") or "none"
-            )
+            return str(robot.state.get("error") or robot.state.get("alert") or "none")
         errors = self._gen4_body.get("errors")
         if isinstance(errors, list) and errors:
             first = errors[0]

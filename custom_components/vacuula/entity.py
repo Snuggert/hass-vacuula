@@ -1,9 +1,13 @@
 """Base entity for Vacuula robots."""
+
 from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.helpers.device_registry import DeviceInfo
+try:
+    from homeassistant.helpers.device_registry import DeviceInfo
+except ImportError:  # pragma: no cover
+    from homeassistant.helpers.entity import DeviceInfo  # type: ignore[assignment]
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, ROBOT_TYPE_GEN3
@@ -24,7 +28,9 @@ class VacuulaEntity(CoordinatorEntity[VacuulaCoordinator]):
     @property
     def _robot(self) -> VacuulaRobotData | None:
         """Return current robot data from coordinator."""
-        return self.coordinator.data.get(self._serial) if self.coordinator.data else None
+        return (
+            self.coordinator.data.get(self._serial) if self.coordinator.data else None
+        )
 
     @property
     def robot(self) -> VacuulaRobotData | None:

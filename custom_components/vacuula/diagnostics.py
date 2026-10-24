@@ -3,6 +3,7 @@
 Sensitive fields (robot serials, MAC addresses, secrets and the server URL)
 are redacted with ``async_redact_data`` before being returned.
 """
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,17 +1,23 @@
 """The Vacuula integration."""
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 from typing import Any, TypeAlias
+
 import voluptuous as vol
 
-from homeassistant.components.http import StaticPathConfig
+try:
+    from homeassistant.components.http import StaticPathConfig
+except ImportError:  # pragma: no cover
+    StaticPathConfig = None  # type: ignore[assignment,misc]
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, CONF_URL
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VacuulaApiClient
@@ -29,12 +35,13 @@ _LOGGER = logging.getLogger(__name__)
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
 FRONTEND_VERSION = "0.5.2"
 
-VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
+try:
+    VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
+except TypeError:  # pragma: no cover
+    VacuulaConfigEntry: TypeAlias = ConfigEntry  # type: ignore[misc,no-redef]
 
 
-async def _async_register_lovelace_resource(
-    hass: HomeAssistant, url: str
-) -> None:
+async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:
     """Automatically register or update the card in Lovelace storage resources."""
     lovelace_data: Any = hass.data.get("lovelace")
     if lovelace_data is None:
@@ -72,16 +79,40 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     versioned_url = f"{FRONTEND_URL}?v={FRONTEND_VERSION}"
     try:
         if not hass.data.get(flag_key):
-            await hass.http.async_register_static_paths(
-                [StaticPathConfig(FRONTEND_URL, str(card_path), cache_headers=False)]
-            )
+            if StaticPathConfig is not None and hasattr(
+                hass.http, "async_register_static_paths"
+            ):
+                await hass.http.async_register_static_paths(
+                    [
+                        StaticPathConfig(
+                            FRONTEND_URL, str(card_path), cache_headers=False
+                        )
+                    ]
+                )
+            elif hasattr(hass.http, "register_static_path"):
+                hass.http.register_static_path(
+                    FRONTEND_URL, str(card_path), cache_headers=False
+                )
             hass.data[flag_key] = True
         await _async_register_lovelace_resource(hass, versioned_url)
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not register Vacuula Lovelace card: %s", err)
 
 
-def _serial_from_entity_id(hass: HomeAssistant, entity_id: str | list[str] | None) -> str | None:
+def _async_get_loaded_entries(hass: HomeAssistant) -> list[VacuulaConfigEntry]:
+    """Return loaded config entries for Vacuula, compatible across HA versions."""
+    if hasattr(hass.config_entries, "async_loaded_entries"):
+        return hass.config_entries.async_loaded_entries(DOMAIN)
+    return [
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if getattr(entry, "runtime_data", None) is not None
+    ]
+
+
+def _serial_from_entity_id(
+    hass: HomeAssistant, entity_id: str | list[str] | None
+) -> str | None:
     """Resolve a robot serial from a Home Assistant entity_id if provided."""
     if not entity_id:
         return None
@@ -93,7 +124,7 @@ def _serial_from_entity_id(hass: HomeAssistant, entity_id: str | list[str] | Non
     reg_entry = ent_reg.async_get(target_eid)
     if reg_entry and reg_entry.unique_id:
         uid = reg_entry.unique_id
-        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+        for entry in _async_get_loaded_entries(hass):
             coord: VacuulaCoordinator = entry.runtime_data
             if coord.data:
                 for rob_serial in coord.data:
@@ -109,7 +140,7 @@ def _resolve_target_robot(
 ) -> tuple[VacuulaCoordinator, VacuulaRobotData]:
     """Find the coordinator and robot matching serial/entity_id, or the sole robot if omitted."""
     resolved_serial = serial or _serial_from_entity_id(hass, entity_id)
-    entries: list[VacuulaConfigEntry] = hass.config_entries.async_loaded_entries(DOMAIN)
+    entries: list[VacuulaConfigEntry] = _async_get_loaded_entries(hass)
     all_robots: list[tuple[VacuulaCoordinator, VacuulaRobotData]] = []
     for entry in entries:
         coord: VacuulaCoordinator = entry.runtime_data
@@ -194,7 +225,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             coord, robot = _resolve_target_robot(hass, serial, entity_id)
             await coord.async_refresh_maps_and_runs(robot.serial)
             return
-        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+        for entry in _async_get_loaded_entries(hass):
             coord = entry.runtime_data
             if coord.data:
                 for rob_serial in list(coord.data.keys()):
@@ -269,7 +300,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> 
     """Unload a config entry."""
     await entry.runtime_data.async_stop_sse()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok and not hass.config_entries.async_loaded_entries(DOMAIN):
+    if unload_ok and not _async_get_loaded_entries(hass):
         for service in (
             SERVICE_CLEAN_ZONES,
             SERVICE_CLEAN_SPOT,
