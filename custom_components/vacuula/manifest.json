@@ -2,6 +2,9 @@
   "domain": "vacuula",
   "name": "Vacuula",
   "after_dependencies": ["http", "lovelace"],
+  "categories": [
+    "appliances_cleaning.cleaning"
+  ],
   "codeowners": ["@Snuggert"],
   "config_flow": true,
   "dependencies": [],
