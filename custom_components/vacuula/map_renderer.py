@@ -21,14 +21,21 @@ def _parse_hex_color(
     return default
 
 
+MAX_MAP_DIM = 4096
+
+
 def _decode_rle(rle: list[list[int]], expected_len: int, default_val: int) -> bytearray:
     """Decode Vacuula [[value, count], ...] RLE array into a flat bytearray."""
     buf = bytearray()
     for pair in rle:
-        if len(pair) >= 2:
-            val = pair[0] & 0xFF
-            count = max(0, int(pair[1]))
-            buf.extend(bytes([val]) * count)
+        if len(buf) >= expected_len:
+            break
+        if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+            val = int(pair[0]) & 0xFF
+            remaining = expected_len - len(buf)
+            count = min(max(0, int(pair[1])), remaining)
+            if count > 0:
+                buf.extend(bytes([val]) * count)
     if len(buf) < expected_len:
         buf.extend(bytes([default_val]) * (expected_len - len(buf)))
     elif len(buf) > expected_len:
@@ -176,7 +183,7 @@ def get_crop_box(
         return (0, 0, 1, 1, 1, 1)
     width = int(base_map.get("width", 0))
     height = int(base_map.get("height", 0))
-    if width <= 0 or height <= 0:
+    if width <= 0 or height <= 0 or width > MAX_MAP_DIM or height > MAX_MAP_DIM:
         return (0, 0, 1, 1, 1, 1)
 
     total = width * height
@@ -284,7 +291,7 @@ def render_map_png(
 
     width = int(base_map.get("width", 0))
     height = int(base_map.get("height", 0))
-    if width <= 0 or height <= 0:
+    if width <= 0 or height <= 0 or width > MAX_MAP_DIM or height > MAX_MAP_DIM:
         return None
 
     total = width * height

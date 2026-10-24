@@ -27,7 +27,7 @@ from .coordinator import VacuulaCoordinator, VacuulaRobotData
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.5.1"
+FRONTEND_VERSION = "0.5.2"
 
 VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
 
@@ -253,7 +253,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
 
     session = async_get_clientsession(hass)
     client = VacuulaApiClient(entry.data[CONF_URL], session)
-    coordinator = VacuulaCoordinator(hass, client)
+    coordinator = VacuulaCoordinator(hass, entry, client)
 
     await coordinator.async_config_entry_first_refresh()
 

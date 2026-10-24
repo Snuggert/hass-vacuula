@@ -5,8 +5,11 @@ import asyncio
 from collections.abc import AsyncGenerator
 import json
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
+
+from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     FAN_SPEED_ECO,
@@ -23,8 +26,16 @@ from .const import (
 )
 
 
-class VacuulaApiError(Exception):
+class VacuulaApiError(HomeAssistantError):
     """Exception raised for Vacuula API errors."""
+
+
+def _seg(value: Any) -> str:
+    """Percent-encode a single URL path segment, rejecting traversal segments."""
+    text = str(value)
+    if text in ("", ".", ".."):
+        raise VacuulaApiError(f"Invalid identifier in request path: {text!r}")
+    return quote(text, safe="")
 
 
 class VacuulaApiClient:
@@ -63,12 +74,12 @@ class VacuulaApiClient:
 
     async def async_get_maps(self, serial: str) -> list[dict[str, Any]]:
         """GET /api/robot/{serial}/maps - list saved persistent maps / floorplans."""
-        res = await self._request("GET", f"/api/robot/{serial}/maps")
+        res = await self._request("GET", f"/api/robot/{_seg(serial)}/maps")
         return res if isinstance(res, list) else []
 
     async def async_get_map_detail(self, serial: str, map_id: str) -> dict[str, Any]:
         """GET /api/robot/{serial}/maps/{map_id} - fetch RLE floormap.json."""
-        res = await self._request("GET", f"/api/robot/{serial}/maps/{map_id}")
+        res = await self._request("GET", f"/api/robot/{_seg(serial)}/maps/{_seg(map_id)}")
         return res if isinstance(res, dict) else {}
 
     async def async_get_map_boundaries(
@@ -83,18 +94,18 @@ class VacuulaApiClient:
             boundaries = resp.get("data", {}).get("boundaries", [])
             return boundaries if isinstance(boundaries, list) else []
         res = await self._request(
-            "GET", f"/api/robot/{serial}/maps/{map_id}/boundaries"
+            "GET", f"/api/robot/{_seg(serial)}/maps/{_seg(map_id)}/boundaries"
         )
         return res if isinstance(res, list) else []
 
     async def async_get_runs(self, serial: str) -> list[dict[str, Any]]:
         """GET /api/robot/{serial}/runs - list historical cleaning runs."""
-        res = await self._request("GET", f"/api/robot/{serial}/runs")
+        res = await self._request("GET", f"/api/robot/{_seg(serial)}/runs")
         return res if isinstance(res, list) else []
 
     async def async_get_run_detail(self, serial: str, run_id: str) -> dict[str, Any]:
         """GET /api/robot/{serial}/run/{run_id} - fetch RLE runmap.json."""
-        res = await self._request("GET", f"/api/robot/{serial}/run/{run_id}")
+        res = await self._request("GET", f"/api/robot/{_seg(serial)}/run/{_seg(run_id)}")
         return res if isinstance(res, dict) else {}
 
     async def async_send_command(
@@ -103,7 +114,7 @@ class VacuulaApiClient:
         """POST /api/robot/{serial}/command - serialized per robot."""
         async with self._get_lock(serial):
             return await self._request(
-                "POST", f"/api/robot/{serial}/command", json=payload
+                "POST", f"/api/robot/{_seg(serial)}/command", json=payload
             )
 
     async def async_get_robot_state(
@@ -343,7 +354,7 @@ class VacuulaApiClient:
 
     async def async_iter_robot_events(self, serial: str) -> AsyncGenerator[dict[str, Any]]:
         """Subscribe to GET /api/robot/{serial}/connect SSE stream yielding parsed JSON."""
-        url = f"{self.base_url}/api/robot/{serial}/connect"
+        url = f"{self.base_url}/api/robot/{_seg(serial)}/connect"
         timeout = aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=45)
         async with self._session.get(url, timeout=timeout) as resp:
             resp.raise_for_status()
@@ -371,5 +382,7 @@ class VacuulaApiClient:
                     text = await resp.text()
                     raise VacuulaApiError(f"HTTP {resp.status} from {url}: {text}")
                 return await resp.json(content_type=None)
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise VacuulaApiError(f"Connection error talking to {url}: {err}") from err
+        except ValueError as err:
+            raise VacuulaApiError(f"Invalid response from {url}: {err}") from err

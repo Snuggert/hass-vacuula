@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
+
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
@@ -11,6 +13,29 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import DEFAULT_URL, DOMAIN
+
+
+def _normalize_url(raw: str) -> str | None:
+    """Normalize a user-supplied server URL, returning None if it is invalid.
+
+    A missing scheme defaults to http://. Only http and https are accepted,
+    and the URL must contain a host. Trailing slashes are stripped.
+    """
+    value = raw.strip()
+    if not value:
+        return None
+    if "://" not in value:
+        value = f"http://{value}"
+    try:
+        parts = urlsplit(value)
+        _ = parts.port  # Raises ValueError on an invalid port
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return None
+    if parts.query or parts.fragment:
+        return None
+    return value.rstrip("/")
 
 
 class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -23,6 +48,25 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered_url: str | None = None
         self._discovered_version: str = "Server"
 
+    async def _async_validate(
+        self, raw_url: str, errors: dict[str, str]
+    ) -> tuple[str, dict[str, Any]] | None:
+        """Validate a URL and connectivity, populating errors on failure."""
+        url = _normalize_url(raw_url)
+        if url is None:
+            errors[CONF_URL] = "invalid_url"
+            return None
+        client = VacuulaApiClient(url, async_get_clientsession(self.hass))
+        try:
+            info = await client.async_get_server_info()
+        except VacuulaApiError:
+            errors["base"] = "cannot_connect"
+            return None
+        if not isinstance(info, dict):
+            errors["base"] = "cannot_connect"
+            return None
+        return url, info
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -30,14 +74,9 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            url = user_input[CONF_URL].rstrip("/")
-            session = async_get_clientsession(self.hass)
-            client = VacuulaApiClient(url, session)
-            try:
-                info = await client.async_get_server_info()
-            except VacuulaApiError:
-                errors["base"] = "cannot_connect"
-            else:
+            result = await self._async_validate(user_input[CONF_URL], errors)
+            if result is not None:
+                url, info = result
                 await self.async_set_unique_id(url)
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
@@ -59,16 +98,15 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            url = user_input[CONF_URL].rstrip("/")
-            session = async_get_clientsession(self.hass)
-            client = VacuulaApiClient(url, session)
-            try:
-                info = await client.async_get_server_info()
-            except VacuulaApiError:
-                errors["base"] = "cannot_connect"
-            else:
+            result = await self._async_validate(user_input[CONF_URL], errors)
+            if result is not None:
+                url, info = result
+                if url != reconfigure_entry.unique_id:
+                    await self.async_set_unique_id(url)
+                    self._abort_if_unique_id_configured()
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
+                    unique_id=url,
                     title=f"Vacuula ({info.get('version', 'Server')})",
                     data_updates={CONF_URL: url},
                 )
@@ -84,7 +122,11 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle zeroconf discovery of a Vacuula server (_vacuula._tcp.local.)."""
-        host = discovery_info.host
+        ip_addr = discovery_info.ip_address
+        if ip_addr.is_link_local:
+            return self.async_abort(reason="link_local_address")
+
+        host = f"[{ip_addr}]" if ip_addr.version == 6 else str(ip_addr)
         port = discovery_info.port or 80
         url = f"http://{host}" if port == 80 else f"http://{host}:{port}"
 
@@ -96,6 +138,8 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             info = await client.async_get_server_info()
         except VacuulaApiError:
+            return self.async_abort(reason="cannot_connect")
+        if not isinstance(info, dict):
             return self.async_abort(reason="cannot_connect")
 
         self._discovered_url = url

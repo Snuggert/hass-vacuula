@@ -3,6 +3,34 @@
  * Auto-registered by the hass-vacuula integration.
  */
 
+const ESC_MAP = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(val) {
+  return String(val ?? "").replace(/[&<>"']/g, (ch) => ESC_MAP[ch]);
+}
+
+function sanitizeColor(val) {
+  const str = String(val ?? "").trim();
+  if (/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{1,20})$/.test(str)) {
+    return str;
+  }
+  return "#38bdf8";
+}
+
+function sanitizeImgUrl(val) {
+  const str = String(val ?? "").trim();
+  if (str.startsWith("/") || /^https?:\/\//i.test(str)) {
+    return escapeHtml(str);
+  }
+  return "";
+}
+
 class VacuulaMapCard extends HTMLElement {
   constructor() {
     super();
@@ -102,14 +130,17 @@ class VacuulaMapCard extends HTMLElement {
       this._viewMode,
       Array.from(this._selectedZones),
       vac?.state,
+      vac?.attributes?.friendly_name,
       vac?.attributes?.fan_speed,
       vac?.attributes?.navigation_mode,
       vac?.attributes?.action,
       vac?.attributes?.alert,
       vac?.attributes?.error,
+      vac?.attributes?.active_map_name,
       floor?.state,
       floor?.attributes?.entity_picture,
-      floor?.attributes?.zones?.length,
+      floor?.attributes?.map_name,
+      floor?.attributes?.zones,
       run?.state,
       run?.attributes?.entity_picture,
       batt?.state,
@@ -542,7 +573,7 @@ class VacuulaMapCard extends HTMLElement {
     const slug = this._slug();
     const vacState = this._getState(this._config.entity);
     if (!vacState) {
-      root.innerHTML = `<div class="empty-map">Entity <b>${this._config.entity}</b> not found</div>`;
+      root.innerHTML = `<div class="empty-map">Entity <b>${escapeHtml(this._config.entity)}</b> not found</div>`;
       return;
     }
 
@@ -555,7 +586,9 @@ class VacuulaMapCard extends HTMLElement {
 
     const activeImgState =
       this._viewMode === "run" && runState ? runState : floorState || runState;
-    const imgUrl = activeImgState?.attributes?.entity_picture || "";
+    const imgUrl = sanitizeImgUrl(
+      activeImgState?.attributes?.entity_picture || ""
+    );
 
     const zones =
       floorState?.attributes?.zones ||
@@ -596,7 +629,7 @@ class VacuulaMapCard extends HTMLElement {
     }
     const subtitleParts = [mapName];
     if (actionStr && actionStr !== "idle")
-      subtitleParts.push(actionStr.replace(/_/g, " "));
+      subtitleParts.push(String(actionStr).replace(/_/g, " "));
     if (lastRunParts.length)
       subtitleParts.push(`Last: ${lastRunParts.join(" · ")}`);
 
@@ -626,10 +659,14 @@ class VacuulaMapCard extends HTMLElement {
       .filter((z) => Array.isArray(z.points) && z.points.length >= 3)
       .map((z) => {
         const ptsStr = z.points
-          .map((p) => `${Math.round(p[0] * 1000)},${Math.round(p[1] * 1000)}`)
+          .map(
+            (p) =>
+              `${Math.round(Number(p[0]) * 1000)},${Math.round(Number(p[1]) * 1000)}`
+          )
           .join(" ");
         const isSel = this._selectedZones.has(z.name);
-        return `<polygon class="zone-poly ${isSel ? "selected" : ""}" data-zone="${z.name}" points="${ptsStr}" />`;
+        const zNameEsc = escapeHtml(z.name);
+        return `<polygon class="zone-poly ${isSel ? "selected" : ""}" data-zone="${zNameEsc}" points="${escapeHtml(ptsStr)}" />`;
       })
       .join("");
 
@@ -639,11 +676,14 @@ class VacuulaMapCard extends HTMLElement {
             .filter((z) => typeof z.x === "number" && typeof z.y === "number")
             .map((z) => {
               const isSel = this._selectedZones.has(z.name);
-              const color = z.color || "#38bdf8";
+              const zNameEsc = escapeHtml(z.name);
+              const color = sanitizeColor(z.color);
+              const leftPct = (Number(z.x) * 100).toFixed(1);
+              const topPct = (Number(z.y) * 100).toFixed(1);
               return `
-                <button class="zone-pin ${isSel ? "selected" : ""}" data-zone="${z.name}" style="left:${(z.x * 100).toFixed(1)}%;top:${(z.y * 100).toFixed(1)}%;">
+                <button class="zone-pin ${isSel ? "selected" : ""}" data-zone="${zNameEsc}" style="left:${leftPct}%;top:${topPct}%;">
                   <span class="dot" style="background:${color}"></span>
-                  <span>${isSel ? "✓ " : ""}${z.name}</span>
+                  <span>${isSel ? "✓ " : ""}${zNameEsc}</span>
                 </button>
               `;
             })
@@ -656,11 +696,12 @@ class VacuulaMapCard extends HTMLElement {
           ${zones
             .map((z) => {
               const isSel = this._selectedZones.has(z.name);
-              const color = z.color || "#38bdf8";
+              const zNameEsc = escapeHtml(z.name);
+              const color = sanitizeColor(z.color);
               return `
-                <button class="zone-chip ${isSel ? "selected" : ""}" data-zone="${z.name}">
+                <button class="zone-chip ${isSel ? "selected" : ""}" data-zone="${zNameEsc}">
                   <span class="dot" style="background:${color}"></span>
-                  <span>${isSel ? "✓ " : ""}${z.name}</span>
+                  <span>${isSel ? "✓ " : ""}${zNameEsc}</span>
                 </button>
               `;
             })
@@ -674,14 +715,16 @@ class VacuulaMapCard extends HTMLElement {
       `
       : "";
 
+    const stateEsc = escapeHtml(stateStr);
+
     root.innerHTML = `
       <div class="header">
         <div class="title-group">
           <div class="title-row">
-            <span class="robot-name">${name}</span>
-            <span class="status-badge" data-state="${stateStr}">${stateStr}</span>
+            <span class="robot-name">${escapeHtml(name)}</span>
+            <span class="status-badge" data-state="${stateEsc}">${stateEsc}</span>
           </div>
-          <div class="subtitle">${subtitleParts.join(" • ")}</div>
+          <div class="subtitle">${escapeHtml(subtitleParts.join(" • "))}</div>
         </div>
         <div class="telemetry">
           ${
@@ -691,7 +734,7 @@ class VacuulaMapCard extends HTMLElement {
           }
           ${
             batteryVal
-              ? `<span class="pill" title="Battery">${isCharging ? "⚡" : "🔋"} ${batteryVal}</span>`
+              ? `<span class="pill" title="Battery">${isCharging ? "⚡" : "🔋"} ${escapeHtml(batteryVal)}</span>`
               : ""
           }
         </div>
@@ -727,7 +770,7 @@ class VacuulaMapCard extends HTMLElement {
           ? `
             <div class="controls-section">
               <div class="action-row">
-                <button class="btn primary" id="btn-start">▶ ${startLabel}</button>
+                <button class="btn primary" id="btn-start">▶ ${escapeHtml(startLabel)}</button>
                 <button class="btn" id="btn-pause" title="Pause">⏸</button>
                 <button class="btn" id="btn-stop" title="Stop">⏹</button>
                 <button class="btn" id="btn-dock" title="Return to Base">⌂ Dock</button>
@@ -738,7 +781,7 @@ class VacuulaMapCard extends HTMLElement {
                   ${fanSpeeds
                     .map(
                       (spd) =>
-                        `<button class="mode-btn ${spd === currentFan ? "active" : ""}" data-fan="${spd}">${spd}</button>`
+                        `<button class="mode-btn ${spd === currentFan ? "active" : ""}" data-fan="${escapeHtml(spd)}">${escapeHtml(spd)}</button>`
                     )
                     .join("")}
                 </div>
@@ -746,7 +789,7 @@ class VacuulaMapCard extends HTMLElement {
                   ${navModes
                     .map(
                       (nav) =>
-                        `<button class="mode-btn ${nav === currentNav ? "active" : ""}" data-nav="${nav}">${nav.replace(/_/g, " ")}</button>`
+                        `<button class="mode-btn ${nav === currentNav ? "active" : ""}" data-nav="${escapeHtml(nav)}">${escapeHtml(String(nav).replace(/_/g, " "))}</button>`
                     )
                     .join("")}
                 </div>
@@ -823,16 +866,28 @@ class VacuulaMapCardEditor extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = {};
     this._hass = null;
+    this._rendered = false;
+    this._lastVacuumsKey = "";
   }
 
   setConfig(config) {
     this._config = { ...config };
+    if (this._rendered && this.shadowRoot?.activeElement?.id === "title") {
+      return;
+    }
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    const vacuumsKey = Object.keys(hass?.states || {})
+      .filter((id) => id.startsWith("vacuum."))
+      .sort()
+      .join(",");
+    if (!this._rendered || vacuumsKey !== this._lastVacuumsKey) {
+      this._lastVacuumsKey = vacuumsKey;
+      this._render();
+    }
   }
 
   _emit(newConfig) {
@@ -848,6 +903,7 @@ class VacuulaMapCardEditor extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._hass) return;
+    this._rendered = true;
     const vacuums = Object.keys(this._hass.states).filter((id) =>
       id.startsWith("vacuum.")
     );
@@ -887,14 +943,14 @@ class VacuulaMapCardEditor extends HTMLElement {
             ${vacuums
               .map(
                 (v) =>
-                  `<option value="${v}" ${v === this._config.entity ? "selected" : ""}>${v}</option>`
+                  `<option value="${escapeHtml(v)}" ${v === this._config.entity ? "selected" : ""}>${escapeHtml(v)}</option>`
               )
               .join("")}
           </select>
         </label>
         <label>
           Card Title (optional)
-          <input type="text" id="title" value="${this._config.title || ""}" placeholder="Auto (Robot Name)" />
+          <input type="text" id="title" value="${escapeHtml(this._config.title || "")}" placeholder="Auto (Robot Name)" />
         </label>
         <label>
           Default Map View

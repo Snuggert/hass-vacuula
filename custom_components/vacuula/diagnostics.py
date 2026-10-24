@@ -1,8 +1,13 @@
-"""Diagnostics support for the Vacuula integration."""
+"""Diagnostics support for the Vacuula integration.
+
+Sensitive fields (robot serials, MAC addresses, secrets and the server URL)
+are redacted with ``async_redact_data`` before being returned.
+"""
 from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
@@ -10,6 +15,22 @@ from homeassistant.helpers.device_registry import DeviceEntry
 from . import VacuulaConfigEntry
 from .const import DOMAIN
 from .coordinator import VacuulaCoordinator, VacuulaRobotData
+
+TO_REDACT = {
+    CONF_URL,
+    "serial",
+    "serial_number",
+    "serialNumber",
+    "mac",
+    "mac_address",
+    "macAddress",
+    "secret",
+    "secret_key",
+    "token",
+    "password",
+    "nucleo_url",
+    "unique_id",
+}
 
 
 def _serialize_robot(robot: VacuulaRobotData) -> dict[str, Any]:
@@ -53,18 +74,22 @@ async def async_get_config_entry_diagnostics(
     except Exception as err:  # noqa: BLE001
         server_info = {"error": str(err)}
 
+    # Robot dict keys are serials, so index them instead of exposing the serial.
     robots = {
-        serial: _serialize_robot(robot)
-        for serial, robot in (coordinator.data or {}).items()
+        f"robot_{idx}": _serialize_robot(robot)
+        for idx, robot in enumerate((coordinator.data or {}).values(), start=1)
     }
-    return {
-        "entry": {
-            "url": entry.data.get(CONF_URL),
-            "title": entry.title,
+    return async_redact_data(
+        {
+            "entry": {
+                "url": entry.data.get(CONF_URL),
+                "title": entry.title,
+            },
+            "server_info": server_info,
+            "robots": robots,
         },
-        "server_info": server_info,
-        "robots": robots,
-    }
+        TO_REDACT,
+    )
 
 
 async def async_get_device_diagnostics(
@@ -78,4 +103,4 @@ async def async_get_device_diagnostics(
     )
     if not serial or not coordinator.data or serial not in coordinator.data:
         return {"error": "Robot not found in coordinator data"}
-    return _serialize_robot(coordinator.data[serial])
+    return async_redact_data(_serialize_robot(coordinator.data[serial]), TO_REDACT)

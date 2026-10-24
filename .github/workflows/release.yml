@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish as a GitHub Release (e.g. v0.5.1)"
+        description: "Tag to publish as a GitHub Release (e.g. v0.5.2)"
         required: true
-        default: "v0.5.1"
+        default: "v0.5.2"
 
 permissions:
   contents: write

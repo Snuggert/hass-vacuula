@@ -8,6 +8,7 @@ from datetime import timedelta
 import logging
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -98,11 +99,16 @@ class VacuulaRobotData:
 class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
     """Coordinator managing robot discovery, SSE push streams, maps, zones, and fallback polling."""
 
-    def __init__(self, hass: HomeAssistant, client: VacuulaApiClient) -> None:
+    config_entry: ConfigEntry
+
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, client: VacuulaApiClient
+    ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=DOMAIN,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
@@ -342,9 +348,15 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                         self._notify_new_robots(set(updated.keys()))
                         self._sync_robot_sse_tasks()
                         for serial in newly_connected:
-                            self.hass.async_create_task(self.async_refresh_robot(serial))
-                            self.hass.async_create_task(
-                                self.async_refresh_maps_and_runs(serial)
+                            self.config_entry.async_create_background_task(
+                                self.hass,
+                                self.async_refresh_robot(serial),
+                                f"{DOMAIN}_refresh_robot_{serial}",
+                            )
+                            self.config_entry.async_create_background_task(
+                                self.hass,
+                                self.async_refresh_maps_and_runs(serial),
+                                f"{DOMAIN}_refresh_maps_{serial}",
                             )
             except asyncio.CancelledError:
                 return
@@ -384,8 +396,10 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                     if new_state and self._did_finish_cleaning(
                         current.robot_type, old_state, new_state
                     ):
-                        self.hass.async_create_task(
-                            self.async_refresh_maps_and_runs(serial)
+                        self.config_entry.async_create_background_task(
+                            self.hass,
+                            self.async_refresh_maps_and_runs(serial),
+                            f"{DOMAIN}_refresh_maps_{serial}",
                         )
             except asyncio.CancelledError:
                 return

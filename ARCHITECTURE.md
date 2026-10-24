@@ -1,4 +1,4 @@
-# Architecture & Technical Design: `hass-vacuula` (`v0.5.1`)
+# Architecture & Technical Design: `hass-vacuula` (`v0.5.2`)
 
 ## 1. Overview & Goals
 `hass-vacuula` is a zero-dependency Home Assistant custom integration (distributable via **HACS**) that connects a local [Vacuula](https://github.com/vacuula/vacuula) server instance to Home Assistant. Because a single Vacuula server can manage multiple Neato robots across both **Gen3** (`D3`–`D7`, e.g., `BotVacD7Connected`) and **Gen4** (`D800`, `D8`–`D10`) generations, the integration models the **Vacuula Server** as the `ConfigEntry` hub and registers each paired robot as a Home Assistant `DeviceEntry`.
