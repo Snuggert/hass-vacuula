@@ -102,4 +102,15 @@ jobs:
           pip install -r requirements_test.txt
 
       - name: Run Pytest with Coverage
-        run: pytest tests/ --cov=custom_components.vacuula --cov-report=term-missing
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest tests/ --cov=custom_components.vacuula --cov-report=term-missing -v --tb=short 2>&1 | tee pytest.log
+          PYTEST_STATUS=${PIPESTATUS[0]}
+          if [ $PYTEST_STATUS -ne 0 ]; then
+            echo "### ❌ Pytest Failed (Python ${{ matrix.python-version }})" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat pytest.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $PYTEST_STATUS
+          fi
