@@ -7,6 +7,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+# Pre-initialize pycares channel so its background daemon thread is present before test thread tracking begins
+try:
+    import pycares
+
+    _ = pycares.Channel()
+except Exception:
+    pass
+
 MOCK_SERVER_INFO: dict[str, Any] = {
     "version": "1.0.0",
     "gen4_port": 3443,

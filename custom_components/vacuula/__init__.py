@@ -298,7 +298,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
 
 async def async_unload_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
     """Unload a config entry."""
-    await entry.runtime_data.async_stop_sse()
+    coordinator = getattr(entry, "runtime_data", None) or hass.data.get(DOMAIN, {}).get(
+        entry.entry_id
+    )
+    if coordinator is not None and hasattr(coordinator, "async_stop_sse"):
+        await coordinator.async_stop_sse()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok and not _async_get_loaded_entries(hass):
         for service in (
