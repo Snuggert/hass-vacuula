@@ -46,7 +46,8 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
   - Dynamically creates one-tap `button.<robot>_clean_<room>` entities for every polygon boundary on the robot's active floorplan.
 - **Offline History & Map Persistence**: Server-backed entities (`floor_map`, `last_run_map`, `last_clean_area`, `last_clean_duration`, `total_cleans`, `connected`, `refresh_maps`) remain available in Home Assistant even when the robot is powered down or in deep sleep, as long as the Vacuula server is reachable.
 - **Per-Robot Command Serialization**: Built-in `asyncio.Lock` per robot serial prevents concurrent WebSocket command collisions on Gen3 Botvac hardware.
-- **Config Entry Reconfiguration & Diagnostics**: Update your Vacuula server URL anytime via **Reconfigure** in the Home Assistant UI, and download redacted JSON diagnostics for the server or individual robots.
+- **Config Entry Reconfiguration & Diagnostics**: Update your Vacuula server URL anytime via **Reconfigure** in the Home Assistant UI, and download JSON diagnostics for the server or individual robots. Robot serials, MAC addresses, secrets, and the server URL are redacted, so diagnostics are safe to attach to GitHub issues.
+- **Clear Error Reporting**: If a command fails (robot offline, busy, or server unreachable), Home Assistant shows the error as a notification in the UI instead of logging a stack trace.
 
 ---
 
@@ -64,6 +65,12 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 1. Copy the `custom_components/vacuula` folder into your Home Assistant `<config>/custom_components/` directory.
 2. Restart Home Assistant.
 3. Add **Vacuula** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://vacuula.local:8085`).
+
+### Server URL Format
+
+- Only `http://` and `https://` URLs are accepted. If you omit the scheme (e.g. `192.168.1.50:8085`), `http://` is assumed.
+- The URL must include a host and may include a port and path prefix (for reverse proxies). Query strings and fragments are rejected.
+- Zeroconf discovery supports IPv4 and routable IPv6 addresses. Link-local addresses (`169.254.x.x`, `fe80::/10`) are ignored, because they are not stable across reboots.
 
 ---
 
@@ -215,7 +222,9 @@ action:
 
 ## 🏗️ Architecture & Design Highlights
 
-For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, and pure-Python RLE PNG rendering, see [**ARCHITECTURE.md**](ARCHITECTURE.md).
+For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and the integration's [security & robustness safeguards](ARCHITECTURE.md#6-security--robustness), see [**ARCHITECTURE.md**](ARCHITECTURE.md).
+
+Release notes for each version are in [**CHANGELOG.md**](CHANGELOG.md).
 
 ---
 
