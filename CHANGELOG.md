@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - **Renamed Integration for HACS Clarity:** Renamed display name in `manifest.json` and `hacs.json` to **"Neato Botvac (Vacuula Client - Unofficial)"** to make it abundantly clear this is an independent community client, preventing user confusion with the upstream Vacuula server project.
 - **Original MDI-Style Brand Assets:** Replaced all brand assets (`icon.png`, `dark_icon.png`, `logo.png`, `dark_logo.png`, and `@2x` variants) with original Home Assistant Material Design style artwork depicting a Neato D-shape robot vacuum in HA blue/cyan and dark mode silver. Removed all upstream Vacuula artwork and trademarks.
-- **Upstream Separation & Support Boundaries:** Added prominent disclaimers in `README.md` and documentation explicitly stating this project is independent, not affiliated with or endorsed by the Vacuula project (@Philip2809), and directing all support questions and issues exclusively to the `hass-vacuula` GitHub repository.
+- **Upstream Separation & Support Boundaries:** Added prominent disclaimers in `README.md` and documentation explicitly stating this project is independent, not affiliated with or endorsed by the upstream Vacuula project, and directing all support questions and issues exclusively to the `hass-vacuula` GitHub repository.
 
 ## [0.6.0] - 2026-10-25
 

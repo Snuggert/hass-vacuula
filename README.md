@@ -18,7 +18,7 @@
 > ### ⚠️ Unofficial Community Integration — Not Affiliated with Vacuula
 >
 > **This integration is an independent, community-developed project by [@Snuggert](https://github.com/Snuggert).**
-> **It is NOT an official Vacuula project and is in NO WAY affiliated with, endorsed by, or supported by the author of Vacuula ([@Philip2809](https://github.com/Philip2809)).**
+> **It is NOT an official Vacuula project and is in NO WAY affiliated with, endorsed by, or supported by the authors of the upstream Vacuula server project.**
 >
 > 🛑 **DO NOT submit support requests, bug reports, or questions to the upstream Vacuula repository** for any issues concerning this Home Assistant integration or its Lovelace map card.
 >
@@ -253,4 +253,4 @@ Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snug
 
 - **Integration & Lovelace Card Code**: Licensed under the [**MIT License**](https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE).
 - **Brand Assets**: The integration icons and logos are original artwork designed in the Home Assistant Material Design style specifically for this integration. They do not use any artwork, trademarks, or assets from the Vacuula project. See [**docs/brands.md**](https://github.com/Snuggert/hass-vacuula/blob/main/docs/brands.md) for brand asset specifications and dark theme guidelines.
-- **Independence & Disclaimer**: This project is an independent community client integration developed by [@Snuggert](https://github.com/Snuggert). It is **not** affiliated with, maintained by, or endorsed by Neato Robotics or the upstream [Vacuula](https://github.com/vacuula/vacuula) project ([@Philip2809](https://github.com/Philip2809)). All support inquiries and bug reports must be directed exclusively to [**Snuggert/hass-vacuula Issues**](https://github.com/Snuggert/hass-vacuula/issues).
+- **Independence & Disclaimer**: This project is an independent community client integration developed by [@Snuggert](https://github.com/Snuggert). It is **not** affiliated with, maintained by, or endorsed by Neato Robotics or the upstream [Vacuula](https://github.com/vacuula/vacuula) server project. All support inquiries and bug reports must be directed exclusively to [**Snuggert/hass-vacuula Issues**](https://github.com/Snuggert/hass-vacuula/issues).
