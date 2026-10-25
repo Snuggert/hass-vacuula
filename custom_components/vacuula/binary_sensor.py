@@ -1,6 +1,8 @@
-"""Binary sensor platform for Vacuula robots (Connected, Docked, Charging, Dock Seen)."""
+"""Binary sensor platform for Vacuula robots (Connected, Docked, Charging, Dust Bin Full, Dock Seen)."""
 
 from __future__ import annotations
+
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -33,6 +35,7 @@ async def async_setup_entry(
                     VacuulaConnectedBinarySensor(coordinator, serial),
                     VacuulaDockedBinarySensor(coordinator, serial),
                     VacuulaChargingBinarySensor(coordinator, serial),
+                    VacuulaBinFullBinarySensor(coordinator, serial),
                 ]
             )
             robot = coordinator.data.get(serial)
@@ -129,3 +132,49 @@ class VacuulaDockSeenBinarySensor(VacuulaEntity, BinarySensorEntity):
         if not robot or not robot.state:
             return None
         return bool(robot.state.get("details", {}).get("dockHasBeenSeen"))
+
+
+class VacuulaBinFullBinarySensor(VacuulaEntity, BinarySensorEntity):
+    """Binary sensor indicating whether the robot dust bin is full or missing."""
+
+    _attr_name = "Dust bin full"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:delete-empty"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
+        """Initialize the bin full binary sensor."""
+        super().__init__(coordinator, serial, "bin_full")
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True if the dust bin is full or missing."""
+        robot = self._robot
+        if not robot or not robot.state:
+            return None
+
+        if robot.robot_type == ROBOT_TYPE_GEN3:
+            alert = str(robot.state.get("alert") or "").lower()
+            error = str(robot.state.get("error") or "").lower()
+            return "dustbin" in alert or "dustbin" in error
+
+        errors = self._gen4_body.get("errors") or []
+        if isinstance(errors, list):
+            for err in errors:
+                if isinstance(err, dict):
+                    code = str(err.get("code") or "").lower()
+                    if "dustbin" in code or "bin_full" in code:
+                        return True
+        return False
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return detailed bin status and alert description."""
+        robot = self._robot
+        if not robot or not robot.state:
+            return {}
+        alert = robot.state.get("alert") if robot.robot_type == ROBOT_TYPE_GEN3 else None
+        return {
+            "alert": alert,
+            "description": "Empty the robot's dust bin and filter" if self.is_on else "Normal",
+        }
