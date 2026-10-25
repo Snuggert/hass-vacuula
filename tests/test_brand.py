@@ -8,7 +8,9 @@ from PIL import Image
 
 BRAND_DIR = Path(__file__).parent.parent / "custom_components" / "vacuula" / "brand"
 ROOT_BRAND_DIR = Path(__file__).parent.parent / "brand"
-MANIFEST_PATH = Path(__file__).parent.parent / "custom_components" / "vacuula" / "manifest.json"
+MANIFEST_PATH = (
+    Path(__file__).parent.parent / "custom_components" / "vacuula" / "manifest.json"
+)
 HACS_JSON_PATH = Path(__file__).parent.parent / "hacs.json"
 README_PATH = Path(__file__).parent.parent / "README.md"
 
@@ -47,7 +49,9 @@ def test_brand_image_dimensions_and_formats() -> None:
                 f"{filename} size is {img.size}, expected {expected_size}"
             )
             bbox = img.getbbox()
-            assert bbox is not None, f"{filename} appears to be completely empty/transparent"
+            assert bbox is not None, (
+                f"{filename} appears to be completely empty/transparent"
+            )
 
 
 def test_brand_contrast_light_and_dark_modes() -> None:
@@ -60,19 +64,28 @@ def test_brand_contrast_light_and_dark_modes() -> None:
         with Image.open(file_path) as img:
             opaque_pixels = [p for p in img.getdata() if p[3] > 128]
             assert opaque_pixels, f"No opaque pixels in {filename}"
-            avg_lum = sum(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] for p in opaque_pixels) / len(opaque_pixels)
+            avg_lum = sum(
+                0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] for p in opaque_pixels
+            ) / len(opaque_pixels)
             assert avg_lum < 100, (
                 f"{filename} should be optimized for light backgrounds (avg luminance < 100, got {avg_lum:.1f})"
             )
 
     # Dark mode icons/logos should be bright on dark background
-    for filename in ["dark_icon.png", "dark_icon@2x.png", "dark_logo.png", "dark_logo@2x.png"]:
+    for filename in [
+        "dark_icon.png",
+        "dark_icon@2x.png",
+        "dark_logo.png",
+        "dark_logo@2x.png",
+    ]:
         file_path = BRAND_DIR / filename
         assert file_path.is_file(), f"Dark asset {filename} missing"
         with Image.open(file_path) as img:
             opaque_pixels = [p for p in img.getdata() if p[3] > 128]
             assert opaque_pixels, f"No opaque pixels in {filename}"
-            avg_lum = sum(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] for p in opaque_pixels) / len(opaque_pixels)
+            avg_lum = sum(
+                0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] for p in opaque_pixels
+            ) / len(opaque_pixels)
             assert avg_lum > 180, (
                 f"{filename} should be optimized for dark backgrounds (avg luminance > 180, got {avg_lum:.1f})"
             )
@@ -109,7 +122,7 @@ def test_readme_hacs_compatibility() -> None:
 
     # Check images (HTML <img src="..."> and markdown ![alt](...))
     html_imgs = re.findall(r'<img[^>]+src=[\'"]([^\'"]+)[\'"]', content)
-    md_imgs = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', content)
+    md_imgs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", content)
     all_imgs = html_imgs + md_imgs
 
     relative_imgs = [img for img in all_imgs if not img.startswith("https://")]
@@ -120,12 +133,15 @@ def test_readme_hacs_compatibility() -> None:
 
     # Check links (HTML <a href="..."> and markdown [text](...))
     html_links = re.findall(r'<a[^>]+href=[\'"]([^\'"]+)[\'"]', content)
-    md_links = re.findall(r'\[[^\]]+\]\(([^)]+)\)', content)
+    md_links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", content)
     all_links = html_links + md_links
 
     relative_links = [
-        link for link in all_links
-        if not link.startswith("https://") and not link.startswith("#") and not link.startswith("mailto:")
+        link
+        for link in all_links
+        if not link.startswith("https://")
+        and not link.startswith("#")
+        and not link.startswith("mailto:")
     ]
     assert not relative_links, (
         f"README contains relative link URLs that break in HACS: {relative_links}. "

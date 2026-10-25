@@ -265,3 +265,87 @@ async def test_reconfigure_step_success(hass: HomeAssistant) -> None:
         assert result2["reason"] == "reconfigure_successful"
         assert entry.data[CONF_URL] == "http://192.168.1.75:8085"
         assert entry.unique_id == "http://192.168.1.75:8085"
+
+
+async def test_user_step_empty_and_query_urls(hass: HomeAssistant) -> None:
+    """Test empty URL and URL with query params return invalid_url."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    # Empty URL
+    result_empty = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={CONF_URL: "   "},
+    )
+    assert result_empty["type"] == FlowResultType.FORM
+    assert result_empty["errors"] == {CONF_URL: "invalid_url"}
+
+    # Query param URL
+    result_query = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={CONF_URL: "http://192.168.1.50:8085?query=1"},
+    )
+    assert result_query["type"] == FlowResultType.FORM
+    assert result_query["errors"] == {CONF_URL: "invalid_url"}
+
+
+async def test_user_step_non_dict_server_info(hass: HomeAssistant) -> None:
+    """Test cannot_connect when server returns non-dict payload."""
+    with patch(
+        "custom_components.vacuula.config_flow.VacuulaApiClient.async_get_server_info",
+        return_value="unexpected string response",
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            user_input={CONF_URL: "http://192.168.1.50:8085"},
+        )
+        assert result2["type"] == FlowResultType.FORM
+        assert result2["errors"] == {"base": "cannot_connect"}
+
+
+async def test_zeroconf_host_fallback_and_connection_failures(
+    hass: HomeAssistant,
+) -> None:
+    """Test zeroconf host fallback when ip_address is None and connection errors."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class HostOnlyZeroconfInfo:
+        host: str = "192.168.1.60"
+        port: int = 8085
+        hostname: str = "vacuula.local."
+        name: str = "vacuula"
+        type: str = "_vacuula._tcp.local."
+        ip_address: Any = None
+        ip_addresses: list[Any] | None = None
+        addresses: list[str] | None = None
+        properties: dict[str, Any] | None = None
+
+    # 1. Connection error during Zeroconf
+    with patch(
+        "custom_components.vacuula.config_flow.VacuulaApiClient.async_get_server_info",
+        side_effect=VacuulaApiError("Cannot reach server"),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_ZEROCONF},
+            data=HostOnlyZeroconfInfo(),
+        )
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "cannot_connect"
+
+    # 2. Non-dict response during Zeroconf
+    with patch(
+        "custom_components.vacuula.config_flow.VacuulaApiClient.async_get_server_info",
+        return_value=["invalid", "list"],
+    ):
+        result2 = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_ZEROCONF},
+            data=HostOnlyZeroconfInfo(),
+        )
+        assert result2["type"] == FlowResultType.ABORT
+        assert result2["reason"] == "cannot_connect"

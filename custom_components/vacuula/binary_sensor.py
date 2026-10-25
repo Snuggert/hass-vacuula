@@ -173,8 +173,12 @@ class VacuulaBinFullBinarySensor(VacuulaEntity, BinarySensorEntity):
         robot = self._robot
         if not robot or not robot.state:
             return {}
-        alert = robot.state.get("alert") if robot.robot_type == ROBOT_TYPE_GEN3 else None
+        alert = (
+            robot.state.get("alert") if robot.robot_type == ROBOT_TYPE_GEN3 else None
+        )
         return {
             "alert": alert,
-            "description": "Empty the robot's dust bin and filter" if self.is_on else "Normal",
+            "description": "Empty the robot's dust bin and filter"
+            if self.is_on
+            else "Normal",
         }

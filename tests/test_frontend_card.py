@@ -96,17 +96,17 @@ def test_card_editor_has_all_toggles() -> None:
     content = CARD_PATH.read_text(encoding="utf-8")
 
     editor_controls = [
-        "id=\"map_height\"",
-        "id=\"show_alerts\"",
-        "id=\"show_bin_alert\"",
-        "id=\"show_header\"",
-        "id=\"show_status_badge\"",
-        "id=\"show_battery\"",
-        "id=\"show_schedule\"",
-        "id=\"show_toolbar\"",
-        "id=\"show_zone_chips\"",
-        "id=\"show_modes\"",
-        "id=\"expand_on_desktop\"",
+        'id="map_height"',
+        'id="show_alerts"',
+        'id="show_bin_alert"',
+        'id="show_header"',
+        'id="show_status_badge"',
+        'id="show_battery"',
+        'id="show_schedule"',
+        'id="show_toolbar"',
+        'id="show_zone_chips"',
+        'id="show_modes"',
+        'id="expand_on_desktop"',
     ]
     for ctrl in editor_controls:
         assert ctrl in content, f"Missing editor control {ctrl} in VacuulaMapCardEditor"

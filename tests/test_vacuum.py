@@ -17,8 +17,12 @@ from custom_components.vacuula.const import (
     DOMAIN,
     FAN_SPEED_ECO,
     FAN_SPEED_TURBO,
+    FAN_SPEEDS_GEN3,
+    FAN_SPEEDS_GEN4,
     GEN3_ACTION_DOCKING,
     GEN3_ACTION_HOUSE_CLEANING,
+    GEN3_ACTION_SUSPENDED_CLEANING,
+    GEN3_ACTION_SUSPENDED_EXPLORATION,
     GEN3_STATE_BUSY,
     GEN3_STATE_ERROR,
     GEN3_STATE_IDLE,
@@ -30,7 +34,7 @@ from custom_components.vacuula.coordinator import (
     VacuulaCoordinator,
     VacuulaRobotData,
 )
-from custom_components.vacuula.vacuum import VacuulaVacuumEntity
+from custom_components.vacuula.vacuum import VacuulaVacuumEntity, async_setup_entry
 
 
 def create_mock_coordinator(
@@ -234,3 +238,102 @@ async def test_vacuum_fan_speed_and_attributes(hass: HomeAssistant) -> None:
     assert attrs["active_map_name"] == "Main Floor"
     assert attrs["available_zones"] == ["Hallway"]
     assert attrs["selected_zone"] == ALL_ZONES_OPTION
+
+
+async def test_vacuum_setup_entry(hass: HomeAssistant) -> None:
+    """Test async_setup_entry creates vacuum entity for discovered robots."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot)
+    coordinator._known_serials = {"OPS123"}
+    entry = coordinator.config_entry
+
+    entities_added: list[object] = []
+
+    def mock_add_entities(entities: object) -> None:
+        entities_added.extend(entities)
+
+    await async_setup_entry(hass, entry, mock_add_entities)
+    assert len(entities_added) == 1
+    assert isinstance(entities_added[0], VacuulaVacuumEntity)
+    assert entities_added[0]._serial == "OPS123"
+
+
+async def test_vacuum_additional_states_and_edge_cases(hass: HomeAssistant) -> None:
+    """Test Gen3 suspended activities, Gen4 fan speeds, attributes, and None states."""
+    # Gen3 suspended cleaning
+    robot_gen3 = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        state={
+            "state": GEN3_STATE_BUSY,
+            "action": GEN3_ACTION_SUSPENDED_CLEANING,
+            "details": {"isDocked": True},
+        },
+    )
+    coord_gen3, client = create_mock_coordinator(hass, robot_gen3)
+    entity_gen3 = VacuulaVacuumEntity(coord_gen3, "OPS123")
+    assert entity_gen3.activity == VacuumActivity.DOCKED
+
+    robot_gen3.state["details"]["isDocked"] = False
+    assert entity_gen3.activity == VacuumActivity.PAUSED
+
+    # Gen3 suspended exploration
+    robot_gen3.state["action"] = GEN3_ACTION_SUSPENDED_EXPLORATION
+    assert entity_gen3.activity == VacuumActivity.PAUSED
+
+    # Gen3 unknown state code fallback
+    robot_gen3.state = {"state": 9999, "details": {}}
+    assert entity_gen3.activity == VacuumActivity.IDLE
+
+    # Gen3 fan speed list
+    assert entity_gen3.fan_speed_list == FAN_SPEEDS_GEN3
+
+    # Gen4 vacuum entity
+    robot_gen4 = VacuulaRobotData(
+        serial="G4-123",
+        name="Neato D10",
+        robot_type=ROBOT_TYPE_GEN4,
+        connected=True,
+        state={
+            "body": {
+                "state": "idle",
+                "action": "docked",
+                "details": {"is_docked": False},
+                "errors": [{"code": "stuck"}],
+            }
+        },
+    )
+    coord_gen4, _ = create_mock_coordinator(hass, robot_gen4)
+    entity_gen4 = VacuulaVacuumEntity(coord_gen4, "G4-123")
+
+    # Errors present -> VacuumActivity.ERROR
+    assert entity_gen4.activity == VacuumActivity.ERROR
+
+    # Undocked and idle -> VacuumActivity.IDLE
+    robot_gen4.state["body"]["errors"] = []
+    assert entity_gen4.activity == VacuumActivity.IDLE
+
+    # Gen4 fan speed list
+    assert entity_gen4.fan_speed_list == FAN_SPEEDS_GEN4
+
+    # Gen4 extra state attributes
+    attrs_g4 = entity_gen4.extra_state_attributes
+    assert attrs_g4["action"] == "docked"
+    assert attrs_g4["errors"] == []
+
+    # When robot or state is None
+    robot_gen4.state = None
+    assert entity_gen4.activity is None
+    assert entity_gen4.extra_state_attributes == {}
+
+    # async_start when robot is None
+    entity_missing = VacuulaVacuumEntity(coord_gen4, "MISSING")
+    await entity_missing.async_start()
+    client.async_start_cleaning.assert_not_called()

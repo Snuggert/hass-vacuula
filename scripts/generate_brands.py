@@ -40,7 +40,11 @@ def generate_brands() -> None:
         ("logo@2x.png", master, (512, 512)),
         ("logo.png", master, (512, 512)),
         ("dark_icon@2x.png", dark_master, (512, 512)),
-        ("dark_icon.png", dark_master.resize((256, 256), Image.Resampling.LANCZOS), (256, 256)),
+        (
+            "dark_icon.png",
+            dark_master.resize((256, 256), Image.Resampling.LANCZOS),
+            (256, 256),
+        ),
         ("dark_logo@2x.png", dark_master, (512, 512)),
         ("dark_logo.png", dark_master, (512, 512)),
     ]

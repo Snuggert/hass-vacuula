@@ -51,6 +51,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         """Initialize the floor map image entity."""
         VacuulaEntity.__init__(self, coordinator, serial, "floor_map")
         ImageEntity.__init__(self, coordinator.hass)
+        self.hass = coordinator.hass
         self._cached_key: tuple[str | None, int] | None = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(UTC)
@@ -115,6 +116,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         """Initialize the last run map image entity."""
         VacuulaEntity.__init__(self, coordinator, serial, "last_run_map")
         ImageEntity.__init__(self, coordinator.hass)
+        self.hass = coordinator.hass
         self._cached_key: tuple[str | None, str | None, int] | None = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(UTC)

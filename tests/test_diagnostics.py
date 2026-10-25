@@ -58,6 +58,13 @@ async def test_config_entry_diagnostics_redaction(hass: HomeAssistant) -> None:
     assert diag["robots"]["robot_1"]["serial"] == "**REDACTED**"
     assert diag["robots"]["robot_1"]["name"] == "Living Room Bot"
 
+    # Test when async_get_server_info raises exception
+    coordinator.client.async_get_server_info = AsyncMock(
+        side_effect=RuntimeError("Connection failed")
+    )
+    diag_err = await async_get_config_entry_diagnostics(hass, entry)
+    assert diag_err["server_info"] == {"error": "Connection failed"}
+
 
 async def test_device_diagnostics(hass: HomeAssistant) -> None:
     """Test device diagnostics redaction and not-found behavior."""
