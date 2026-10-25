@@ -1,6 +1,7 @@
 """Tests for Vacuula brand assets and HACS / Home Assistant brand compliance."""
 
 import json
+import re
 from pathlib import Path
 
 from PIL import Image
@@ -9,6 +10,7 @@ BRAND_DIR = Path(__file__).parent.parent / "custom_components" / "vacuula" / "br
 ROOT_BRAND_DIR = Path(__file__).parent.parent / "brand"
 MANIFEST_PATH = Path(__file__).parent.parent / "custom_components" / "vacuula" / "manifest.json"
 HACS_JSON_PATH = Path(__file__).parent.parent / "hacs.json"
+README_PATH = Path(__file__).parent.parent / "README.md"
 
 EXPECTED_FILES = {
     "icon.png": (256, 256),
@@ -98,3 +100,34 @@ def test_root_brand_directory_mirrored() -> None:
         assert root_file.read_bytes() == component_file.read_bytes(), (
             f"Content mismatch between component brand/{filename} and root brand/{filename}"
         )
+
+
+def test_readme_hacs_compatibility() -> None:
+    """Verify README.md images and links use absolute URLs for HACS in-app rendering."""
+    assert README_PATH.is_file(), f"README missing at {README_PATH}"
+    content = README_PATH.read_text(encoding="utf-8")
+
+    # Check images (HTML <img src="..."> and markdown ![alt](...))
+    html_imgs = re.findall(r'<img[^>]+src=[\'"]([^\'"]+)[\'"]', content)
+    md_imgs = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', content)
+    all_imgs = html_imgs + md_imgs
+
+    relative_imgs = [img for img in all_imgs if not img.startswith("https://")]
+    assert not relative_imgs, (
+        f"README contains relative image URLs that break in HACS: {relative_imgs}. "
+        "Use absolute raw URLs (https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/...)."
+    )
+
+    # Check links (HTML <a href="..."> and markdown [text](...))
+    html_links = re.findall(r'<a[^>]+href=[\'"]([^\'"]+)[\'"]', content)
+    md_links = re.findall(r'\[[^\]]+\]\(([^)]+)\)', content)
+    all_links = html_links + md_links
+
+    relative_links = [
+        link for link in all_links
+        if not link.startswith("https://") and not link.startswith("#") and not link.startswith("mailto:")
+    ]
+    assert not relative_links, (
+        f"README contains relative link URLs that break in HACS: {relative_links}. "
+        "Use absolute GitHub URLs (https://github.com/Snuggert/hass-vacuula/...)."
+    )
