@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -e
+
+echo "=== [pre-commit] Running linters and test suite ==="
+
+# Locate Python environment
+PY=""
+if [ -n "$VIRTUAL_ENV" ] && [ -x "$VIRTUAL_ENV/bin/pytest" ]; then
+    PY="$VIRTUAL_ENV/bin"
+elif [ -d ".venv/bin" ] && [ -x ".venv/bin/pytest" ]; then
+    PY=".venv/bin"
+elif [ -x "/home/abewi/.gemini/antigravity-cli/brain/d06bb93a-f9dd-4e1a-aa7e-fcba1e2bd5ed/scratch/venv312/bin/pytest" ]; then
+    PY="/home/abewi/.gemini/antigravity-cli/brain/d06bb93a-f9dd-4e1a-aa7e-fcba1e2bd5ed/scratch/venv312/bin"
+elif command -v pytest >/dev/null 2>&1; then
+    PY=""
+else
+    echo "Warning: No pytest executable found. Skipping test check."
+    exit 0
+fi
+
+if [ -n "$PY" ]; then
+    RUFF="$PY/ruff"
+    PYTEST="$PY/pytest"
+else
+    RUFF="ruff"
+    PYTEST="pytest"
+fi
+
+# Run Ruff if available
+if command -v "$RUFF" >/dev/null 2>&1 || [ -x "$RUFF" ]; then
+    echo "-> Running ruff check..."
+    "$RUFF" check .
+fi
+
+# Run pytest
+if command -v "$PYTEST" >/dev/null 2>&1 || [ -x "$PYTEST" ]; then
+    echo "-> Running pytest (-n auto)..."
+    "$PYTEST" -n auto tests/
+fi
+
+echo "=== [pre-commit] All checks passed successfully! ==="
