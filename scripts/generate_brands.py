@@ -27,27 +27,27 @@ def draw_robot(size: int = 2048, dark_theme: bool = False) -> Image.Image:
     # Color palette
     if dark_theme:
         # Dark theme palette (bright robot on transparent canvas, avg luminance > 180)
-        c_body = (226, 232, 240, 255)       # Slate 200 (~230 lum)
-        c_body_stroke = (148, 163, 184, 255) # Slate 400
-        c_bumper = (241, 245, 249, 255)     # Slate 100
+        c_body = (226, 232, 240, 255)  # Slate 200 (~230 lum)
+        c_body_stroke = (148, 163, 184, 255)  # Slate 400
+        c_bumper = (241, 245, 249, 255)  # Slate 100
         c_bumper_line = (148, 163, 184, 255)
-        c_turret_base = (203, 213, 225, 255) # Slate 300
+        c_turret_base = (203, 213, 225, 255)  # Slate 300
         c_turret_top = (248, 250, 252, 255)  # Slate 50
-        c_turret_core = (15, 23, 42, 255)    # Slate 900
-        c_accent = (56, 189, 248, 255)       # HA Cyan / Sky 400
+        c_turret_core = (15, 23, 42, 255)  # Slate 900
+        c_accent = (56, 189, 248, 255)  # HA Cyan / Sky 400
         c_accent_glow = (14, 165, 233, 255)  # Sky 500
         c_detail = (148, 163, 184, 255)
     else:
         # Light theme palette (dark robot on transparent canvas, avg luminance < 100)
-        c_body = (30, 41, 59, 255)          # Slate 800 (~40 lum)
-        c_body_stroke = (51, 65, 85, 255)   # Slate 700
-        c_bumper = (15, 23, 42, 255)        # Slate 900 (~20 lum)
+        c_body = (30, 41, 59, 255)  # Slate 800 (~40 lum)
+        c_body_stroke = (51, 65, 85, 255)  # Slate 700
+        c_bumper = (15, 23, 42, 255)  # Slate 900 (~20 lum)
         c_bumper_line = (71, 85, 105, 255)  # Slate 600
-        c_turret_base = (51, 65, 85, 255)   # Slate 700
-        c_turret_top = (15, 23, 42, 255)    # Slate 900
-        c_turret_core = (14, 165, 233, 255) # HA Blue
-        c_accent = (2, 132, 199, 255)       # HA Sky 600
-        c_accent_glow = (56, 189, 248, 255) # HA Sky 400
+        c_turret_base = (51, 65, 85, 255)  # Slate 700
+        c_turret_top = (15, 23, 42, 255)  # Slate 900
+        c_turret_core = (14, 165, 233, 255)  # HA Blue
+        c_accent = (2, 132, 199, 255)  # HA Sky 600
+        c_accent_glow = (56, 189, 248, 255)  # HA Sky 400
         c_detail = (71, 85, 105, 255)
 
     # 1. Main Neato D-shape Body

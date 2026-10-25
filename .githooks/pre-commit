@@ -30,6 +30,8 @@ fi
 if command -v "$RUFF" >/dev/null 2>&1 || [ -x "$RUFF" ]; then
     echo "-> Running ruff check..."
     "$RUFF" check .
+    echo "-> Running ruff format check..."
+    "$RUFF" format --check .
 fi
 
 # Run pytest
