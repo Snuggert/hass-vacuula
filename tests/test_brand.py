@@ -96,11 +96,11 @@ def test_manifest_and_hacs_domain_alignment() -> None:
     with open(MANIFEST_PATH, encoding="utf-8") as f:
         manifest = json.load(f)
     assert manifest["domain"] == "vacuula"
-    assert manifest["name"] == "Vacuula"
+    assert manifest["name"] == "Neato Botvac (Vacuula Client - Unofficial)"
 
     with open(HACS_JSON_PATH, encoding="utf-8") as f:
         hacs = json.load(f)
-    assert hacs["name"] == "Vacuula"
+    assert hacs["name"] == "Neato Botvac (Vacuula Client - Unofficial)"
 
 
 def test_root_brand_directory_mirrored() -> None:

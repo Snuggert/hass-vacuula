@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <linearGradient id="body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d3748"/>
+      <stop offset="100%" stop-color="#1a202c"/>
+    </linearGradient>
+    <linearGradient id="bumper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Robot D-shape Body -->
+  <g filter="url(#shadow)">
+    <!-- Rear semicircle -->
+    <path d="M 70 270 A 186 186 0 0 0 442 270 L 442 120 C 442 90 412 85 382 85 L 130 85 C 100 85 70 90 70 120 Z"
+          fill="url(#body)" stroke="#4a5568" stroke-width="4"/>
+
+    <!-- Front Bumper -->
+    <path d="M 70 150 L 70 120 C 70 90 100 85 130 85 L 382 85 C 412 85 442 90 442 120 L 442 150 Z"
+          fill="url(#bumper)" stroke="#4a5568" stroke-width="3"/>
+    <line x1="70" y1="150" x2="442" y2="150" stroke="#374151" stroke-width="4"/>
+
+    <!-- Dustbin outline -->
+    <rect x="145" y="180" width="222" height="110" rx="15" fill="none" stroke="#4a5568" stroke-width="3"/>
+    <rect x="221" y="185" width="70" height="12" rx="6" fill="#4a5568"/>
+
+    <!-- Power / Status LED -->
+    <circle cx="256" cy="168" r="10" fill="url(#accent)"/>
+
+    <!-- LiDAR Turret -->
+    <circle cx="256" cy="355" r="55" fill="#374151" stroke="#4a5568" stroke-width="3"/>
+    <circle cx="256" cy="355" r="45" fill="#1f2937" stroke="#4a5568" stroke-width="2"/>
+    <rect x="218" y="350" width="76" height="10" rx="5" fill="#111827"/>
+    <circle cx="256" cy="355" r="11" fill="url(#accent)"/>
+  </g>
+</svg>
