@@ -1,19 +1,31 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/vacuula_logo.svg" alt="Vacuula Logo" width="120" />
+  <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/integration_logo.svg" alt="Neato Botvac Logo" width="120" />
 </p>
 
-<h1 align="center">Vacuula for Home Assistant</h1>
+<h1 align="center">Neato Botvac for Home Assistant</h1>
+<p align="center"><em>Unofficial Community Integration for Vacuula Local Cloud</em></p>
 
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
-  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.0-0ea5e9.svg?style=flat-square" alt="Version 0.6.0" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.1-0ea5e9.svg?style=flat-square" alt="Version 0.6.1" /></a>
   <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
   <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>
   <a href="https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square" alt="License: MIT" /></a>
 </p>
 
-A full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
+> [!IMPORTANT]
+> ### ⚠️ Unofficial Community Integration — Not Affiliated with Vacuula
+>
+> **This integration is an independent, community-developed project by [@Snuggert](https://github.com/Snuggert).**
+> **It is NOT an official Vacuula project and is in NO WAY affiliated with, endorsed by, or supported by the author of Vacuula ([@Philip2809](https://github.com/Philip2809)).**
+>
+> 🛑 **DO NOT submit support requests, bug reports, or questions to the upstream Vacuula repository** for any issues concerning this Home Assistant integration or its Lovelace map card.
+>
+> All issues and support requests must be opened exclusively on this repository:
+> 👉 [**Snuggert/hass-vacuula Issues**](https://github.com/Snuggert/hass-vacuula/issues)
+
+An independent, full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for robot vacuums connecting through [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
 
 ---
 
@@ -56,9 +68,9 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 ### Option 1: HACS (Recommended)
 
 1. Open **HACS** in Home Assistant → **Integrations**.
-2. Search for **Vacuula**.
+2. Search for **Neato Botvac (Vacuula Client - Unofficial)** (or search **Vacuula**).
 3. Click **Download** and restart Home Assistant.
-4. Go to **Settings → Devices & Services → Add Integration** and search for **Vacuula** (or accept the automatic Zeroconf discovery prompt if `_vacuula._tcp.local.` is advertised on your LAN).
+4. Go to **Settings → Devices & Services → Add Integration** and search for **Neato Botvac** (or accept the automatic Zeroconf discovery prompt if `_vacuula._tcp.local.` is advertised on your LAN).
 
 <details>
 <summary><b>Custom Repository Fallback (HACS)</b></summary>
@@ -66,14 +78,14 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 If the integration does not appear in your HACS search results yet:
 1. Open **HACS** → **Integrations** → top-right menu (**⋮**) → **Custom repositories**.
 2. Add `https://github.com/Snuggert/hass-vacuula` with category **Integration**.
-3. Click **Download** on **Vacuula** and restart Home Assistant.
+3. Click **Download** on **Neato Botvac (Vacuula Client - Unofficial)** and restart Home Assistant.
 </details>
 
 ### Option 2: Manual Installation
 
 1. Copy the `custom_components/vacuula` folder into your Home Assistant `<config>/custom_components/` directory.
 2. Restart Home Assistant.
-3. Add **Vacuula** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://vacuula.local:8085`).
+3. Add **Neato Botvac** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://vacuula.local:8085`).
 
 ### Server URL Format
 
@@ -237,7 +249,8 @@ Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snug
 
 ---
 
-## 📄 License & Attribution
+## 📄 License & Disclaimers
 
 - **Integration & Lovelace Card Code**: Licensed under the [**MIT License**](https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE).
-- **Brand Assets & Upstream Project**: The Vacuula vampire-bot icon and logo in [`custom_components/vacuula/brand/`](https://github.com/Snuggert/hass-vacuula/tree/main/custom_components/vacuula/brand/) and [`docs/assets/vacuula_logo.svg`](https://github.com/Snuggert/hass-vacuula/blob/main/docs/assets/vacuula_logo.svg) are courtesy of the [**Vacuula**](https://github.com/vacuula/vacuula) project (licensed under [GNU AGPL-3.0](https://github.com/vacuula/vacuula/blob/main/LICENSE)). See [**docs/brands.md**](https://github.com/Snuggert/hass-vacuula/blob/main/docs/brands.md) for brand asset specifications and dark theme guidelines. This integration is an independent HTTP/SSE client and is not affiliated with Neato Robotics.
+- **Brand Assets**: The integration icons and logos are original artwork designed in the Home Assistant Material Design style specifically for this integration. They do not use any artwork, trademarks, or assets from the Vacuula project. See [**docs/brands.md**](https://github.com/Snuggert/hass-vacuula/blob/main/docs/brands.md) for brand asset specifications and dark theme guidelines.
+- **Independence & Disclaimer**: This project is an independent community client integration developed by [@Snuggert](https://github.com/Snuggert). It is **not** affiliated with, maintained by, or endorsed by Neato Robotics or the upstream [Vacuula](https://github.com/vacuula/vacuula) project ([@Philip2809](https://github.com/Philip2809)). All support inquiries and bug reports must be directed exclusively to [**Snuggert/hass-vacuula Issues**](https://github.com/Snuggert/hass-vacuula/issues).

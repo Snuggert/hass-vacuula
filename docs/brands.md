@@ -1,6 +1,9 @@
 # Brand Assets & Theme Integration
 
-This document outlines how Vacuula brand assets are structured, loaded, and resolved across Home Assistant Core, HACS (Home Assistant Community Store), and the Home Assistant Brands CDN.
+This document outlines how brand assets for the Neato Botvac custom integration are structured, loaded, and resolved across Home Assistant Core, HACS (Home Assistant Community Store), and the Home Assistant Brands CDN.
+
+> [!NOTE]
+> All brand icons and logos in this repository are **original artwork designed in the Home Assistant Material Design (MDI) style**. They depict a classic Neato D-shape robot vacuum with Home Assistant blue/cyan status lighting and do not use any artwork, trademarks, or assets from the upstream Vacuula server project.
 
 ---
 
@@ -22,30 +25,15 @@ Home Assistant supports custom integration branding through two primary channels
 
 ---
 
-## 2. Why `brands.home-assistant.io/_/vacuula/dark_icon.png` Returned a Missing Image
-
-The URL path `/_/` is Home Assistant Brands CDN's **placeholder fallback route**. When an integration:
-- Does not have brand assets submitted to the central [home-assistant/brands](https://github.com/home-assistant/brands) repository, or
-- Missing a dedicated `dark_icon.png` in its GitHub releases,
-
-the CDN serves a generic fallback placeholder ("Image not found").
-
-Furthermore:
-- In releases prior to v0.6.0, `dark_icon.png`, `dark_icon@2x.png`, `dark_logo.png`, and `dark_logo@2x.png` were not present in the repository.
-- `icon.png` was sized at 192×192 px instead of standard 256×256 px.
-- Artwork was dark charcoal `#222222` with no light-colored variant for dark mode.
-
----
-
-## 3. Brand Asset Specification
+## 2. Brand Asset Specification
 
 The repository bundles all 8 standard brand image files conforming to Home Assistant specifications:
 
 | Filename | Dimensions | Theme Target | Description |
 |:---|:---:|:---:|:---|
-| `icon.png` | 256 × 256 | Light theme | Square robot vacuum avatar on transparent background (dark charcoal body). |
+| `icon.png` | 256 × 256 | Light theme | Clean MDI-style D-shape robot vacuum avatar on transparent background (dark charcoal body with HA blue accent). |
 | `icon@2x.png` | 512 × 512 | Light theme | HiDPI / retina version of `icon.png`. |
-| `dark_icon.png` | 256 × 256 | Dark theme | High-contrast silver/white avatar on transparent background with vivid status light. |
+| `dark_icon.png` | 256 × 256 | Dark theme | High-contrast silver/white avatar on transparent background with cyan status light. |
 | `dark_icon@2x.png` | 512 × 512 | Dark theme | HiDPI / retina version of `dark_icon.png`. |
 | `logo.png` | 512 × 512 | Light theme | Brand logo for integration card and device headers. |
 | `logo@2x.png` | 512 × 512 | Light theme | HiDPI version of `logo.png`. |
@@ -58,7 +46,7 @@ These assets are mirrored in:
 
 ---
 
-## 4. Maintenance & Regeneration Tooling
+## 3. Maintenance & Regeneration Tooling
 
 If the master artwork is updated, run the automated brand generation script to regenerate all 8 compliant PNGs:
 
@@ -70,14 +58,3 @@ Automated test verification:
 ```bash
 pytest tests/test_brand.py
 ```
-
----
-
-## 5. (Optional) Upstream CDN Submission to `home-assistant/brands`
-
-While modern Home Assistant and HACS Marketplace dynamically fetch local assets from GitHub releases, you can also register the brand in the centralized Home Assistant Brands repository so that legacy CDN queries (`https://brands.home-assistant.io/_/vacuula/...`) resolve permanently:
-
-1. Fork [home-assistant/brands](https://github.com/home-assistant/brands) on GitHub.
-2. Create a folder `custom_integrations/vacuula/`.
-3. Copy the 8 PNG files from `custom_components/vacuula/brand/` into `custom_integrations/vacuula/`.
-4. Submit a Pull Request titled `Add brand assets for Vacuula custom integration`.
