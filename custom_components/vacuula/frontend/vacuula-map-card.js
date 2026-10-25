@@ -31,6 +31,158 @@ function sanitizeImgUrl(val) {
   return "";
 }
 
+const ALERT_INFO_MAP = {
+  dustbin_full: {
+    icon: "🗑️",
+    title: "Dust Bin Full",
+    message: "Empty the robot's dust bin and clean filter.",
+    severity: "warning",
+    isBin: true,
+  },
+  ui_alert_dust_bin_full: {
+    icon: "🗑️",
+    title: "Dust Bin Full",
+    message: "Empty the robot's dust bin and clean filter.",
+    severity: "warning",
+    isBin: true,
+  },
+  ui_error_dust_bin_full: {
+    icon: "🗑️",
+    title: "Dust Bin Full",
+    message: "Empty the robot's dust bin and clean filter.",
+    severity: "warning",
+    isBin: true,
+  },
+  dustbin_missing: {
+    icon: "🗑️",
+    title: "Dust Bin Missing",
+    message: "Insert the dust bin firmly back into the robot.",
+    severity: "warning",
+    isBin: true,
+  },
+  ui_alert_dust_bin_missing: {
+    icon: "🗑️",
+    title: "Dust Bin Missing",
+    message: "Insert the dust bin firmly back into the robot.",
+    severity: "warning",
+    isBin: true,
+  },
+  brush_stuck: {
+    icon: "⚠️",
+    title: "Brush Stuck",
+    message: "Remove hair or debris from the main brush roller.",
+    severity: "error",
+    isBin: false,
+  },
+  ui_error_brush_stuck: {
+    icon: "⚠️",
+    title: "Brush Stuck",
+    message: "Remove hair or debris from the main brush roller.",
+    severity: "error",
+    isBin: false,
+  },
+  brush_overload: {
+    icon: "⚠️",
+    title: "Brush Overloaded",
+    message: "Main brush roller is overloaded; please check for tangled debris.",
+    severity: "error",
+    isBin: false,
+  },
+  navigation_stuck: {
+    icon: "🛑",
+    title: "Robot Stuck",
+    message: "Clear obstacles around the robot and move to open floor.",
+    severity: "error",
+    isBin: false,
+  },
+  ui_error_navigation_stuck: {
+    icon: "🛑",
+    title: "Robot Stuck",
+    message: "Clear obstacles around the robot and move to open floor.",
+    severity: "error",
+    isBin: false,
+  },
+  stuck: {
+    icon: "🛑",
+    title: "Robot Stuck",
+    message: "Clear obstacles around the robot and move to open floor.",
+    severity: "error",
+    isBin: false,
+  },
+  clear_path: {
+    icon: "⚠️",
+    title: "Clear Path",
+    message: "Robot path is blocked; please clear surrounding floor space.",
+    severity: "warning",
+    isBin: false,
+  },
+  ui_alert_clear_path: {
+    icon: "⚠️",
+    title: "Clear Path",
+    message: "Robot path is blocked; please clear surrounding floor space.",
+    severity: "warning",
+    isBin: false,
+  },
+  robot_picked_up: {
+    icon: "⬆️",
+    title: "Robot Picked Up",
+    message: "Place the robot back down onto the floor.",
+    severity: "warning",
+    isBin: false,
+  },
+  ui_error_picked_up: {
+    icon: "⬆️",
+    title: "Robot Picked Up",
+    message: "Place the robot back down onto the floor.",
+    severity: "warning",
+    isBin: false,
+  },
+  cliff_sensor: {
+    icon: "🚨",
+    title: "Drop Sensor Error",
+    message: "Clean the optical drop sensors on the underside of the robot.",
+    severity: "error",
+    isBin: false,
+  },
+  ui_error_drop_sensor: {
+    icon: "🚨",
+    title: "Drop Sensor Error",
+    message: "Clean the optical drop sensors on the underside of the robot.",
+    severity: "error",
+    isBin: false,
+  },
+  lid_open: {
+    icon: "⚠️",
+    title: "Top Cover Open",
+    message: "Close the robot's top dust bin cover.",
+    severity: "warning",
+    isBin: true,
+  },
+  battery_low: {
+    icon: "🪫",
+    title: "Low Battery",
+    message: "Battery level is low; returning to charge base.",
+    severity: "info",
+    isBin: false,
+  },
+  ui_alert_battery_low: {
+    icon: "🪫",
+    title: "Low Battery",
+    message: "Battery level is low; returning to charge base.",
+    severity: "info",
+    isBin: false,
+  },
+};
+
+function formatAlertCode(code) {
+  const clean = String(code ?? "")
+    .replace(/^ui_(alert|error)_/, "")
+    .replace(/_/g, " ")
+    .trim();
+  if (!clean) return "Unknown Alert";
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
 class VacuulaMapCard extends HTMLElement {
   constructor() {
     super();
@@ -56,13 +208,40 @@ class VacuulaMapCard extends HTMLElement {
     return {
       entity: vacuumEntity,
       default_view: "floor",
+      map_height: "auto",
+      expand_on_desktop: true,
+      show_alerts: true,
+      show_bin_alert: true,
+      show_header: true,
+      show_status_badge: true,
+      show_battery: true,
+      show_schedule: true,
+      show_toolbar: true,
       show_zone_labels: true,
+      show_zone_chips: true,
       show_controls: true,
+      show_modes: true,
     };
   }
 
   static getConfigElement() {
     return document.createElement("vacuula-map-card-editor");
+  }
+
+  getGridOptions() {
+    return {
+      columns: 12,
+      rows: "auto",
+      min_columns: 6,
+      min_rows: 4,
+    };
+  }
+
+  getCardSize() {
+    const val = String(this._config.map_height || "auto").toLowerCase();
+    if (val === "large" || val === "xlarge") return 9;
+    if (val === "compact") return 4;
+    return 6;
   }
 
   setConfig(config) {
@@ -71,14 +250,37 @@ class VacuulaMapCard extends HTMLElement {
     }
     const defaultView = config.default_view ?? config.default_map ?? "floor";
     const showZoneLabels = config.show_zone_labels ?? config.show_zones ?? true;
+    const showControls = config.show_controls !== false;
+    const showModes = config.show_modes !== false;
+    const showHeader = config.show_header !== false;
+    const showStatusBadge = config.show_status_badge !== false;
+    const showBattery = config.show_battery !== false;
+    const showSchedule = config.show_schedule !== false;
+    const showToolbar = config.show_toolbar !== false;
+    const showZoneChips = config.show_zone_chips !== false;
+    const showAlerts = config.show_alerts !== false;
+    const showBinAlert = config.show_bin_alert !== false;
+    const expandOnDesktop = config.expand_on_desktop !== false;
+    const mapHeight = config.map_height || "auto";
+
     this._config = {
       default_view: defaultView,
+      map_height: mapHeight,
+      expand_on_desktop: expandOnDesktop,
       show_zone_labels: showZoneLabels,
-      show_controls: true,
+      show_zone_chips: showZoneChips,
+      show_controls: showControls,
+      show_modes: showModes,
+      show_header: showHeader,
+      show_status_badge: showStatusBadge,
+      show_battery: showBattery,
+      show_schedule: showSchedule,
+      show_toolbar: showToolbar,
+      show_alerts: showAlerts,
+      show_bin_alert: showBinAlert,
       ...config,
     };
-    this._config.default_view = defaultView;
-    this._config.show_zone_labels = showZoneLabels;
+
     if (!this._initialized) {
       this._viewMode = this._config.default_view === "run" ? "run" : "floor";
       this._initialized = true;
@@ -96,10 +298,6 @@ class VacuulaMapCard extends HTMLElement {
     }
   }
 
-  getCardSize() {
-    return 6;
-  }
-
   _slug() {
     const entityId = this._config.entity || "";
     return entityId.includes(".") ? entityId.split(".")[1] : entityId;
@@ -107,6 +305,59 @@ class VacuulaMapCard extends HTMLElement {
 
   _getState(entityId) {
     return this._hass?.states?.[entityId] || null;
+  }
+
+  _resolveAlert() {
+    const slug = this._slug();
+    const vacState = this._getState(this._config.entity);
+    const alertSensor = this._getState(`sensor.${slug}_alert`);
+    const binSensor = this._getState(`binary_sensor.${slug}_bin_full`);
+
+    let rawCode = "";
+    if (binSensor?.state === "on") {
+      rawCode = binSensor.attributes?.alert || "dustbin_full";
+    } else if (
+      alertSensor?.state &&
+      !["none", "unknown", "unavailable"].includes(alertSensor.state)
+    ) {
+      rawCode = alertSensor.state;
+    } else if (vacState?.attributes?.alert) {
+      rawCode = vacState.attributes.alert;
+    } else if (vacState?.attributes?.error) {
+      rawCode = vacState.attributes.error;
+    } else if (Array.isArray(vacState?.attributes?.errors) && vacState.attributes.errors.length) {
+      const first = vacState.attributes.errors[0];
+      rawCode = typeof first === "object" ? first?.code || "" : String(first);
+    }
+
+    if (!rawCode) return null;
+
+    const lower = String(rawCode).toLowerCase().trim();
+    const known = ALERT_INFO_MAP[lower];
+    const isBinFull = lower.includes("dustbin") || lower.includes("bin_full");
+    const dismissButton = this._getState(`button.${slug}_dismiss_alert`);
+
+    if (known) {
+      return {
+        code: lower,
+        title: known.title,
+        message: known.message,
+        severity: known.severity,
+        icon: known.icon,
+        isBin: known.isBin,
+        canDismiss: Boolean(dismissButton),
+      };
+    }
+
+    return {
+      code: lower,
+      title: formatAlertCode(rawCode),
+      message: `Active condition: ${formatAlertCode(rawCode)}.`,
+      severity: "warning",
+      icon: isBinFull ? "🗑️" : "⚠️",
+      isBin: isBinFull,
+      canDismiss: Boolean(dismissButton),
+    };
   }
 
   _computeSignature() {
@@ -121,6 +372,8 @@ class VacuulaMapCard extends HTMLElement {
     );
     const batt = this._getState(`sensor.${slug}_battery`);
     const chg = this._getState(`binary_sensor.${slug}_charging`);
+    const binSensor = this._getState(`binary_sensor.${slug}_bin_full`);
+    const alertSensor = this._getState(`sensor.${slug}_alert`);
     const area = this._getState(`sensor.${slug}_last_clean_area`);
     const dur = this._getState(`sensor.${slug}_last_clean_duration`);
     const nav = this._getState(`select.${slug}_navigation_mode`);
@@ -145,13 +398,27 @@ class VacuulaMapCard extends HTMLElement {
       run?.attributes?.entity_picture,
       batt?.state,
       chg?.state,
+      binSensor?.state,
+      binSensor?.attributes?.alert,
+      alertSensor?.state,
       area?.state,
       dur?.state,
       nav?.state,
       sched?.state,
       this._config.title,
+      this._config.map_height,
+      this._config.expand_on_desktop,
+      this._config.show_alerts,
+      this._config.show_bin_alert,
+      this._config.show_header,
+      this._config.show_status_badge,
+      this._config.show_battery,
+      this._config.show_schedule,
+      this._config.show_toolbar,
       this._config.show_zone_labels,
+      this._config.show_zone_chips,
       this._config.show_controls,
+      this._config.show_modes,
     ]);
   }
 
@@ -231,6 +498,14 @@ class VacuulaMapCard extends HTMLElement {
     }
   }
 
+  _dismissAlert() {
+    if (!this._hass) return;
+    const btnEntity = `button.${this._slug()}_dismiss_alert`;
+    if (this._getState(btnEntity)) {
+      this._hass.callService("button", "press", { entity_id: btnEntity });
+    }
+  }
+
   _refreshMaps() {
     if (!this._hass) return;
     const btnEntity = `button.${this._slug()}_refresh_maps`;
@@ -243,12 +518,41 @@ class VacuulaMapCard extends HTMLElement {
     }
   }
 
+  _getCustomHeightVars() {
+    const val = String(this._config.map_height || "auto").trim().toLowerCase();
+    switch (val) {
+      case "compact":
+        return "--vacuula-map-max-height: 320px; --vacuula-map-min-height: 200px;";
+      case "medium":
+        return "--vacuula-map-max-height: 450px; --vacuula-map-min-height: 300px;";
+      case "large":
+        return "--vacuula-map-max-height: 620px; --vacuula-map-min-height: 400px;";
+      case "xlarge":
+        return "--vacuula-map-max-height: 800px; --vacuula-map-min-height: 500px;";
+      case "auto":
+        return "";
+      default:
+        if (/^[0-9]+(px|vh|rem|em|%)$/.test(val)) {
+          return `--vacuula-map-max-height: ${val}; --vacuula-map-min-height: ${val};`;
+        }
+        return "";
+    }
+  }
+
   _render() {
     if (!this.shadowRoot) return;
+    const customVars = this._getCustomHeightVars();
+    const expandAttr = this._config.expand_on_desktop !== false ? "true" : "false";
+
     this.shadowRoot.innerHTML = `
       <style>
         :host {
           display: block;
+          ${customVars}
+        }
+        :host([panel]) ha-card,
+        ha-card.panel-mode {
+          height: 100%;
         }
         ha-card {
           overflow: hidden;
@@ -315,6 +619,7 @@ class VacuulaMapCard extends HTMLElement {
           gap: 6px;
           font-size: 0.8rem;
           font-weight: 600;
+          flex-wrap: wrap;
         }
         .pill {
           display: inline-flex;
@@ -335,11 +640,86 @@ class VacuulaMapCard extends HTMLElement {
           background: rgba(34, 197, 94, 0.2);
           color: #4ade80;
         }
+
+        /* Active Alert & Notification Banner */
+        .alert-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 10px 14px;
+          border-top: 1px solid transparent;
+          border-bottom: 1px solid transparent;
+          transition: background 0.15s ease;
+        }
+        .alert-banner.warning {
+          background: rgba(245, 158, 11, 0.14);
+          border-color: rgba(245, 158, 11, 0.35);
+          color: #fbbf24;
+        }
+        .alert-banner.error {
+          background: rgba(239, 68, 68, 0.16);
+          border-color: rgba(239, 68, 68, 0.35);
+          color: #f87171;
+        }
+        .alert-banner.info {
+          background: rgba(56, 189, 248, 0.15);
+          border-color: rgba(56, 189, 248, 0.35);
+          color: #38bdf8;
+        }
+        .alert-left {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          min-width: 0;
+        }
+        .alert-icon {
+          font-size: 1.25rem;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+        .alert-text-group {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          min-width: 0;
+        }
+        .alert-title {
+          font-size: 0.82rem;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          color: #ffffff;
+        }
+        .alert-desc {
+          font-size: 0.74rem;
+          color: var(--secondary-text-color, #cbd5e1);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .alert-dismiss-btn {
+          border: 1px solid currentColor;
+          background: transparent;
+          color: inherit;
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 3px 8px;
+          border-radius: 6px;
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
+          transition: background 0.12s ease;
+        }
+        .alert-dismiss-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Map Viewport & Stage */
         .map-wrapper {
           position: relative;
           background: #181c24;
           width: 100%;
-          min-height: 240px;
+          min-height: var(--vacuula-map-min-height, 240px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -356,12 +736,47 @@ class VacuulaMapCard extends HTMLElement {
         .map-img {
           display: block;
           width: 100%;
-          max-height: 380px;
+          max-height: var(--vacuula-map-max-height, 380px);
           object-fit: contain;
           image-rendering: crisp-edges;
           user-select: none;
           -webkit-user-drag: none;
         }
+
+        /* Responsive Large Monitor Scaling */
+        @media (min-width: 600px) {
+          :host(:not([data-expand="false"])) .map-wrapper {
+            min-height: var(--vacuula-map-min-height, 320px);
+          }
+          :host(:not([data-expand="false"])) .map-img {
+            max-height: var(--vacuula-map-max-height, 520px);
+          }
+        }
+        @media (min-width: 1024px) {
+          :host(:not([data-expand="false"])) .map-wrapper {
+            min-height: var(--vacuula-map-min-height, 400px);
+          }
+          :host(:not([data-expand="false"])) .map-img {
+            max-height: var(--vacuula-map-max-height, 660px);
+          }
+        }
+        @media (min-width: 1440px) {
+          :host(:not([data-expand="false"])) .map-wrapper {
+            min-height: var(--vacuula-map-min-height, 460px);
+          }
+          :host(:not([data-expand="false"])) .map-img {
+            max-height: var(--vacuula-map-max-height, 800px);
+          }
+        }
+        :host([panel]) .map-wrapper,
+        ha-card.panel-mode .map-wrapper {
+          min-height: 480px;
+        }
+        :host([panel]) .map-img,
+        ha-card.panel-mode .map-img {
+          max-height: calc(100vh - 280px);
+        }
+
         .zone-svg {
           position: absolute;
           inset: 0;
@@ -559,7 +974,7 @@ class VacuulaMapCard extends HTMLElement {
           font-size: 0.85rem;
         }
       </style>
-      <ha-card>
+      <ha-card data-expand="${expandAttr}">
         <div id="root"></div>
       </ha-card>
     `;
@@ -601,6 +1016,7 @@ class VacuulaMapCard extends HTMLElement {
     const durState = this._getState(`sensor.${slug}_last_clean_duration`);
     const navSelectState = this._getState(`select.${slug}_navigation_mode`);
     const schedState = this._getState(`switch.${slug}_schedule`);
+    const activeAlert = this._resolveAlert();
 
     const name =
       this._config.title ||
@@ -690,8 +1106,9 @@ class VacuulaMapCard extends HTMLElement {
             .join("")
         : "";
 
-    const zoneChips = zones.length
-      ? `
+    const zoneChips =
+      zones.length && this._config.show_zone_chips !== false
+        ? `
         <div class="zones-bar">
           ${zones
             .map((z) => {
@@ -713,39 +1130,84 @@ class VacuulaMapCard extends HTMLElement {
           }
         </div>
       `
-      : "";
+        : "";
 
     const stateEsc = escapeHtml(stateStr);
 
-    root.innerHTML = `
-      <div class="header">
-        <div class="title-group">
-          <div class="title-row">
-            <span class="robot-name">${escapeHtml(name)}</span>
-            <span class="status-badge" data-state="${stateEsc}">${stateEsc}</span>
+    const alertBannerHtml =
+      activeAlert && this._config.show_alerts !== false
+        ? `
+          <div class="alert-banner ${escapeHtml(activeAlert.severity)}">
+            <div class="alert-left">
+              <span class="alert-icon">${escapeHtml(activeAlert.icon)}</span>
+              <div class="alert-text-group">
+                <span class="alert-title">${escapeHtml(activeAlert.title)}</span>
+                <span class="alert-desc" title="${escapeHtml(activeAlert.message)}">${escapeHtml(activeAlert.message)}</span>
+              </div>
+            </div>
+            ${
+              activeAlert.canDismiss
+                ? `<button class="alert-dismiss-btn" id="btn-dismiss-alert" title="Dismiss Alert">✕ Dismiss</button>`
+                : ""
+            }
           </div>
-          <div class="subtitle">${escapeHtml(subtitleParts.join(" • "))}</div>
+        `
+        : "";
+
+    const headerHtml =
+      this._config.show_header !== false
+        ? `
+        <div class="header">
+          <div class="title-group">
+            <div class="title-row">
+              <span class="robot-name">${escapeHtml(name)}</span>
+              ${
+                this._config.show_status_badge !== false
+                  ? `<span class="status-badge" data-state="${stateEsc}">${stateEsc}</span>`
+                  : ""
+              }
+            </div>
+            <div class="subtitle">${escapeHtml(subtitleParts.join(" • "))}</div>
+          </div>
+          <div class="telemetry">
+            ${
+              activeAlert &&
+              activeAlert.isBin &&
+              this._config.show_bin_alert !== false
+                ? `<span class="pill active" style="background:rgba(245,158,11,0.22);color:#fbbf24;" title="${escapeHtml(activeAlert.message)}">🗑️ Bin Full</span>`
+                : ""
+            }
+            ${
+              schedState && this._config.show_schedule !== false
+                ? `<button class="pill clickable ${isScheduleOn ? "active" : ""}" id="btn-schedule" title="Toggle Robot Schedule">📅 ${isScheduleOn ? "Sched On" : "Sched Off"}</button>`
+                : ""
+            }
+            ${
+              batteryVal && this._config.show_battery !== false
+                ? `<span class="pill" title="Battery">${isCharging ? "⚡" : "🔋"} ${escapeHtml(batteryVal)}</span>`
+                : ""
+            }
+          </div>
         </div>
-        <div class="telemetry">
-          ${
-            schedState
-              ? `<button class="pill clickable ${isScheduleOn ? "active" : ""}" id="btn-schedule" title="Toggle Robot Schedule">📅 ${isScheduleOn ? "Sched On" : "Sched Off"}</button>`
-              : ""
-          }
-          ${
-            batteryVal
-              ? `<span class="pill" title="Battery">${isCharging ? "⚡" : "🔋"} ${escapeHtml(batteryVal)}</span>`
-              : ""
-          }
-        </div>
-      </div>
+      `
+        : "";
+
+    root.innerHTML = `
+      ${headerHtml}
+      ${alertBannerHtml}
 
       <div class="map-wrapper">
-        <div class="map-toolbar">
-          <button class="tab-btn ${this._viewMode === "floor" ? "active" : ""}" id="tab-floor">Floor Plan</button>
-          <button class="tab-btn ${this._viewMode === "run" ? "active" : ""}" id="tab-run">Last Run</button>
-          <button class="tab-btn" id="btn-refresh-map" title="Refresh Maps">↻</button>
-        </div>
+        ${
+          this._config.show_toolbar !== false
+            ? `
+            <div class="map-toolbar">
+              <button class="tab-btn ${this._viewMode === "floor" ? "active" : ""}" id="tab-floor">Floor Plan</button>
+              <button class="tab-btn ${this._viewMode === "run" ? "active" : ""}" id="tab-run">Last Run</button>
+              <button class="tab-btn" id="btn-refresh-map" title="Refresh Maps">↻</button>
+            </div>
+            `
+            : ""
+        }
         ${
           imgUrl
             ? `
@@ -766,34 +1228,46 @@ class VacuulaMapCard extends HTMLElement {
       ${zoneChips}
 
       ${
-        this._config.show_controls !== false
+        this._config.show_controls !== false || this._config.show_modes !== false
           ? `
             <div class="controls-section">
-              <div class="action-row">
-                <button class="btn primary" id="btn-start">▶ ${escapeHtml(startLabel)}</button>
-                <button class="btn" id="btn-pause" title="Pause">⏸</button>
-                <button class="btn" id="btn-stop" title="Stop">⏹</button>
-                <button class="btn" id="btn-dock" title="Return to Base">⌂ Dock</button>
-                <button class="btn" id="btn-locate" title="Locate Robot">🔊</button>
-              </div>
-              <div class="modes-row">
-                <div class="mode-group" title="Fan Speed">
-                  ${fanSpeeds
-                    .map(
-                      (spd) =>
-                        `<button class="mode-btn ${spd === currentFan ? "active" : ""}" data-fan="${escapeHtml(spd)}">${escapeHtml(spd)}</button>`
-                    )
-                    .join("")}
-                </div>
-                <div class="mode-group" title="Navigation Mode">
-                  ${navModes
-                    .map(
-                      (nav) =>
-                        `<button class="mode-btn ${nav === currentNav ? "active" : ""}" data-nav="${escapeHtml(nav)}">${escapeHtml(String(nav).replace(/_/g, " "))}</button>`
-                    )
-                    .join("")}
-                </div>
-              </div>
+              ${
+                this._config.show_controls !== false
+                  ? `
+                  <div class="action-row">
+                    <button class="btn primary" id="btn-start">▶ ${escapeHtml(startLabel)}</button>
+                    <button class="btn" id="btn-pause" title="Pause">⏸</button>
+                    <button class="btn" id="btn-stop" title="Stop">⏹</button>
+                    <button class="btn" id="btn-dock" title="Return to Base">⌂ Dock</button>
+                    <button class="btn" id="btn-locate" title="Locate Robot">🔊</button>
+                  </div>
+                  `
+                  : ""
+              }
+              ${
+                this._config.show_modes !== false
+                  ? `
+                  <div class="modes-row">
+                    <div class="mode-group" title="Fan Speed">
+                      ${fanSpeeds
+                        .map(
+                          (spd) =>
+                            `<button class="mode-btn ${spd === currentFan ? "active" : ""}" data-fan="${escapeHtml(spd)}">${escapeHtml(spd)}</button>`
+                        )
+                        .join("")}
+                    </div>
+                    <div class="mode-group" title="Navigation Mode">
+                      ${navModes
+                        .map(
+                          (nav) =>
+                            `<button class="mode-btn ${nav === currentNav ? "active" : ""}" data-nav="${escapeHtml(nav)}">${escapeHtml(String(nav).replace(/_/g, " "))}</button>`
+                        )
+                        .join("")}
+                    </div>
+                  </div>
+                  `
+                  : ""
+              }
             </div>
           `
           : ""
@@ -801,6 +1275,9 @@ class VacuulaMapCard extends HTMLElement {
     `;
 
     // Bind event listeners
+    root.querySelector("#btn-dismiss-alert")?.addEventListener("click", () => {
+      this._dismissAlert();
+    });
     root.querySelector("#tab-floor")?.addEventListener("click", () => {
       this._viewMode = "floor";
       this._forceUpdate();
@@ -908,6 +1385,8 @@ class VacuulaMapCardEditor extends HTMLElement {
       id.startsWith("vacuum.")
     );
 
+    const cfg = this._config;
+
     this.shadowRoot.innerHTML = `
       <style>
         .form {
@@ -915,6 +1394,17 @@ class VacuulaMapCardEditor extends HTMLElement {
           flex-direction: column;
           gap: 12px;
           padding: 8px 0;
+          font-family: inherit;
+        }
+        .section-header {
+          font-size: 0.78rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--primary-color, #38bdf8);
+          margin-top: 10px;
+          padding-bottom: 4px;
+          border-bottom: 1px solid var(--divider-color, rgba(148, 163, 184, 0.2));
         }
         label {
           display: flex;
@@ -934,38 +1424,102 @@ class VacuulaMapCardEditor extends HTMLElement {
           flex-direction: row;
           align-items: center;
           justify-content: space-between;
+          padding: 2px 0;
+        }
+        .row span {
+          color: var(--primary-text-color, #f8fafc);
+          font-size: 0.84rem;
         }
       </style>
       <div class="form">
+        <div class="section-header">Core Settings</div>
         <label>
           Vacuum Entity
           <select id="entity">
             ${vacuums
               .map(
                 (v) =>
-                  `<option value="${escapeHtml(v)}" ${v === this._config.entity ? "selected" : ""}>${escapeHtml(v)}</option>`
+                  `<option value="${escapeHtml(v)}" ${v === cfg.entity ? "selected" : ""}>${escapeHtml(v)}</option>`
               )
               .join("")}
           </select>
         </label>
         <label>
           Card Title (optional)
-          <input type="text" id="title" value="${escapeHtml(this._config.title || "")}" placeholder="Auto (Robot Name)" />
+          <input type="text" id="title" value="${escapeHtml(cfg.title || "")}" placeholder="Auto (Robot Name)" />
         </label>
         <label>
           Default Map View
           <select id="default_view">
-            <option value="floor" ${(this._config.default_view || "floor") === "floor" ? "selected" : ""}>Floor Plan & Zones</option>
-            <option value="run" ${this._config.default_view === "run" ? "selected" : ""}>Last Cleaning Run</option>
+            <option value="floor" ${(cfg.default_view || "floor") === "floor" ? "selected" : ""}>Floor Plan & Zones</option>
+            <option value="run" ${cfg.default_view === "run" ? "selected" : ""}>Last Cleaning Run</option>
+          </select>
+        </label>
+
+        <div class="section-header">Display & Map Sizing</div>
+        <label>
+          Map Height / Sizing
+          <select id="map_height">
+            <option value="auto" ${(cfg.map_height || "auto") === "auto" ? "selected" : ""}>Auto (Responsive 380px–800px)</option>
+            <option value="compact" ${cfg.map_height === "compact" ? "selected" : ""}>Compact (320px)</option>
+            <option value="medium" ${cfg.map_height === "medium" ? "selected" : ""}>Medium (450px)</option>
+            <option value="large" ${cfg.map_height === "large" ? "selected" : ""}>Large (620px)</option>
+            <option value="xlarge" ${cfg.map_height === "xlarge" ? "selected" : ""}>Extra Large (800px)</option>
           </select>
         </label>
         <label class="row">
-          <span>Show Room Pins on Map</span>
-          <input type="checkbox" id="show_zone_labels" ${this._config.show_zone_labels !== false ? "checked" : ""} />
+          <span>Expand on Large Screens</span>
+          <input type="checkbox" id="expand_on_desktop" ${cfg.expand_on_desktop !== false ? "checked" : ""} />
         </label>
         <label class="row">
-          <span>Show Vacuum Controls</span>
-          <input type="checkbox" id="show_controls" ${this._config.show_controls !== false ? "checked" : ""} />
+          <span>Show Room Pins on Map</span>
+          <input type="checkbox" id="show_zone_labels" ${cfg.show_zone_labels !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Room Chips Bar</span>
+          <input type="checkbox" id="show_zone_chips" ${cfg.show_zone_chips !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Map Toolbar Tabs</span>
+          <input type="checkbox" id="show_toolbar" ${cfg.show_toolbar !== false ? "checked" : ""} />
+        </label>
+
+        <div class="section-header">Alerts & Notifications</div>
+        <label class="row">
+          <span>Show Alert & Warning Banners</span>
+          <input type="checkbox" id="show_alerts" ${cfg.show_alerts !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Dust Bin Full Badge</span>
+          <input type="checkbox" id="show_bin_alert" ${cfg.show_bin_alert !== false ? "checked" : ""} />
+        </label>
+
+        <div class="section-header">Header & Telemetry</div>
+        <label class="row">
+          <span>Show Card Header</span>
+          <input type="checkbox" id="show_header" ${cfg.show_header !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Status Badge</span>
+          <input type="checkbox" id="show_status_badge" ${cfg.show_status_badge !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Battery Status</span>
+          <input type="checkbox" id="show_battery" ${cfg.show_battery !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Schedule Toggle</span>
+          <input type="checkbox" id="show_schedule" ${cfg.show_schedule !== false ? "checked" : ""} />
+        </label>
+
+        <div class="section-header">Controls & Modes</div>
+        <label class="row">
+          <span>Show Vacuum Action Buttons</span>
+          <input type="checkbox" id="show_controls" ${cfg.show_controls !== false ? "checked" : ""} />
+        </label>
+        <label class="row">
+          <span>Show Fan Speed & Nav Modes</span>
+          <input type="checkbox" id="show_modes" ${cfg.show_modes !== false ? "checked" : ""} />
         </label>
       </div>
     `;
@@ -982,14 +1536,69 @@ class VacuulaMapCardEditor extends HTMLElement {
         this._emit({ ...this._config, default_view: e.target.value });
       });
     this.shadowRoot
+      .querySelector("#map_height")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, map_height: e.target.value });
+      });
+    this.shadowRoot
+      .querySelector("#expand_on_desktop")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, expand_on_desktop: e.target.checked });
+      });
+    this.shadowRoot
       .querySelector("#show_zone_labels")
       ?.addEventListener("change", (e) => {
         this._emit({ ...this._config, show_zone_labels: e.target.checked });
       });
     this.shadowRoot
+      .querySelector("#show_zone_chips")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_zone_chips: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_toolbar")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_toolbar: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_alerts")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_alerts: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_bin_alert")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_bin_alert: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_header")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_header: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_status_badge")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_status_badge: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_battery")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_battery: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_schedule")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_schedule: e.target.checked });
+      });
+    this.shadowRoot
       .querySelector("#show_controls")
       ?.addEventListener("change", (e) => {
         this._emit({ ...this._config, show_controls: e.target.checked });
+      });
+    this.shadowRoot
+      .querySelector("#show_modes")
+      ?.addEventListener("change", (e) => {
+        this._emit({ ...this._config, show_modes: e.target.checked });
       });
   }
 }
