@@ -309,7 +309,9 @@ class VacuulaMapCard extends HTMLElement {
     const slug = this._slug();
     const vacState = this._getState(this._config.entity);
     const alertSensor = this._getState(`sensor.${slug}_alert`);
-    const binSensor = this._getState(`binary_sensor.${slug}_bin_full`);
+    const binSensor =
+      this._getState(`binary_sensor.${slug}_dust_bin_full`) ||
+      this._getState(`binary_sensor.${slug}_bin_full`);
 
     let rawCode = "";
     if (binSensor?.state === "on") {
@@ -366,7 +368,9 @@ class VacuulaMapCard extends HTMLElement {
     const run = this._getState(this._config.last_run_map_entity || `image.${slug}_last_run_map`);
     const batt = this._getState(`sensor.${slug}_battery`);
     const chg = this._getState(`binary_sensor.${slug}_charging`);
-    const binSensor = this._getState(`binary_sensor.${slug}_bin_full`);
+    const binSensor =
+      this._getState(`binary_sensor.${slug}_dust_bin_full`) ||
+      this._getState(`binary_sensor.${slug}_bin_full`);
     const alertSensor = this._getState(`sensor.${slug}_alert`);
     const area = this._getState(`sensor.${slug}_last_clean_area`);
     const dur = this._getState(`sensor.${slug}_last_clean_duration`);
