@@ -1,0 +1,19 @@
+{
+  "name": "hass-vacuula-frontend",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "biome check custom_components/vacuula/frontend tests/frontend",
+    "lint:fix": "biome check --write custom_components/vacuula/frontend tests/frontend",
+    "format": "biome format --write custom_components/vacuula/frontend tests/frontend",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "happy-dom": "^21.0.4",
+    "typescript": "5.8.2",
+    "vitest": "^5.0.5"
+  }
+}

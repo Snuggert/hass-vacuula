@@ -9,3 +9,5 @@ venv/
 .DS_Store
 .coverage
 htmlcov/
+node_modules/
+.biome/

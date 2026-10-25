@@ -156,3 +156,37 @@ def test_render_map_png_dimension_bounds() -> None:
     assert render_map_png({"width": MAX_MAP_DIM + 1, "height": 100, "rle": []}) is None
     assert render_map_png({"width": 100, "height": MAX_MAP_DIM + 1, "rle": []}) is None
     assert render_map_png(None) is None
+
+
+def test_map_renderer_edge_cases() -> None:
+    """Test edge cases in hex parsing, crop box with runmap, and uncropped fallback."""
+    # 6-char invalid hex value causes ValueError inside try/except
+    assert _parse_hex_color("ZZZZZZ") == (90, 169, 255)
+
+    # get_crop_box with runmap expanding bounds
+    floormap = {
+        "width": 20,
+        "height": 20,
+        "rle": [[0, 200], [1, 1], [0, 199]],  # (0, 10)
+    }
+    runmap = {
+        "width": 20,
+        "height": 20,
+        "rle": [[128, 50], [3, 1], [128, 349]],  # (10, 2)
+    }
+    c_x0, c_y0, c_w, c_h, _, _ = get_crop_box(floormap, runmap=runmap, pad=1)
+    assert c_x0 <= 10
+    assert c_y0 <= 2
+
+    # compute_cropped_zones with < 3 valid vertices or degenerate polygon
+    bad_boundaries = [
+        {"id": "b1", "name": "Bad", "type": "polygon", "vertices": [[0.1, 0.1]]},
+        {"id": "b2", "name": "Bad2", "type": "polygon", "vertices": "not a list"},
+    ]
+    assert compute_cropped_zones(floormap, bad_boundaries) == []
+
+    # render_map_png with runmap containing dock marker (val 100) and uncropped map
+    empty_floormap = {"width": 10, "height": 10, "rle": [[0, 100]]}
+    png_empty = render_map_png(empty_floormap)
+    assert png_empty is not None
+    assert png_empty.startswith(b"\x89PNG")

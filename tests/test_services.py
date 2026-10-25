@@ -8,9 +8,11 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula import _async_register_services
+from custom_components.vacuula.api import VacuulaApiError
 from custom_components.vacuula.const import (
     DOMAIN,
     ROBOT_TYPE_GEN3,
@@ -191,3 +193,121 @@ async def test_service_refresh_maps(
     )
 
     coordinator.async_refresh_maps_and_runs.assert_awaited_once_with("OPS123")
+
+
+async def test_service_target_resolution_by_entity_id(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test target robot resolution via state attributes and entity registry."""
+    _, client, _ = await setup_mock_environment(hass, mock_robot)
+    client.async_start_zone_cleaning.return_value = {"status": "ok"}
+
+    # 1. Resolve via state attributes
+    hass.states.async_set(
+        "vacuum.living_room_vacuum",
+        "docked",
+        {"serial": "OPS123"},
+    )
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CLEAN_ZONES,
+        {"entity_id": "vacuum.living_room_vacuum", "zones": ["Kitchen"]},
+        blocking=True,
+    )
+    client.async_start_zone_cleaning.assert_awaited_once()
+    client.async_start_zone_cleaning.reset_mock()
+
+    # 2. Resolve via entity registry unique_id
+    ent_reg = er.async_get(hass)
+    ent_reg.async_get_or_create(
+        "vacuum",
+        DOMAIN,
+        "OPS123_vacuum",
+        suggested_object_id="registered_vacuum",
+    )
+    # Clear state serial attribute to force registry fallback
+    hass.states.async_set("vacuum.registered_vacuum", "docked")
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CLEAN_ZONES,
+        {"entity_id": "vacuum.registered_vacuum", "zones": ["Kitchen"]},
+        blocking=True,
+    )
+    client.async_start_zone_cleaning.assert_awaited_once()
+
+
+async def test_service_single_robot_and_ambiguous_resolution(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test auto-resolution when 1 robot exists, and ambiguity error with multiple robots."""
+    _, client, coordinator = await setup_mock_environment(hass, mock_robot)
+    client.async_start_zone_cleaning.return_value = {"status": "ok"}
+
+    # 1. Single robot automatically resolved without serial or entity_id
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CLEAN_ZONES,
+        {"zones": ["Kitchen"]},
+        blocking=True,
+    )
+    client.async_start_zone_cleaning.assert_awaited_once()
+    client.async_start_zone_cleaning.reset_mock()
+
+    # 2. Ambiguity error when multiple robots exist and no serial provided
+    robot2 = VacuulaRobotData(
+        serial="BOT2",
+        name="Upstairs Bot",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator.data["BOT2"] = robot2
+
+    with pytest.raises(HomeAssistantError, match="Multiple robots are configured"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CLEAN_ZONES,
+            {"zones": ["Kitchen"]},
+            blocking=True,
+        )
+
+    # 3. No robots found error
+    coordinator.data.clear()
+    with pytest.raises(HomeAssistantError, match="No robots found in Vacuula"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CLEAN_ZONES,
+            {"zones": ["Kitchen"]},
+            blocking=True,
+        )
+
+
+async def test_service_api_error_and_refresh_all(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test API error propagation and refreshing maps across all robots."""
+    _, client, coordinator = await setup_mock_environment(hass, mock_robot)
+    coordinator.async_refresh_maps_and_runs = AsyncMock()
+
+    # 1. API error bubbling up as HomeAssistantError
+    client.async_start_zone_cleaning.side_effect = VacuulaApiError(
+        "Robot busy navigation failed"
+    )
+    with pytest.raises(HomeAssistantError, match="Robot busy navigation failed"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CLEAN_ZONES,
+            {"serial": "OPS123", "zones": ["Kitchen"]},
+            blocking=True,
+        )
+
+    # 2. Refresh maps without serial/entity_id refreshes all robots in all loaded entries
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_REFRESH_MAPS,
+        {},
+        blocking=True,
+    )
+    coordinator.async_refresh_maps_and_runs.assert_awaited_once_with("OPS123")
+
+    # 3. Duplicate registration is idempotent
+    _async_register_services(hass)

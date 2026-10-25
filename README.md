@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/vacuula_logo.svg" alt="Vacuula Logo" width="120" />
+  <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/vacuula_logo.svg" alt="Vacuula Logo" width="120" />
 </p>
 
 <h1 align="center">Vacuula for Home Assistant</h1>
@@ -7,10 +7,10 @@
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
-  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.5.2-0ea5e9.svg?style=flat-square" alt="Version 0.5.2" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.0-0ea5e9.svg?style=flat-square" alt="Version 0.6.0" /></a>
   <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
   <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square" alt="License: MIT" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square" alt="License: MIT" /></a>
 </p>
 
 A full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
@@ -24,7 +24,7 @@ A full-featured, **100% local push** [Home Assistant](https://www.home-assistant
 The integration automatically registers a zero-dependency Web Component (`custom:vacuula-map-card`) into your Home Assistant Lovelace resources — no separate HACS frontend plugin install required.
 
 <p align="center">
-  <img src="docs/assets/card_preview.svg" alt="Vacuula Interactive Map Card Preview" width="480" />
+  <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/card_preview.svg" alt="Vacuula Interactive Map Card Preview" width="480" />
 </p>
 
 ### Pure-Python High-DPI Map Rendering (`image` entities)
@@ -33,7 +33,7 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 
 | Saved Floorplan & Room Boundaries (`image.<robot>_floor_map`) | Latest Cleaning Run Coverage (`image.<robot>_last_run_map`) |
 | :---: | :---: |
-| <img src="docs/assets/floor_map.png" alt="Rendered Floor Map" width="380" /> | <img src="docs/assets/last_run_map.png" alt="Rendered Last Run Map" width="380" /> |
+| <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/floor_map.png" alt="Rendered Floor Map" width="380" /> | <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/last_run_map.png" alt="Rendered Last Run Map" width="380" /> |
 
 ---
 
@@ -231,13 +231,13 @@ action:
 
 ## 🏗️ Architecture & Design Highlights
 
-For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and the integration's [security & robustness safeguards](ARCHITECTURE.md#6-security--robustness), see [**ARCHITECTURE.md**](ARCHITECTURE.md).
+For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and the integration's [security & robustness safeguards](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md#6-security--robustness), see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
 
-Release notes for each version are in [**CHANGELOG.md**](CHANGELOG.md).
+Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snuggert/hass-vacuula/blob/main/CHANGELOG.md).
 
 ---
 
 ## 📄 License & Attribution
 
-- **Integration & Lovelace Card Code**: Licensed under the [**MIT License**](LICENSE).
-- **Brand Assets & Upstream Project**: The Vacuula vampire-bot icon and logo in [`custom_components/vacuula/brand/`](custom_components/vacuula/brand/) and [`docs/assets/vacuula_logo.svg`](docs/assets/vacuula_logo.svg) are courtesy of the [**Vacuula**](https://github.com/vacuula/vacuula) project (licensed under [GNU AGPL-3.0](https://github.com/vacuula/vacuula/blob/main/LICENSE)). This integration is an independent HTTP/SSE client and is not affiliated with Neato Robotics.
+- **Integration & Lovelace Card Code**: Licensed under the [**MIT License**](https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE).
+- **Brand Assets & Upstream Project**: The Vacuula vampire-bot icon and logo in [`custom_components/vacuula/brand/`](https://github.com/Snuggert/hass-vacuula/tree/main/custom_components/vacuula/brand/) and [`docs/assets/vacuula_logo.svg`](https://github.com/Snuggert/hass-vacuula/blob/main/docs/assets/vacuula_logo.svg) are courtesy of the [**Vacuula**](https://github.com/vacuula/vacuula) project (licensed under [GNU AGPL-3.0](https://github.com/vacuula/vacuula/blob/main/LICENSE)). See [**docs/brands.md**](https://github.com/Snuggert/hass-vacuula/blob/main/docs/brands.md) for brand asset specifications and dark theme guidelines. This integration is an independent HTTP/SSE client and is not affiliated with Neato Robotics.
