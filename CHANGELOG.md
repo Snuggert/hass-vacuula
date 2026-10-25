@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-10-25
+
+### Added
+- **Responsive Multi-Device Map Sizing:** `vacuula-map-card` now scales dynamically across device form factors. Mobile screens (< 600px) preserve their compact 380px cap, while tablet (520px max), desktop (660px max), and 4K/ultrawide displays (800px max) expand to showcase high-DPI floorplans and cleaning coverage.
+- **Lovelace Sections & Panel Views:** Native support for Home Assistant 2024+ Sections grid layout via `getGridOptions()`, as well as full-height scaling in Lovelace panel views.
+- **Dust Bin Full Problem Sensor:** Added `binary_sensor.<robot>_bin_full` (`VacuulaBinFullBinarySensor`) with device class `problem` and icon `mdi:delete-empty` to alert when the robot's dust bin requires emptying or is unseated.
+- **Interactive Alert & Error Notification Banners:** Prominent notification banner on the card rendering color-coded alerts (amber warnings for `dustbin_full`, `clear_path`, `lid_open`; red errors for `brush_stuck`, `navigation_stuck`, `cliff_sensor`) with friendly human text and a one-tap `✕ Dismiss` button.
+- **Header Dust Bin Badge:** Subtle `🗑️ Bin Full` pill in the header telemetry bar when dust bin attention is required.
+- **Granular Card Configuration Toggles:** Added individual boolean controls in YAML and the visual card editor for `map_height` (Auto, Compact, Medium, Large, Extra Large), `expand_on_desktop`, `show_header`, `show_status_badge`, `show_battery`, `show_schedule`, `show_alerts`, `show_bin_alert`, `show_toolbar`, `show_zone_labels`, `show_zone_chips`, `show_controls`, and `show_modes`.
+- **Card Editor Redesign:** Organized `VacuulaMapCardEditor` into clean categorized sections with switch controls.
+- **Development Tooling:** Added git pre-commit and pre-push hooks running linter and unit tests automatically before commits and pushes.
+
 ## [0.5.2] - 2026-10-24
 
 ### Added
@@ -41,5 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.6.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Snuggert/hass-vacuula/releases/tag/v0.5.1
