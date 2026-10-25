@@ -14,7 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Header Dust Bin Badge:** Subtle `🗑️ Bin Full` pill in the header telemetry bar when dust bin attention is required.
 - **Granular Card Configuration Toggles:** Added individual boolean controls in YAML and the visual card editor for `map_height` (Auto, Compact, Medium, Large, Extra Large), `expand_on_desktop`, `show_header`, `show_status_badge`, `show_battery`, `show_schedule`, `show_alerts`, `show_bin_alert`, `show_toolbar`, `show_zone_labels`, `show_zone_chips`, `show_controls`, and `show_modes`.
 - **Card Editor Redesign:** Organized `VacuulaMapCardEditor` into clean categorized sections with switch controls.
+- **Full Brand Asset Suite & Dark Mode Support:** Added all 8 specification-compliant Home Assistant and HACS brand assets (`icon.png`, `icon@2x.png`, `dark_icon.png`, `dark_icon@2x.png`, `logo.png`, `logo@2x.png`, `dark_logo.png`, `dark_logo@2x.png`). Dark theme variants provide high-contrast silver/white artwork with vivid red status accents for clear visibility in dark mode.
+- **Brand Generation Tooling & Test Suite:** Added `scripts/generate_brands.py` and dedicated unit tests in `tests/test_brand.py` verifying file completeness, resolutions (256×256 and 512×512), RGBA formatting, and light/dark theme contrast.
 - **Development Tooling:** Added git pre-commit and pre-push hooks running linter and unit tests automatically before commits and pushes.
+
+### Fixed
+- **HACS & Marketplace Dark Icon Resolution:** Resolved missing `dark_icon.png` in HACS community store (`https://brands.home-assistant.io/_/vacuula/dark_icon.png`) and Home Assistant Marketplace by bundling complete local brand assets and upgrading `icon.png` to standard 256×256 px.
 
 ## [0.5.2] - 2026-10-24
 
