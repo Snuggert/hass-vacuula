@@ -198,9 +198,7 @@ class VacuulaMapCard extends HTMLElement {
   static getStubConfig(hass) {
     const vacuumEntity =
       Object.keys(hass?.states || {}).find(
-        (id) =>
-          id.startsWith("vacuum.") &&
-          hass.states[id]?.attributes?.active_map_id !== undefined
+        (id) => id.startsWith("vacuum.") && hass.states[id]?.attributes?.active_map_id !== undefined
       ) ||
       Object.keys(hass?.states || {}).find((id) => id.startsWith("vacuum.")) ||
       "vacuum.neato_botvac";
@@ -245,7 +243,7 @@ class VacuulaMapCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || !config.entity) {
+    if (!config?.entity) {
       throw new Error("Please specify a Vacuula vacuum entity (e.g. vacuum.neato_botvac)");
     }
     const defaultView = config.default_view ?? config.default_map ?? "floor";
@@ -364,12 +362,8 @@ class VacuulaMapCard extends HTMLElement {
     if (!this._hass || !this._config.entity) return "";
     const slug = this._slug();
     const vac = this._getState(this._config.entity);
-    const floor = this._getState(
-      this._config.floor_map_entity || `image.${slug}_floor_map`
-    );
-    const run = this._getState(
-      this._config.last_run_map_entity || `image.${slug}_last_run_map`
-    );
+    const floor = this._getState(this._config.floor_map_entity || `image.${slug}_floor_map`);
+    const run = this._getState(this._config.last_run_map_entity || `image.${slug}_last_run_map`);
     const batt = this._getState(`sensor.${slug}_battery`);
     const chg = this._getState(`binary_sensor.${slug}_charging`);
     const binSensor = this._getState(`binary_sensor.${slug}_bin_full`);
@@ -519,7 +513,9 @@ class VacuulaMapCard extends HTMLElement {
   }
 
   _getCustomHeightVars() {
-    const val = String(this._config.map_height || "auto").trim().toLowerCase();
+    const val = String(this._config.map_height || "auto")
+      .trim()
+      .toLowerCase();
     switch (val) {
       case "compact":
         return "--vacuula-map-max-height: 320px; --vacuula-map-min-height: 200px;";
@@ -992,23 +988,15 @@ class VacuulaMapCard extends HTMLElement {
       return;
     }
 
-    const floorImgId =
-      this._config.floor_map_entity || `image.${slug}_floor_map`;
-    const runImgId =
-      this._config.last_run_map_entity || `image.${slug}_last_run_map`;
+    const floorImgId = this._config.floor_map_entity || `image.${slug}_floor_map`;
+    const runImgId = this._config.last_run_map_entity || `image.${slug}_last_run_map`;
     const floorState = this._getState(floorImgId);
     const runState = this._getState(runImgId);
 
-    const activeImgState =
-      this._viewMode === "run" && runState ? runState : floorState || runState;
-    const imgUrl = sanitizeImgUrl(
-      activeImgState?.attributes?.entity_picture || ""
-    );
+    const activeImgState = this._viewMode === "run" && runState ? runState : floorState || runState;
+    const imgUrl = sanitizeImgUrl(activeImgState?.attributes?.entity_picture || "");
 
-    const zones =
-      floorState?.attributes?.zones ||
-      activeImgState?.attributes?.zones ||
-      [];
+    const zones = floorState?.attributes?.zones || activeImgState?.attributes?.zones || [];
 
     const battState = this._getState(`sensor.${slug}_battery`);
     const chargingState = this._getState(`binary_sensor.${slug}_charging`);
@@ -1018,16 +1006,11 @@ class VacuulaMapCard extends HTMLElement {
     const schedState = this._getState(`switch.${slug}_schedule`);
     const activeAlert = this._resolveAlert();
 
-    const name =
-      this._config.title ||
-      vacState.attributes?.friendly_name ||
-      slug;
+    const name = this._config.title || vacState.attributes?.friendly_name || slug;
     const stateStr = vacState.state || "unknown";
     const actionStr = vacState.attributes?.action || "";
     const mapName =
-      floorState?.attributes?.map_name ||
-      vacState.attributes?.active_map_name ||
-      "Floor Plan";
+      floorState?.attributes?.map_name || vacState.attributes?.active_map_name || "Floor Plan";
 
     const batteryVal =
       battState?.state && !["unknown", "unavailable"].includes(battState.state)
@@ -1044,10 +1027,8 @@ class VacuulaMapCard extends HTMLElement {
       lastRunParts.push(`${durState.state} min`);
     }
     const subtitleParts = [mapName];
-    if (actionStr && actionStr !== "idle")
-      subtitleParts.push(String(actionStr).replace(/_/g, " "));
-    if (lastRunParts.length)
-      subtitleParts.push(`Last: ${lastRunParts.join(" · ")}`);
+    if (actionStr && actionStr !== "idle") subtitleParts.push(String(actionStr).replace(/_/g, " "));
+    if (lastRunParts.length) subtitleParts.push(`Last: ${lastRunParts.join(" · ")}`);
 
     const selectedCount = this._selectedZones.size;
     let startLabel = "Clean All";
@@ -1061,24 +1042,14 @@ class VacuulaMapCard extends HTMLElement {
 
     const fanSpeeds = vacState.attributes?.fan_speed_list || ["eco", "turbo"];
     const currentFan = vacState.attributes?.fan_speed || "turbo";
-    const navModes = navSelectState?.attributes?.options || [
-      "normal",
-      "extra_care",
-      "deep",
-    ];
-    const currentNav =
-      navSelectState?.state ||
-      vacState.attributes?.navigation_mode ||
-      "normal";
+    const navModes = navSelectState?.attributes?.options || ["normal", "extra_care", "deep"];
+    const currentNav = navSelectState?.state || vacState.attributes?.navigation_mode || "normal";
 
     const svgPolygons = zones
       .filter((z) => Array.isArray(z.points) && z.points.length >= 3)
       .map((z) => {
         const ptsStr = z.points
-          .map(
-            (p) =>
-              `${Math.round(Number(p[0]) * 1000)},${Math.round(Number(p[1]) * 1000)}`
-          )
+          .map((p) => `${Math.round(Number(p[0]) * 1000)},${Math.round(Number(p[1]) * 1000)}`)
           .join(" ");
         const isSel = this._selectedZones.has(z.name);
         const zNameEsc = escapeHtml(z.name);
@@ -1171,9 +1142,7 @@ class VacuulaMapCard extends HTMLElement {
           </div>
           <div class="telemetry">
             ${
-              activeAlert &&
-              activeAlert.isBin &&
-              this._config.show_bin_alert !== false
+              activeAlert?.isBin && this._config.show_bin_alert !== false
                 ? `<span class="pill active" style="background:rgba(245,158,11,0.22);color:#fbbf24;" title="${escapeHtml(activeAlert.message)}">🗑️ Bin Full</span>`
                 : ""
             }
@@ -1293,13 +1262,13 @@ class VacuulaMapCard extends HTMLElement {
       this._toggleSchedule();
     });
 
-    root.querySelectorAll("[data-zone]").forEach((el) => {
+    for (const el of root.querySelectorAll("[data-zone]")) {
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
         const zName = el.getAttribute("data-zone");
         if (zName) this._toggleZone(zName);
       });
-    });
+    }
 
     root.querySelector("#clear-zones-btn")?.addEventListener("click", () => {
       this._clearZones();
@@ -1321,19 +1290,19 @@ class VacuulaMapCard extends HTMLElement {
       this._callVacuum("locate");
     });
 
-    root.querySelectorAll("[data-fan]").forEach((el) => {
+    for (const el of root.querySelectorAll("[data-fan]")) {
       el.addEventListener("click", () => {
         const fan = el.getAttribute("data-fan");
         if (fan) this._callVacuum("set_fan_speed", { fan_speed: fan });
       });
-    });
+    }
 
-    root.querySelectorAll("[data-nav]").forEach((el) => {
+    for (const el of root.querySelectorAll("[data-nav]")) {
       el.addEventListener("click", () => {
         const nav = el.getAttribute("data-nav");
         if (nav) this._setNavMode(nav);
       });
-    });
+    }
   }
 }
 
@@ -1381,9 +1350,7 @@ class VacuulaMapCardEditor extends HTMLElement {
   _render() {
     if (!this.shadowRoot || !this._hass) return;
     this._rendered = true;
-    const vacuums = Object.keys(this._hass.states).filter((id) =>
-      id.startsWith("vacuum.")
-    );
+    const vacuums = Object.keys(this._hass.states).filter((id) => id.startsWith("vacuum."));
 
     const cfg = this._config;
 
@@ -1525,81 +1492,69 @@ class VacuulaMapCardEditor extends HTMLElement {
     `;
 
     this.shadowRoot.querySelector("#entity")?.addEventListener("change", (e) => {
-      this._emit({ ...this._config, entity: e.target.value });
+      const target = /** @type {HTMLSelectElement} */ (e.target);
+      this._emit({ ...this._config, entity: target.value });
     });
     this.shadowRoot.querySelector("#title")?.addEventListener("input", (e) => {
-      this._emit({ ...this._config, title: e.target.value });
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, title: target.value });
     });
-    this.shadowRoot
-      .querySelector("#default_view")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, default_view: e.target.value });
-      });
-    this.shadowRoot
-      .querySelector("#map_height")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, map_height: e.target.value });
-      });
-    this.shadowRoot
-      .querySelector("#expand_on_desktop")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, expand_on_desktop: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_zone_labels")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_zone_labels: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_zone_chips")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_zone_chips: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_toolbar")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_toolbar: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_alerts")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_alerts: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_bin_alert")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_bin_alert: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_header")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_header: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_status_badge")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_status_badge: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_battery")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_battery: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_schedule")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_schedule: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_controls")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_controls: e.target.checked });
-      });
-    this.shadowRoot
-      .querySelector("#show_modes")
-      ?.addEventListener("change", (e) => {
-        this._emit({ ...this._config, show_modes: e.target.checked });
-      });
+    this.shadowRoot.querySelector("#default_view")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLSelectElement} */ (e.target);
+      this._emit({ ...this._config, default_view: target.value });
+    });
+    this.shadowRoot.querySelector("#map_height")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLSelectElement} */ (e.target);
+      this._emit({ ...this._config, map_height: target.value });
+    });
+    this.shadowRoot.querySelector("#expand_on_desktop")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, expand_on_desktop: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_zone_labels")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_zone_labels: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_zone_chips")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_zone_chips: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_toolbar")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_toolbar: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_alerts")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_alerts: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_bin_alert")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_bin_alert: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_header")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_header: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_status_badge")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_status_badge: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_battery")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_battery: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_schedule")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_schedule: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_controls")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_controls: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_modes")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_modes: target.checked });
+    });
   }
 }
 
@@ -1610,9 +1565,10 @@ if (!customElements.get("vacuula-map-card-editor")) {
   customElements.define("vacuula-map-card-editor", VacuulaMapCardEditor);
 }
 
-window.customCards = window.customCards || [];
-if (!window.customCards.some((c) => c.type === "vacuula-map-card")) {
-  window.customCards.push({
+const customWindow = /** @type {any} */ (window);
+customWindow.customCards = customWindow.customCards || [];
+if (!customWindow.customCards.some((c) => c.type === "vacuula-map-card")) {
+  customWindow.customCards.push({
     type: "vacuula-map-card",
     name: "Vacuula Map & Room Card",
     description:
@@ -1620,3 +1576,13 @@ if (!window.customCards.some((c) => c.type === "vacuula-map-card")) {
     preview: true,
   });
 }
+
+export {
+  VacuulaMapCard,
+  VacuulaMapCardEditor,
+  escapeHtml,
+  sanitizeColor,
+  sanitizeImgUrl,
+  formatAlertCode,
+  ALERT_INFO_MAP,
+};

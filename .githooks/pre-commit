@@ -38,4 +38,14 @@ if command -v "$PYTEST" >/dev/null 2>&1 || [ -x "$PYTEST" ]; then
     "$PYTEST" -n auto tests/
 fi
 
+# Run Frontend checks (Biome, TypeScript, Vitest) if npm and package.json exist
+if command -v npm >/dev/null 2>&1 && [ -f "package.json" ]; then
+    echo "-> Running Biome JS lint & format check..."
+    npm run lint
+    echo "-> Running TypeScript typecheck..."
+    npm run typecheck
+    echo "-> Running Vitest frontend tests..."
+    npm test
+fi
+
 echo "=== [pre-commit] All checks passed successfully! ==="
