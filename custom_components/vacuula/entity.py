@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -60,15 +61,24 @@ class VacuulaEntity(CoordinatorEntity[VacuulaCoordinator]):
             else "Neato Botvac (Gen4)"
         )
         config_entry = getattr(self.coordinator, "config_entry", None)
-        via_device = (
-            (DOMAIN, f"server_{config_entry.entry_id}") if config_entry else None
-        )
-        return DeviceInfo(
+        dev_info = DeviceInfo(
             identifiers={(DOMAIN, self._serial)},
             name=robot.name if robot else self._serial,
             manufacturer="Neato Robotics",
             model=meta.get("modelName") or default_model,
             sw_version=meta.get("firmware"),
             serial_number=self._serial,
-            via_device=via_device,
         )
+        if config_entry and self.hass:
+            try:
+                dev_reg = dr.async_get(self.hass)
+                server_device = dev_reg.async_get_device_by_identifier(
+                    (DOMAIN, f"server_{config_entry.entry_id}"),
+                    config_entry.entry_id,
+                )
+                if server_device:
+                    dev_info["via_device_id"] = server_device.id
+            except RuntimeError:
+                # Device registry not set up (e.g. standalone sandbox / mock environment)
+                pass
+        return dev_info

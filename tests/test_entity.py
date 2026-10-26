@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula.const import (
@@ -80,16 +81,19 @@ async def test_base_entity_device_info(hass: HomeAssistant) -> None:
     )
     coord_gen3, _ = create_mock_coordinator(hass, robot_gen3)
     entity_gen3 = VacuulaEntity(coord_gen3, "OPS123", "test")
+    entity_gen3.hass = hass
+    dev_reg = dr.async_get(hass)
+    server_device = dev_reg.async_get_or_create(
+        config_entry_id=coord_gen3.config_entry.entry_id,
+        identifiers={(DOMAIN, f"server_{coord_gen3.config_entry.entry_id}")},
+    )
     info_gen3 = entity_gen3.device_info
     assert info_gen3["identifiers"] == {(DOMAIN, "OPS123")}
     assert info_gen3["name"] == "Neato D7"
     assert info_gen3["manufacturer"] == "Neato Robotics"
     assert info_gen3["model"] == "Neato Botvac D7 Connected"
     assert info_gen3["sw_version"] == "4.5.3"
-    assert info_gen3["via_device"] == (
-        DOMAIN,
-        f"server_{coord_gen3.config_entry.entry_id}",
-    )
+    assert info_gen3.get("via_device_id") == server_device.id
     # 2. Gen3 fallback default model
     robot_gen3_nometa = VacuulaRobotData(
         serial="OPS123",

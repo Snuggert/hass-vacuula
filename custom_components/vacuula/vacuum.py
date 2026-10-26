@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.vacuum import (
+    Segment,
     StateVacuumEntity,
     VacuumActivity,
     VacuumEntityFeature,
@@ -41,15 +41,6 @@ SUPPORTED_FEATURES = (
     | VacuumEntityFeature.LOCATE
     | VacuumEntityFeature.FAN_SPEED
 )
-
-
-@dataclass
-class Segment:
-    """Segment representation for area/room cleaning."""
-
-    id: str
-    name: str
-    group: str | None = None
 
 
 _ACTIVITY_MAP: dict[str, VacuumActivity] = {
