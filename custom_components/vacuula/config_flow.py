@@ -6,13 +6,39 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_URL
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import VacuulaApiClient, VacuulaApiError
-from .const import DEFAULT_URL, DOMAIN
+from .const import (
+    CLEANING_MODES,
+    CONF_DEFAULT_MODE,
+    CONF_DEFAULT_NAV_MODE,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_MODE,
+    DEFAULT_NAV_MODE,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_URL,
+    DOMAIN,
+    NAVIGATION_MODES,
+)
 
 
 def _normalize_url(raw: str) -> str | None:
@@ -173,3 +199,65 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
                 "version": self._discovered_version,
             },
         )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Get the options flow for this handler."""
+        return VacuulaOptionsFlowHandler(config_entry)
+
+
+class VacuulaOptionsFlowHandler(OptionsFlow):
+    """Handle Vacuula options."""
+
+    def __init__(self, config_entry: ConfigEntry | None = None) -> None:
+        """Initialize options flow."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage Vacuula options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        scan_interval = options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        default_mode = options.get(CONF_DEFAULT_MODE, DEFAULT_MODE)
+        default_nav_mode = options.get(CONF_DEFAULT_NAV_MODE, DEFAULT_NAV_MODE)
+
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_SCAN_INTERVAL, default=scan_interval): NumberSelector(
+                    NumberSelectorConfig(
+                        min=5,
+                        max=300,
+                        step=5,
+                        mode=NumberSelectorMode.SLIDER,
+                    )
+                ),
+                vol.Optional(CONF_DEFAULT_MODE, default=default_mode): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(value=m, label=m.capitalize())
+                            for m in CLEANING_MODES
+                        ],
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_DEFAULT_NAV_MODE, default=default_nav_mode
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value=n, label=n.replace("_", " ").capitalize()
+                            )
+                            for n in NAVIGATION_MODES
+                        ],
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }
+        )
+
+        return self.async_show_form(step_id="init", data_schema=schema)

@@ -86,7 +86,10 @@ async def test_base_entity_device_info(hass: HomeAssistant) -> None:
     assert info_gen3["manufacturer"] == "Neato Robotics"
     assert info_gen3["model"] == "Neato Botvac D7 Connected"
     assert info_gen3["sw_version"] == "4.5.3"
-
+    assert info_gen3["via_device"] == (
+        DOMAIN,
+        f"server_{coord_gen3.config_entry.entry_id}",
+    )
     # 2. Gen3 fallback default model
     robot_gen3_nometa = VacuulaRobotData(
         serial="OPS123",

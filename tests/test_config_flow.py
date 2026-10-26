@@ -15,7 +15,12 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula.api import VacuulaApiError
-from custom_components.vacuula.const import DOMAIN
+from custom_components.vacuula.const import (
+    CONF_DEFAULT_MODE,
+    CONF_DEFAULT_NAV_MODE,
+    CONF_SCAN_INTERVAL,
+    DOMAIN,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -325,3 +330,69 @@ async def test_zeroconf_host_fallback_and_connection_failures(
         )
         assert result2["type"] == FlowResultType.ABORT
         assert result2["reason"] == "cannot_connect"
+
+
+async def test_options_flow(hass: HomeAssistant) -> None:
+    """Test options flow form display with defaults and successful submission."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_URL: "http://192.168.1.50:8085"},
+        unique_id="http://192.168.1.50:8085",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_SCAN_INTERVAL: 45,
+            CONF_DEFAULT_MODE: "eco",
+            CONF_DEFAULT_NAV_MODE: "deep",
+        },
+    )
+    assert result2["type"] is FlowResultType.CREATE_ENTRY
+    assert result2["data"] == {
+        CONF_SCAN_INTERVAL: 45,
+        CONF_DEFAULT_MODE: "eco",
+        CONF_DEFAULT_NAV_MODE: "deep",
+    }
+
+
+async def test_options_flow_prefilled_from_existing_options(
+    hass: HomeAssistant,
+) -> None:
+    """Test options flow uses existing entry options as defaults."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_URL: "http://192.168.1.50:8085"},
+        options={
+            CONF_SCAN_INTERVAL: 60,
+            CONF_DEFAULT_MODE: "eco",
+            CONF_DEFAULT_NAV_MODE: "gentle",
+        },
+        unique_id="http://192.168.1.50:8085",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    # Form submitted with updated scan interval
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_SCAN_INTERVAL: 15,
+            CONF_DEFAULT_MODE: "turbo",
+            CONF_DEFAULT_NAV_MODE: "normal",
+        },
+    )
+    assert result2["type"] is FlowResultType.CREATE_ENTRY
+    assert result2["data"] == {
+        CONF_SCAN_INTERVAL: 15,
+        CONF_DEFAULT_MODE: "turbo",
+        CONF_DEFAULT_NAV_MODE: "normal",
+    }

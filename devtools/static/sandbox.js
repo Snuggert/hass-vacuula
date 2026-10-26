@@ -43,7 +43,7 @@ const mockHass = {
     });
     const data = await res.json();
     if (data.error) {
-      logMsg(`⚠️ service error: ${data.error}`);
+      logMsg(`[error] service error: ${data.error}`);
     }
     if (data.states) applyPayload(data);
   },
@@ -70,7 +70,7 @@ function renderControlHtml(e) {
     return `<button class="ent-btn" type="button" data-action="press" data-eid="${e.entity_id}">Press</button>`;
   }
   if (e.domain === "switch") {
-    const label = e.state === "on" ? "🟢 ON (Toggle)" : "⚪ OFF (Toggle)";
+    const label = e.state === "on" ? "ON (Toggle)" : "OFF (Toggle)";
     return `<button class="ent-btn" type="button" data-action="toggle" data-eid="${e.entity_id}">${label}</button>`;
   }
   if (e.domain === "select") {
@@ -94,7 +94,7 @@ function renderInspector() {
     .map(
       (d) =>
         `<button class="robot-tab ${d.serial === activeSerial ? "active" : ""}" type="button" data-robot-serial="${d.serial}">
-          🤖 ${d.name} <span class="robot-tab-serial">(${d.serial})</span>
+          ${d.name} <span class="robot-tab-serial">(${d.serial})</span>
         </button>`
     )
     .join("");

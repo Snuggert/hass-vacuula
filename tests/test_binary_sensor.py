@@ -17,6 +17,7 @@ from custom_components.vacuula.binary_sensor import (
     VacuulaDockedBinarySensor,
     VacuulaDockSeenBinarySensor,
     VacuulaOutdatedInstallerBinarySensor,
+    VacuulaServerStatusBinarySensor,
     async_setup_entry,
 )
 from custom_components.vacuula.const import (
@@ -311,3 +312,49 @@ async def test_installer_outdated_binary_sensor(hass: HomeAssistant) -> None:
     # Missing installed_with -> False
     robot.installed_with = None
     assert sensor.is_on is False
+
+
+async def test_server_status_binary_sensor(hass: HomeAssistant) -> None:
+    """Test VacuulaServerStatusBinarySensor state and device info."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot)
+    coordinator.server_info = {"version": "1.2.3"}
+    entry = coordinator.config_entry
+
+    sensor = VacuulaServerStatusBinarySensor(coordinator, entry)
+    assert sensor.unique_id == f"server_{entry.entry_id}_server_status"
+    assert sensor.device_class == BinarySensorDeviceClass.CONNECTIVITY
+    assert sensor.entity_category == EntityCategory.DIAGNOSTIC
+    assert sensor.is_on is True
+
+    device_info = sensor.device_info
+    assert device_info["identifiers"] == {(DOMAIN, f"server_{entry.entry_id}")}
+    assert device_info["manufacturer"] == "Vacuula"
+    assert device_info["model"] == "Vacuula Server"
+    assert device_info["sw_version"] == "1.2.3"
+
+    coordinator.last_update_success = False
+    assert sensor.is_on is False
+
+
+async def test_binary_sensor_setup_entry_includes_server_status(
+    hass: HomeAssistant,
+) -> None:
+    """Test async_setup_entry registers VacuulaServerStatusBinarySensor."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot)
+    entry = coordinator.config_entry
+
+    entities_added = []
+    await async_setup_entry(hass, entry, entities_added.extend)
+    assert any(isinstance(e, VacuulaServerStatusBinarySensor) for e in entities_added)

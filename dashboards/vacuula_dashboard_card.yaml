@@ -1,7 +1,7 @@
 # ============================================================================
 # Option 1 (Recommended): Bundled Interactive Vacuula Map & Room Card
 # ============================================================================
-# Automatically registered by the Vacuula integration — no extra HACS plugins
+# Automatically registered by the Vacuula integration; no extra HACS plugins
 # or Lovelace resource entries needed! Just click "+ Add Card" in any dashboard
 # and search for "Vacuula Map & Room Card", or paste this YAML:
 

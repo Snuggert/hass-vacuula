@@ -3,11 +3,20 @@
     "clean_spot": {
       "service": "mdi:target-variant"
     },
+    "clean_zone": {
+      "service": "mdi:vector-polygon"
+    },
     "clean_zones": {
       "service": "mdi:vector-polygon"
     },
+    "dismiss_alert": {
+      "service": "mdi:bell-cancel"
+    },
     "refresh_maps": {
       "service": "mdi:refresh"
+    },
+    "send_raw_command": {
+      "service": "mdi:console-line"
     }
   }
 }

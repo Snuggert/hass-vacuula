@@ -13,3 +13,5 @@ node_modules/
 .biome/
 .cache/
 .dev_env/
+.worktrees/
+worktrees/

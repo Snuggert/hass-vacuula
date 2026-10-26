@@ -30,5 +30,164 @@
       "reconfigure_successful": "Vacuula server URL updated successfully.",
       "link_local_address": "Link-local addresses are not supported."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vacuula Options",
+        "description": "Configure polling interval and default cleaning settings.",
+        "data": {
+          "scan_interval": "Update interval (seconds)",
+          "default_mode": "Default cleaning mode",
+          "default_nav_mode": "Default navigation mode"
+        }
+      }
+    }
+  },
+  "services": {
+    "clean_zone": {
+      "name": "Clean zone",
+      "description": "Commands a Vacuula robot to clean a specific persistent map zone or room.",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Vacuum entity to target (optional if only one robot is paired)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Robot serial number (optional alternative to entity_id)."
+        },
+        "zone_name": {
+          "name": "Zone name",
+          "description": "Name of the room or zone defined on the robot's map."
+        },
+        "map_name": {
+          "name": "Map name",
+          "description": "Name of the floor map containing the zone (optional if zone name is unique)."
+        },
+        "mode": {
+          "name": "Cleaning mode",
+          "description": "Cleaning mode (turbo or eco)."
+        },
+        "fan_speed": {
+          "name": "Fan speed",
+          "description": "Optional cleaning power mode (eco or turbo)."
+        },
+        "navigation_mode": {
+          "name": "Navigation mode",
+          "description": "Navigation mode (normal, extra_care, deep, or gentle)."
+        }
+      }
+    },
+    "clean_zones": {
+      "name": "Clean zones",
+      "description": "Start cleaning one or more named room zones (or boundary UUIDs) on a Neato robot managed by Vacuula.",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Vacuum entity to target (optional if only one robot is paired)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Robot serial number (optional alternative to entity_id)."
+        },
+        "zones": {
+          "name": "Zones",
+          "description": "Room zone name(s) (case-insensitive, e.g. \"Diningroom, Office\") or boundary UUID(s)."
+        },
+        "map_id": {
+          "name": "Map ID",
+          "description": "Optional floorplan ID (defaults to the robot's active floorplan)."
+        },
+        "fan_speed": {
+          "name": "Fan speed",
+          "description": "Optional cleaning power mode (eco or turbo)."
+        },
+        "navigation_mode": {
+          "name": "Navigation mode",
+          "description": "Optional navigation mode (normal, extra_care, deep, or gentle)."
+        }
+      }
+    },
+    "clean_spot": {
+      "name": "Clean spot",
+      "description": "Start a localized spot cleaning run (Gen3 robots).",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Vacuum entity to target (optional if only one robot is paired)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Robot serial number (optional alternative to entity_id)."
+        },
+        "width": {
+          "name": "Spot width (cm)",
+          "description": "Width of the spot area in centimeters (default 200)."
+        },
+        "height": {
+          "name": "Spot height (cm)",
+          "description": "Height of the spot area in centimeters (default 200)."
+        },
+        "fan_speed": {
+          "name": "Fan speed",
+          "description": "Optional cleaning power mode (eco or turbo)."
+        },
+        "navigation_mode": {
+          "name": "Navigation mode",
+          "description": "Optional navigation mode (normal, extra_care, or deep)."
+        }
+      }
+    },
+    "refresh_maps": {
+      "name": "Refresh maps and runs",
+      "description": "Reload floor maps, room boundaries, and historical cleaning runs from the Vacuula server.",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Optional vacuum entity (if omitted, refreshes all paired robots)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Optional robot serial (if omitted, refreshes all paired robots)."
+        }
+      }
+    },
+    "dismiss_alert": {
+      "name": "Dismiss alert",
+      "description": "Dismisses the active notification alert on a Gen3 robot vacuum.",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Vacuum entity to target (optional if only one robot is paired)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Serial number of the robot."
+        }
+      }
+    },
+    "send_raw_command": {
+      "name": "Send raw command",
+      "description": "Sends an arbitrary JSON command or ability to a Vacuula-connected robot.",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Vacuum entity to target (optional if only one robot is paired)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Serial number of the robot."
+        },
+        "command": {
+          "name": "Command or ability",
+          "description": "Gen3 command name (e.g. getRobotState) or Gen4 ability name (e.g. state.show)."
+        },
+        "params": {
+          "name": "Parameters",
+          "description": "Optional JSON parameters dictionary."
+        }
+      }
+    }
   }
 }

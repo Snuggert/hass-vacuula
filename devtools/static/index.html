@@ -3,18 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vacuula Full-Stack Developer Environment (Lovelace + Mock Entities)</title>
+  <title>Vacuula Developer Environment (Lovelace + Mock Entities)</title>
   <link rel="stylesheet" href="/static/sandbox.css" />
+  <style>
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+  </style>
   <script type="module" src="/vacuula_frontend/vacuula-map-card.js"></script>
   <script type="module" src="/static/sandbox.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <h1>
-      <span>🤖 Vacuula Full-Stack Developer Environment</span>
+    <div class="topbar-title">
+      <h1>Vacuula Developer Environment</h1>
       <span class="pill">Lovelace Frontend</span>
       <span class="pill green" id="entity-count-pill">Loading Entities...</span>
-    </h1>
+    </div>
     <div id="server-meta" class="server-meta">Connecting to Vacuula Server...</div>
   </header>
 
@@ -26,7 +32,7 @@
       <div class="panel">
         <div class="panel-header">
           <h2>Lovelace Dashboard (<code class="accent">vacuula-map-card</code>)</h2>
-          <button class="ent-btn" id="toggle-editor-btn" type="button">⚙️ Toggle Card Editor</button>
+          <button class="ent-btn" id="toggle-editor-btn" type="button">Toggle Card Editor</button>
         </div>
         <vacuula-map-card id="map-card"></vacuula-map-card>
       </div>
@@ -55,40 +61,40 @@
     <section>
       <div class="panel" id="sim-studio">
         <div class="panel-header">
-          <h2>⚡ Developer Event &amp; Scenario Studio</h2>
-          <button class="ent-btn btn-clear" type="button" data-sim="clear">✅ Clear Alerts/Errors</button>
+          <h2>Developer Event &amp; Scenario Studio</h2>
+          <button class="ent-btn btn-clear" type="button" data-sim="clear">Clear Alerts/Errors</button>
         </div>
 
         <div class="entity-group-title first">1. Cleaning &amp; Lifecycle States</div>
         <div class="btn-grid">
-          <button class="sim-btn" type="button" data-sim="clean" data-category="4">🗺️ Map/Zone Clean</button>
-          <button class="sim-btn" type="button" data-sim="house_clean">▶️ House Clean</button>
-          <button class="sim-btn" type="button" data-sim="spot">🎯 Spot Clean</button>
-          <button class="sim-btn" type="button" data-sim="explore">🧭 Explore Map</button>
-          <button class="sim-btn" type="button" data-sim="pause">⏸️ Pause Clean</button>
-          <button class="sim-btn" type="button" data-sim="stop">⏹️ Stop (Idle)</button>
-          <button class="sim-btn" type="button" data-sim="dock" data-val-bool="true">🏠 Dock Robot</button>
-          <button class="sim-btn" type="button" data-sim="finish_run">🏁 Complete Run</button>
+          <button class="sim-btn" type="button" data-sim="clean" data-category="4">Map/Zone Clean</button>
+          <button class="sim-btn" type="button" data-sim="house_clean">House Clean</button>
+          <button class="sim-btn" type="button" data-sim="spot">Spot Clean</button>
+          <button class="sim-btn" type="button" data-sim="explore">Explore Map</button>
+          <button class="sim-btn" type="button" data-sim="pause">Pause Clean</button>
+          <button class="sim-btn" type="button" data-sim="stop">Stop (Idle)</button>
+          <button class="sim-btn" type="button" data-sim="dock" data-val-bool="true">Dock Robot</button>
+          <button class="sim-btn" type="button" data-sim="finish_run">Complete Run</button>
         </div>
 
         <div class="entity-group-title">2. Trigger Hardware Alerts (Yellow Banner)</div>
         <div class="btn-grid">
-          <button class="sim-btn" type="button" data-sim="alert" data-val="dustbin_full">🗑️ Dustbin Full</button>
-          <button class="sim-btn" type="button" data-sim="alert" data-val="dustbin_missing">📥 Bin Missing</button>
-          <button class="sim-btn" type="button" data-sim="alert" data-val="maint_brush_change">🧹 Change Brush</button>
-          <button class="sim-btn" type="button" data-sim="alert" data-val="maint_filter_change">🌬️ Change Filter</button>
-          <button class="sim-btn" type="button" data-sim="alert" data-val="clear_path">🚧 Clear Path</button>
-          <button class="sim-btn" type="button" data-sim="alert" data-val="nav_floorplan_not_created">🗺️ No Floorplan</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="dustbin_full">Dustbin Full</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="dustbin_missing">Bin Missing</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="maint_brush_change">Change Brush</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="maint_filter_change">Change Filter</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="clear_path">Clear Path</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="nav_floorplan_not_created">No Floorplan</button>
         </div>
 
         <div class="entity-group-title">3. Trigger Hardware Errors (Red Error State)</div>
         <div class="btn-grid">
-          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_brush_stuck">⚠️ Brush Stuck</button>
-          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_Brush_overload">⚡ Brush Overload</button>
-          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_navigation_stuck">🛑 Robot Stuck</button>
-          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_bumper_stuck">🧱 Bumper Stuck</button>
-          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_picked_up">🙋 Picked Up</button>
-          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_undock_failed">🚪 Undock Failed</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_brush_stuck">Brush Stuck</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_Brush_overload">Brush Overload</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_navigation_stuck">Robot Stuck</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_bumper_stuck">Bumper Stuck</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_picked_up">Picked Up</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_undock_failed">Undock Failed</button>
         </div>
 
         <div class="custom-code-bar">
@@ -100,8 +106,8 @@
         <div class="entity-group-title">4. Battery, Sensors &amp; Connectivity</div>
         <div class="battery-box">
           <div class="battery-header">
-            <span>🔋 Battery Level: <strong id="batt-label">95%</strong></span>
-            <label class="chg-label"><input type="checkbox" id="chg-toggle" /> ⚡ Charging</label>
+            <span>Battery Level: <strong id="batt-label">95%</strong></span>
+            <label class="chg-label"><input type="checkbox" id="chg-toggle" /> Charging</label>
           </div>
           <input type="range" id="batt-slider" min="0" max="100" value="95" />
           <div class="preset-row">
@@ -112,15 +118,15 @@
         </div>
 
         <div class="btn-grid">
-          <button class="sim-btn" type="button" data-sim="dock_seen" data-val-bool="true">👀 Dock Seen: ON</button>
-          <button class="sim-btn" type="button" data-sim="dock_seen" data-val-bool="false">🙈 Dock Seen: OFF</button>
-          <button class="sim-btn" type="button" data-sim="installer_version" data-val="1.0.0-b28">⚠️ Outdated Installer</button>
-          <button class="sim-btn" type="button" data-sim="installer_version" data-val="1.1.0-b3">✅ Latest Installer</button>
-          <button class="sim-btn" type="button" data-sim="disconnect">📡 Drop WiFi (Away)</button>
-          <button class="sim-btn" type="button" data-sim="reconnect">📶 Reconnect WiFi</button>
+          <button class="sim-btn" type="button" data-sim="dock_seen" data-val-bool="true">Dock Seen: ON</button>
+          <button class="sim-btn" type="button" data-sim="dock_seen" data-val-bool="false">Dock Seen: OFF</button>
+          <button class="sim-btn" type="button" data-sim="installer_version" data-val="1.0.0-b28">Outdated Installer</button>
+          <button class="sim-btn" type="button" data-sim="installer_version" data-val="1.1.0-b3">Latest Installer</button>
+          <button class="sim-btn" type="button" data-sim="disconnect">Drop WiFi (Away)</button>
+          <button class="sim-btn" type="button" data-sim="reconnect">Reconnect WiFi</button>
         </div>
         <button class="sim-btn full-width" type="button" data-sim="add_robot" data-val="Upstairs D7">
-          ➕ Spawn &amp; Connect 2nd Mock Neato Robot
+          Spawn &amp; Connect 2nd Mock Neato Robot
         </button>
 
         <div class="panel-header log-header">

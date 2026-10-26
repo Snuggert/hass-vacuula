@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.vacuum import (
@@ -24,7 +26,11 @@ from .const import (
 from .coordinator import VacuulaCoordinator, is_installer_outdated
 from .entity import VacuulaEntity
 
+_LOGGER = logging.getLogger(__name__)
+
 PARALLEL_UPDATES = 0
+
+FEATURE_CLEAN_AREA = getattr(VacuumEntityFeature, "CLEAN_AREA", 16384)
 
 SUPPORTED_FEATURES = (
     VacuumEntityFeature.STATE
@@ -35,6 +41,16 @@ SUPPORTED_FEATURES = (
     | VacuumEntityFeature.LOCATE
     | VacuumEntityFeature.FAN_SPEED
 )
+
+
+@dataclass
+class Segment:
+    """Segment representation for area/room cleaning."""
+
+    id: str
+    name: str
+    group: str | None = None
+
 
 _ACTIVITY_MAP: dict[str, VacuumActivity] = {
     "error": VacuumActivity.ERROR,
@@ -67,11 +83,22 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
     """Representation of a Neato robot vacuum managed by Vacuula."""
 
     _attr_name = None
-    _attr_supported_features = SUPPORTED_FEATURES
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the vacuum entity."""
         super().__init__(coordinator, serial, "vacuum")
+
+    @property
+    def supported_features(self) -> VacuumEntityFeature:
+        """Flag supported features for this vacuum dynamically."""
+        features = SUPPORTED_FEATURES
+        robot = self._robot
+        if robot:
+            if robot.robot_type == ROBOT_TYPE_GEN3:
+                features |= VacuumEntityFeature.CLEAN_SPOT
+            if robot.zones:
+                features |= FEATURE_CLEAN_AREA
+        return features
 
     @property
     def fan_speed_list(self) -> list[str]:
@@ -102,11 +129,25 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         if not robot or not robot.state:
             return {}
         zone_names = [str(z.get("name")) for z in robot.zones if z.get("name")]
+        zones_payload = [
+            {
+                "id": str(z["id"]),
+                "name": str(z["name"]),
+                "map_name": robot.active_map_name,
+            }
+            for z in robot.zones
+            if z.get("id") and z.get("name")
+        ]
+        maps_payload = [m.get("name") for m in robot.maps if m.get("name")] or (
+            [robot.active_map_name] if robot.active_map_name else []
+        )
         base_attrs: dict[str, Any] = {
             "navigation_mode": robot.preferred_navigation_mode,
             "active_map_id": robot.active_map_id,
             "active_map_name": robot.active_map_name,
             "available_zones": zone_names,
+            "cleanable_zones": zones_payload,
+            "maps": maps_payload,
             "selected_zone": robot.selected_zone,
         }
         if robot.robot_type == ROBOT_TYPE_GEN3:
@@ -204,3 +245,55 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         if robot and fan_speed in self.fan_speed_list:
             robot.preferred_fan_speed = fan_speed
             self.coordinator.async_update_listeners()
+
+    async def async_clean_spot(self, **kwargs: Any) -> None:
+        """Perform spot cleaning."""
+        robot = self._robot
+        if not robot:
+            return
+        width = kwargs.get("width", 200)
+        height = kwargs.get("height", 200)
+        resp = await self.coordinator.client.async_start_spot_cleaning(
+            self._serial,
+            robot.robot_type,
+            width=width,
+            height=height,
+            fan_speed=robot.preferred_fan_speed,
+            navigation_mode=robot.preferred_navigation_mode,
+        )
+        await self.coordinator.async_apply_command_response(self._serial, resp)
+
+    async def async_get_segments(self) -> list[Segment]:
+        """Return list of cleanable segments (zones/rooms)."""
+        robot = self._robot
+        if not robot or not robot.zones:
+            return []
+        return [
+            Segment(
+                id=str(z.get("id")),
+                name=str(z.get("name")),
+                group=robot.active_map_name,
+            )
+            for z in robot.zones
+            if z.get("id") and z.get("name")
+        ]
+
+    async def async_clean_segments(self, segment_ids: list[str], **kwargs: Any) -> None:
+        """Clean selected segments/rooms."""
+        robot = self._robot
+        if not robot or not robot.zones or not segment_ids:
+            return
+        zone_ids = robot.resolve_zone_ids(segment_ids)
+        if not zone_ids:
+            _LOGGER.warning("No matching zones found for segment_ids: %s", segment_ids)
+            return
+        map_id = robot.active_map_id
+        resp = await self.coordinator.client.async_start_zone_cleaning(
+            self._serial,
+            robot.robot_type,
+            map_id,
+            zone_ids,
+            fan_speed=robot.preferred_fan_speed,
+            navigation_mode=robot.preferred_navigation_mode,
+        )
+        await self.coordinator.async_apply_command_response(self._serial, resp)

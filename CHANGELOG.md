@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] - 2026-10-26
+
+### Added
+- **New Custom Actions / Services (`custom_components/vacuula/`):**
+  - `vacuula.clean_zone`: Start cleaning a single persistent map zone or room by name with optional `map_name`, `mode`/`fan_speed`, and `navigation_mode`.
+  - `vacuula.dismiss_alert`: Clear the active alert/notification on a Gen3 robot.
+  - `vacuula.send_raw_command`: Dispatch raw Gen3 commands (`cmd`) or Gen4 abilities (`ability`) directly to a robot with optional parameters dictionary.
+  - Added `async_send_raw_command` to `VacuulaApiClient` (`core/client.py`).
+- **Modern Segment & Spot Cleaning on Vacuum Entity (`custom_components/vacuula/vacuum.py`):**
+  - Implemented `async_clean_spot` for Gen3 localized spot cleaning.
+  - Implemented Home Assistant's modern area cleaning contract via `Segment` dataclass, `async_get_segments()`, and `async_clean_segments()`.
+  - Dynamically flags `VacuumEntityFeature.CLEAN_SPOT` and `FEATURE_CLEAN_AREA`.
+- **Clean Selected Zone Button (`custom_components/vacuula/button.py`):**
+  - Added `VacuulaCleanSelectedZoneButton` (`button.<robot>_clean_selected_zone`) to clean whichever zone is currently selected by `select.<robot>_target_zone` (or full house if set to `all`).
+- **Server Hub Device & Diagnostic Entities (`custom_components/vacuula/`):**
+  - Registered Vacuula Server hub device in Device Registry with `DeviceEntryType.SERVICE`, parenting robot vacuums via `via_device`.
+  - Added `binary_sensor.server_<id>_status` (`BinarySensorDeviceClass.CONNECTIVITY`).
+  - Added `sensor.server_<id>_version` (`EntityCategory.DIAGNOSTIC`).
+  - Added `sensor.server_<id>_connected_robots` (measurement sensor tracking count of connected robots).
+- **Config Entry Options Flow (`custom_components/vacuula/config_flow.py`):**
+  - Added `VacuulaOptionsFlowHandler` to configure polling `scan_interval` (5–300s slider), `default_mode`, and `default_nav_mode` via Home Assistant UI.
+  - Added reload listener in `__init__.py` and dynamic update interval handling in `VacuulaCoordinator`.
+
 ## [0.7.2] - 2026-10-26
 
 ### Changed
@@ -35,14 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **Per-Robot Command Lock Eviction:** Evicted disconnected robot `asyncio.Lock` instances in `VacuulaApiClient.evict_stale_locks()` to prevent unbounded lock dictionary growth over long runtimes.
 - **Explicit Authentication Error Classification:** `VacuulaApiClient._request()` now raises `VacuulaAuthError` on HTTP 401/403 responses.
-- **Robust Hostname Extraction in Config Flow:** Replaced fragile string splitting in `config_flow.py` title generation with `urllib.parse.urlparse(url).hostname`.
+- **Hostname Extraction in Config Flow:** Replaced fragile string splitting in `config_flow.py` title generation with `urllib.parse.urlparse(url).hostname`.
 - **Gen3 SSE Frame Validation:** `VacuulaCoordinator._listen_robot_events` now verifies `"state" in frame["data"]` before overwriting robot state, ignoring non-state keepalive frames (`ping`).
 - **Mock Neato Persistent Socket Stability:** Replaced `sock.makefile()` with a non-corrupting `select.select()` + `bytearray` chunked stream reader with 15-second keepalive `ping` frames so idle simulated robots never time out against `vacuula_server`.
 
 ## [0.6.2] - 2026-10-26
 
 ### Added
-- **Full Vacuula v1.1.0 Release Compliance:** Added comprehensive support and cross-version compatibility for the upstream Vacuula server v1.1.0 release.
+- **Full Vacuula v1.1.0 Release Compliance:** Added support and cross-version compatibility for the upstream Vacuula server v1.1.0 release.
 - **Outdated Robot Installer Detection:** Added `binary_sensor.<robot>_installer_outdated` (`VacuulaOutdatedInstallerBinarySensor`) with device class `problem` and category `diagnostic` to notify users when a Gen3 robot was flashed with an older installer version (< `1.1.0-b3`) that requires updating for full v1.1 compatibility.
 - **Diagnostic Attributes for Installer Versions:** Added `installed_with` and `outdated_installer` state attributes to `vacuum.<robot>`, as well as inclusion in downloadable device diagnostics.
 - **Server Metadata Caching:** Coordinator now caches extended Vacuula server metadata (`min_installer_version`, `gen3_port`, `gen4_port`, `ha_ingress`, `timezone`) for diagnostic inspections.
@@ -63,11 +86,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.6.0] - 2026-10-25
 
 ### Added
-- **Responsive Multi-Device Map Sizing:** `vacuula-map-card` now scales dynamically across device form factors. Mobile screens (< 600px) preserve their compact 380px cap, while tablet (520px max), desktop (660px max), and 4K/ultrawide displays (800px max) expand to showcase high-DPI floorplans and cleaning coverage.
+- **Responsive Multi-Device Map Sizing:** `vacuula-map-card` now scales dynamically across device form factors. Mobile screens (< 600px) preserve their compact 380px cap, while tablet (520px max), desktop (660px max), and 4K/ultrawide displays (800px max) expand to display high-DPI floorplans and cleaning coverage.
 - **Lovelace Sections & Panel Views:** Native support for Home Assistant 2024+ Sections grid layout via `getGridOptions()`, as well as full-height scaling in Lovelace panel views.
 - **Dust Bin Full Problem Sensor:** Added `binary_sensor.<robot>_bin_full` (`VacuulaBinFullBinarySensor`) with device class `problem` and icon `mdi:delete-empty` to alert when the robot's dust bin requires emptying or is unseated.
 - **Interactive Alert & Error Notification Banners:** Prominent notification banner on the card rendering color-coded alerts (amber warnings for `dustbin_full`, `clear_path`, `lid_open`; red errors for `brush_stuck`, `navigation_stuck`, `cliff_sensor`) with friendly human text and a one-tap `✕ Dismiss` button.
-- **Header Dust Bin Badge:** Subtle `🗑️ Bin Full` pill in the header telemetry bar when dust bin attention is required.
+- **Header Dust Bin Badge:** Subtle `Bin Full` pill in the header telemetry bar when dust bin attention is required.
 - **Granular Card Configuration Toggles:** Added individual boolean controls in YAML and the visual card editor for `map_height` (Auto, Compact, Medium, Large, Extra Large), `expand_on_desktop`, `show_header`, `show_status_badge`, `show_battery`, `show_schedule`, `show_alerts`, `show_bin_alert`, `show_toolbar`, `show_zone_labels`, `show_zone_chips`, `show_controls`, and `show_modes`.
 - **Card Editor Redesign:** Organized `VacuulaMapCardEditor` into clean categorized sections with switch controls.
 - **Full Brand Asset Suite & Dark Mode Support:** Added all 8 specification-compliant Home Assistant and HACS brand assets (`icon.png`, `icon@2x.png`, `dark_icon.png`, `dark_icon@2x.png`, `logo.png`, `logo@2x.png`, `dark_logo.png`, `dark_logo@2x.png`). Dark theme variants provide high-contrast silver/white artwork with vivid red status accents for clear visibility in dark mode.
@@ -81,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Vacuula Target Platform:** Targeted and validated against official Vacuula server release **v1.0.0** (with forward-compatibility verified against upcoming v1.1.0-dev builds). Going forward, `hass-vacuula` intends to closely follow the official Vacuula release schedule, keeping feature parity, protocol schemas, and API compatibility synchronized as new Vacuula versions are published.
-- **Quality & Testing Suite:** Comprehensive automated test suite with pytest covering config flow, API client, map renderer, diagnostics, coordinator, domain services, and vacuum platform.
+- **Quality & Testing Suite:** Automated test suite with pytest covering config flow, API client, map renderer, diagnostics, coordinator, domain services, and vacuum platform.
 - **Continuous Integration:** Hardened GitHub Actions CI pipeline running Hassfest, HACS validation (9/9 checks), Ruff linting & formatting, Mypy static type checking, and Pytest across Python 3.12 and 3.13 matrix.
 - **Gated Releases:** Release pipeline automatically gated on passing quality validations before publishing GitHub Releases.
 
@@ -112,7 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.5.0]
 
 ### Added
-- Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
+- Visual previews in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
 [0.7.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.2...v0.7.0

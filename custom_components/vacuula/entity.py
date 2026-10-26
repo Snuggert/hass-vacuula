@@ -59,6 +59,10 @@ class VacuulaEntity(CoordinatorEntity[VacuulaCoordinator]):
             if (robot and robot.robot_type == ROBOT_TYPE_GEN3)
             else "Neato Botvac (Gen4)"
         )
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        via_device = (
+            (DOMAIN, f"server_{config_entry.entry_id}") if config_entry else None
+        )
         return DeviceInfo(
             identifiers={(DOMAIN, self._serial)},
             name=robot.name if robot else self._serial,
@@ -66,4 +70,5 @@ class VacuulaEntity(CoordinatorEntity[VacuulaCoordinator]):
             model=meta.get("modelName") or default_model,
             sw_version=meta.get("firmware"),
             serial_number=self._serial,
+            via_device=via_device,
         )

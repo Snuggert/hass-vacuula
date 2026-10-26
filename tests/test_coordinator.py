@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -31,6 +32,7 @@ async def test_coordinator_init_and_state(hass: HomeAssistant) -> None:
         domain=DOMAIN,
         unique_id="http://192.168.1.50:8085",
         data={"url": "http://192.168.1.50:8085"},
+        options={"scan_interval": 45},
     )
     entry.add_to_hass(hass)
 
@@ -60,6 +62,7 @@ async def test_coordinator_init_and_state(hass: HomeAssistant) -> None:
     client.async_get_runs.return_value = []
 
     coordinator = VacuulaCoordinator(hass, entry, client)
+    assert coordinator.update_interval == timedelta(seconds=45)
     data = await coordinator._async_update_data()
 
     assert "OPS123" in data
@@ -506,7 +509,7 @@ async def test_coordinator_handles_v110_server_info_and_installed_with(
 async def test_coordinator_did_finish_cleaning_all_edge_cases(
     hass: HomeAssistant,
 ) -> None:
-    """Test comprehensive edge cases for _did_finish_cleaning across Gen3 and Gen4."""
+    """Test edge cases for _did_finish_cleaning across Gen3 and Gen4."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="http://192.168.1.50:8085",

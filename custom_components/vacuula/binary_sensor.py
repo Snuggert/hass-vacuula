@@ -10,10 +10,12 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import VacuulaConfigEntry
-from .const import ROBOT_TYPE_GEN3
+from .const import DOMAIN, ROBOT_TYPE_GEN3
 from .coordinator import VacuulaCoordinator, is_installer_outdated
 from .entity import VacuulaEntity
 
@@ -27,6 +29,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up Vacuula binary sensor entities."""
     coordinator: VacuulaCoordinator = entry.runtime_data
+
+    # Add server binary sensor
+    async_add_entities([VacuulaServerStatusBinarySensor(coordinator, entry)])
 
     @callback
     def _async_add_new_robots(serials: list[str]) -> None:
@@ -203,3 +208,43 @@ class VacuulaOutdatedInstallerBinarySensor(VacuulaEntity, BinarySensorEntity):
         if min_ver:
             attrs["minimum_installer_version"] = min_ver
         return attrs
+
+
+class VacuulaServerStatusBinarySensor(
+    CoordinatorEntity[VacuulaCoordinator], BinarySensorEntity
+):
+    """Diagnostic binary sensor indicating whether the Vacuula server is reachable."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "server_status"
+    _attr_name = "Server status"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: VacuulaCoordinator,
+        entry: VacuulaConfigEntry,
+    ) -> None:
+        """Initialize the server status binary sensor."""
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"server_{entry.entry_id}_server_status"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device registry info for server hub."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"server_{self._entry.entry_id}")},
+            name=self._entry.title,
+            manufacturer="Vacuula",
+            model="Vacuula Server",
+            sw_version=self.coordinator.server_info.get("version")
+            if self.coordinator.server_info
+            else None,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if the coordinator last refresh was successful."""
+        return bool(self.coordinator.last_update_success)

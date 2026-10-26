@@ -17,22 +17,21 @@
   <a href="https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square" alt="License: MIT" /></a>
 </p>
 
-> [!IMPORTANT]
-> ### ⚠️ Unofficial Community Integration — Not Affiliated with Vacuula
->
-> **This integration is an independent, community-developed project by [@Snuggert](https://github.com/Snuggert).**
-> **It is NOT an official Vacuula project and is in NO WAY affiliated with, endorsed by, or supported by the authors of the upstream Vacuula server project.**
->
-> 🛑 **DO NOT submit support requests, bug reports, or questions to the upstream Vacuula repository** for any issues concerning this Home Assistant integration or its Lovelace map card.
->
-> All issues and support requests must be opened exclusively on this repository:
-> 👉 [**Snuggert/hass-vacuula Issues**](https://github.com/Snuggert/hass-vacuula/issues)
-
 > [!WARNING]
-> ### ⚡ Prerequisite: A Working Vacuula Server Instance is Required
+> ### Unofficial Community Integration: Not Affiliated with Vacuula
 >
-> **This integration does NOT communicate directly with your Neato robot vacuum and does NOT replace the Vacuula server software.**
+> This integration is an independent, community-developed project by [@Snuggert](https://github.com/Snuggert).
+> It is not an official Vacuula project and is not affiliated with, endorsed by, or supported by the authors of the upstream Vacuula server project.
 >
+> Do not submit support requests, bug reports, or questions to the upstream Vacuula repository for any issues concerning this Home Assistant integration or its Lovelace map card.
+>
+> Open issues and support requests exclusively on this repository:
+> [Snuggert/hass-vacuula Issues](https://github.com/Snuggert/hass-vacuula/issues)
+
+> [!IMPORTANT]
+> ### Prerequisite: A Working Vacuula Server Instance is Required
+>
+> This integration does not communicate directly with your Neato robot vacuum and does not replace the Vacuula server software.
 > To use this integration, you **must already have a running instance of the [Vacuula Server](https://github.com/vacuula/vacuula)** (deployed via Docker, Home Assistant Add-on, TrueNAS, or bare metal) and your Neato robot must already be linked and communicating with it.
 >
 > * **The Robot Vacuum** connects over Wi-Fi directly to your **Vacuula server** (handling Neato cloud replacement, robot TLS connections, firmware comms, and raw map data).
@@ -41,13 +40,13 @@
 >
 > If you have not set up Vacuula yet, please follow the [official Vacuula setup guide](https://github.com/vacuula/vacuula) before installing this integration.
 >
-> 📖 **Cross-Version Support**: For a complete version-by-version breakdown of Vacuula server releases (v1.0.0, v1.1.0+), Neato robot generations, and firmware installer compatibility, consult our [**Compatibility Guide**](https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md).
+> Cross-version support: For a complete version-by-version breakdown of Vacuula server releases (v1.0.0, v1.1.0+), Neato robot generations, and firmware installer compatibility, consult our [**Compatibility Guide**](https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md).
 
-An independent, full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for robot vacuums connecting through [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
+An independent, full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for robot vacuums connecting through [Vacuula](https://github.com/vacuula/vacuula), the local cloud replacement server for Neato Botvac Connected (Gen3: D3, D4, D5, D6, D7) and Gen4 (D8, D9, D10) robot vacuums.
 
 ---
 
-## 📐 System Architecture
+## System Architecture
 
 The diagram below illustrates how your robot vacuum, the Vacuula server, and this Home Assistant integration interact across your local network:
 
@@ -81,11 +80,11 @@ flowchart LR
 
 ---
 
-## ✨ Visual Showcase
+## Visual Preview
 
 ### Bundled Interactive Map Card (`custom:vacuula-map-card`)
 
-The integration automatically registers a zero-dependency Web Component (`custom:vacuula-map-card`) into your Home Assistant Lovelace resources — no separate HACS frontend plugin install required.
+The integration automatically registers a zero-dependency Web Component (`custom:vacuula-map-card`) into your Home Assistant Lovelace resources without requiring a separate HACS frontend plugin install.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Snuggert/hass-vacuula/main/docs/assets/card_preview.svg" alt="Vacuula Interactive Map Card Preview" width="480" />
@@ -101,7 +100,7 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 
 ---
 
-## 🚀 Key Capabilities
+## Key Capabilities
 
 - **Instant Local Push (SSE) + Fallback Polling**: Subscribes to `/api/events` and per-robot `/api/robot/{serial}/connect` Server-Sent Events streams for sub-second status updates, backed by a 30-second health/state poll.
 - **Interactive Room Zone Selection**:
@@ -115,7 +114,7 @@ Vacuula RLE floorplans, colored room zone polygons, No-Go lines, dock markers, a
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Option 1: HACS (Recommended)
 
@@ -147,7 +146,7 @@ If the integration does not appear in your HACS search results yet:
 
 ---
 
-## 🗺️ Dashboard Card (`custom:vacuula-map-card`)
+## Dashboard Card (`custom:vacuula-map-card`)
 
 When the integration loads, it serves `/vacuula_frontend/vacuula-map-card.js` and automatically registers it in your Lovelace resources.
 
@@ -168,17 +167,19 @@ show_controls: true       # Show Start / Pause / Dock / Locate + Power & Nav dro
 
 ---
 
-## 🧩 Provided Entities (Per Robot)
+## Provided Entities (Per Robot)
 
 Entities are organized into primary controls, **Configuration**, and **Diagnostic** categories so your device page stays clean:
 
 | Domain | Entity Suffix | Category | Available When Robot Offline? | Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `vacuum` | `vacuum.<robot>` | Primary | No | Start, pause, stop, return to dock, locate, spot clean, and fan speed (`eco` / `turbo`). Exposes `available_zones`, `zone_boundaries`, and `active_map_name` attributes. |
+| `vacuum` | `vacuum.<robot>` | Primary | No | Start, pause, stop, return to dock, locate, spot clean, fan speed (`eco` / `turbo`), and modern Home Assistant room/segment cleaning (`clean_spot`, `get_segments`, `clean_segments`). Exposes `available_zones`, `zone_boundaries`, `cleanable_zones`, `maps`, and `active_map_name` attributes. |
 | `image` | `image.<robot>_floor_map` | Primary | **Yes** | High-DPI cropped PNG of the active floorplan with colored room polygons, No-Go lines, and dock location. |
 | `image` | `image.<robot>_last_run_map` | Primary | **Yes** | High-DPI cropped PNG overlaying the latest cleaning coverage and trajectory onto the floorplan. |
-| `select` | `select.<robot>_target_zone` | Primary | No | Target zone used when `vacuum.start` is called: `all` (full map) or any discovered room name on the active floorplan. |
+| `select` | `select.<robot>_target_zone` | Primary | No | Target zone used when `vacuum.start` or *Clean selected zone* is called: `all` (full map) or any discovered room name on the active floorplan. |
+| `button` | `button.<robot>_clean_selected_zone` | Primary | No | Clean whichever zone is currently selected by `select.<robot>_target_zone` (or full house if set to `all`). |
 | `button` | `button.<robot>_clean_<zone>` | Primary | No | Auto-generated per-room button for every named polygon boundary on the active map (e.g. *Clean Diningroom*, *Clean Office*). |
+| `button` | `button.<robot>_locate` | Primary | No | Locate robot (plays acoustic sound). |
 | `button` | `button.<robot>_dismiss_alert` | Primary | No | Clears the active alert on Gen3 robots. |
 | `sensor` | `sensor.<robot>_battery` | Primary | No | Battery percentage (`%`) with dynamic charging icon. |
 | `sensor` | `sensor.<robot>_status_detail` | Primary | No | Human-readable robot state (`Docked`, `Cleaning`, `Returning to Dock`, etc.). |
@@ -194,14 +195,49 @@ Entities are organized into primary controls, **Configuration**, and **Diagnosti
 | `binary_sensor` | `binary_sensor.<robot>_charging` | Diagnostic | No | `on` when the battery is actively charging (`battery_charging`). |
 | `binary_sensor` | `binary_sensor.<robot>_bin_full` | Diagnostic | No | `on` when the dustbin is full or missing (`problem`). |
 | `binary_sensor` | `binary_sensor.<robot>_dock_seen` | Diagnostic | No | `on` when the robot has localized its charging base during a run. |
+| `binary_sensor` | `binary_sensor.<robot>_outdated_installer` | Diagnostic | **Yes** | `on` if robot firmware was flashed with an outdated Vacuula installer version. |
 | `sensor` | `sensor.<robot>_alert` | Diagnostic | No | Active error or alert code (`none`, `dustbin_full`, `brush_stuck`, etc.). |
 | `sensor` | `sensor.<robot>_total_cleans` | Diagnostic | **Yes** | Total historical cleaning runs stored on the Vacuula server. |
 
+### 🏢 Vacuula Server Hub Device & Entities
+
+The integration registers the Vacuula Server as a hub device (`DeviceEntryType.SERVICE`), and attaches paired robots as child devices via `via_device`. The hub exposes:
+
+| Domain | Entity ID | Category | Description |
+| :--- | :--- | :---: | :--- |
+| `binary_sensor` | `binary_sensor.server_<id>_status` | Diagnostic | `on` when the Vacuula server is online and responding to polling / SSE. |
+| `sensor` | `sensor.server_<id>_version` | Diagnostic | Vacuula server software version. |
+| `sensor` | `sensor.server_<id>_connected_robots` | Primary / Measurement | Count of robots currently connected to the Vacuula server. |
+
 ---
 
-## ⚡ Custom Actions (Services)
+## Configuration and Options Flow
+
+The integration supports Home Assistant's **Options Flow** (**Settings → Devices & Services → Neato Botvac → Configure**):
+- **Update interval**: Polling fallback slider (5–300s, default `30s`).
+- **Default cleaning mode**: Default fan speed (`turbo` or `eco`).
+- **Default navigation mode**: Default navigation profile (`normal`, `extra_care`, `deep`, or `gentle`).
+
+Changes reload automatically without restarting Home Assistant.
+
+---
+
+## Custom Actions (Services)
 
 All custom actions accept either `entity_id` (via the standard Home Assistant entity picker) or `serial` (optional when only one robot is paired).
+
+### `vacuula.clean_zone`
+Clean a single named room zone on the robot's floor map:
+
+```yaml
+action: vacuula.clean_zone
+data:
+  entity_id: vacuum.mappa
+  zone_name: "Living Room"
+  map_name: "Ground Floor"  # optional if zone name is unique
+  mode: turbo               # optional: turbo or eco
+  navigation_mode: normal   # optional: normal, extra_care, deep, gentle
+```
 
 ### `vacuula.clean_zones`
 Clean one or more named rooms (case-insensitive) or boundary UUIDs on the robot's active floorplan:
@@ -238,9 +274,29 @@ data:
   entity_id: vacuum.mappa
 ```
 
+### `vacuula.dismiss_alert`
+Dismiss the active alert or notification on a Gen3 robot vacuum:
+
+```yaml
+action: vacuula.dismiss_alert
+data:
+  entity_id: vacuum.mappa
+```
+
+### `vacuula.send_raw_command`
+Send an arbitrary JSON command or Gen4 ability to a connected robot:
+
+```yaml
+action: vacuula.send_raw_command
+data:
+  entity_id: vacuum.mappa
+  command: "getRobotState"  # or Gen4 ability like "state.show"
+  params: {}                # optional parameters dictionary
+```
+
 ---
 
-## 🤖 Automation Examples
+## Automation Examples
 
 ### 1. Clean the Dining Room After Dinner When Everyone Leaves the Room
 ```yaml
@@ -293,16 +349,16 @@ action:
 
 ---
 
-## 🏗️ Architecture & Developer Guide
+## Architecture & Developer Guide
 
-- **Architecture Deep Dive**: For details on the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and security safeguards, see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
+- **Architecture Details**: For details on the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and security safeguards, see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
 - **Developer Testing Environment**: For setting up a local dev environment, launching the Vacuula dev server with simulated Neato robots, and running live integration tests, see [**DEVELOPMENT.md**](https://github.com/Snuggert/hass-vacuula/blob/main/DEVELOPMENT.md).
 - **Cross-Version Compatibility Matrix**: For compatibility across Vacuula server releases (v1.0.0, v1.0.1, v1.1.0+), see [**COMPATIBILITY.md**](https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md).
 - **Release History**: Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snuggert/hass-vacuula/blob/main/CHANGELOG.md).
 
 ---
 
-## 📄 License & Disclaimers
+## License & Disclaimers
 
 - **Integration & Lovelace Card Code**: Licensed under the [**MIT License**](https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE).
 - **Brand Assets**: The integration icons and logos are original artwork designed in the Home Assistant Material Design style specifically for this integration. They do not use any artwork, trademarks, or assets from the Vacuula project. See [**docs/brands.md**](https://github.com/Snuggert/hass-vacuula/blob/main/docs/brands.md) for brand asset specifications and dark theme guidelines.
