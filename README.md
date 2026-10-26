@@ -291,11 +291,12 @@ action:
 
 ---
 
-## 🏗️ Architecture & Design Highlights
+## 🏗️ Architecture & Developer Guide
 
-For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and the integration's [security & robustness safeguards](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md#6-security--robustness), see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
-
-Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snuggert/hass-vacuula/blob/main/CHANGELOG.md).
+- **Architecture Deep Dive**: For details on the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and security safeguards, see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
+- **Developer Testing Environment**: For setting up a local dev environment, launching the Vacuula dev server with simulated Neato robots, and running live integration tests, see [**DEVELOPMENT.md**](https://github.com/Snuggert/hass-vacuula/blob/main/DEVELOPMENT.md).
+- **Cross-Version Compatibility Matrix**: For compatibility across Vacuula server releases (v1.0.0, v1.0.1, v1.1.0+), see [**COMPATIBILITY.md**](https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md).
+- **Release History**: Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snuggert/hass-vacuula/blob/main/CHANGELOG.md).
 
 ---
 
