@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
-  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.2-0ea5e9.svg?style=flat-square" alt="Version 0.6.2" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.7.0-0ea5e9.svg?style=flat-square" alt="Version 0.7.0" /></a>
   <a href="https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md"><img src="https://img.shields.io/badge/Vacuula_Compatibility-v1.0_%7C_v1.1+-success.svg?style=flat-square" alt="Vacuula Compatibility: v1.0 | v1.1+" /></a>
   <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
   <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>

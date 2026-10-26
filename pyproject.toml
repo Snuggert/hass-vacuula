@@ -1,22 +1,26 @@
 [project]
 name = "hass-vacuula"
-version = "0.6.2"
+version = "0.7.0"
 description = "Home Assistant integration for local Vacuula servers and Neato Botvac robots"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Snuggert" }]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [tool.pytest.ini_options]
+pythonpath = [".", "packages/aiovacuula/src"]
 testpaths = ["tests"]
-norecursedirs = [".git"]
+norecursedirs = [".git", ".cache", ".venv"]
 asyncio_mode = "auto"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 88
 
 [tool.ruff.lint]
@@ -37,10 +41,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["custom_components.vacuula"]
+known-first-party = ["custom_components.vacuula", "aiovacuula"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
+explicit_package_bases = true
 check_untyped_defs = true
 disallow_incomplete_defs = true
 ignore_missing_imports = true

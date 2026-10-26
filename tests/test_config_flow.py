@@ -15,10 +15,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 try:
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-except (ImportError, ModuleNotFoundError):
+except ImportError, ModuleNotFoundError:
     try:
         from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[no-redef]
-    except (ImportError, ModuleNotFoundError):
+    except ImportError, ModuleNotFoundError:
         from dataclasses import dataclass
 
         @dataclass

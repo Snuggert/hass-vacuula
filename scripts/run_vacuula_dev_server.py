@@ -8,10 +8,18 @@ live end-to-end testing with Home Assistant or the Vacuula integration test suit
 from __future__ import annotations
 
 import argparse
+import asyncio
+import contextlib
 import logging
 import sys
+import threading
 import time
 from pathlib import Path
+
+# Pre-import homeassistant before voluptuous so probatio's install_as_voluptuous()
+# never emits a RuntimeWarning.
+with contextlib.suppress(ImportError):
+    import homeassistant  # noqa: F401
 
 # Ensure repository root is on PYTHONPATH
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -19,6 +27,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tests.dev_server.mock_neato import MockNeatoRobot  # noqa: E402
+from tests.dev_server.sandbox import VacuulaDevSandbox  # noqa: E402
 from tests.dev_server.server_manager import VacuulaServerManager  # noqa: E402
 
 
@@ -81,6 +90,25 @@ def parse_args() -> argparse.Namespace:
         help="Run without the interactive CLI prompt (waits until SIGINT/Ctrl+C)",
     )
     parser.add_argument(
+        "--sandbox",
+        action="store_true",
+        default=True,
+        dest="sandbox",
+        help="Launch the Full-Stack Integration + Lovelace + Entity Sandbox UI (enabled by default)",
+    )
+    parser.add_argument(
+        "--no-sandbox",
+        action="store_false",
+        dest="sandbox",
+        help="Disable the Full-Stack Integration + Lovelace + Entity Sandbox UI (run only the Vacuula Server and mock robots)",
+    )
+    parser.add_argument(
+        "--sandbox-port",
+        type=int,
+        default=8124,
+        help="Port for the Full-Stack Integration + Lovelace + Entity Sandbox UI (default: 8124)",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging output",
@@ -88,23 +116,43 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def print_banner(server: VacuulaServerManager, robots: list[MockNeatoRobot]) -> None:
+def print_banner(
+    server: VacuulaServerManager,
+    robots: list[MockNeatoRobot],
+    sandbox: VacuulaDevSandbox | None = None,
+) -> None:
     """Print informative welcome banner."""
-    print("=" * 70)
-    print(f"  VACUULA DEVELOPER SERVER (Release: {server.app_version})")
-    print(f"  URL:         {server.base_url}")
-    print(f"  Database:    {server.db_path}")
-    print(f"  Min Install: {server.min_installer_version}")
-    print(f"  Robots:      {len(robots)} connected")
+    print("=" * 74)
+    print(f"  VACUULA FULL-STACK DEVELOPER ENVIRONMENT (Release: {server.app_version})")
+    print(f"  Vacuula Server: {server.base_url}")
+    if sandbox:
+        print(
+            f"  Lovelace UI:    {sandbox.sandbox_url}  (Map Card + Entity Inspector + Simulator)"
+        )
+        print(
+            f"  HA Integration: custom_components/vacuula ({len(sandbox.entities)} live entities across 7 platforms)"
+        )
+    print(f"  Database:       {server.db_path}")
+    print(f"  Min Installer:  {server.min_installer_version}")
+    print(f"  Mock Robots:    {len(robots)} connected")
     for r in robots:
         print(
             f"   - {r.serial}: '{r.name}' (Model: {r.model}, Batt: {r.charge}%, State: {r.state}, Installer: {r.installer_version})"
         )
-    print("=" * 70)
-    print("  To test with Home Assistant:")
-    print(f"  1. Configure Vacuula integration to point to: {server.base_url}")
-    print("  2. Discovered robots will appear automatically in HA!")
-    print("=" * 70)
+    print("=" * 74)
+    if sandbox:
+        print(f"  Open {sandbox.sandbox_url} in your browser to interact with:")
+        print("  1. Lovelace <vacuula-map-card> & live configuration editor")
+        print(
+            "  2. All 22+ real custom_components/vacuula entities (vacuum, image, sensor,"
+        )
+        print("     binary_sensor, select, switch, button) & Device Registry")
+        print("  3. Live Mock Neato Botvac D7 Hardware Simulator (SSE real-time sync)")
+    else:
+        print("  To test with an external Home Assistant instance:")
+        print(f"  1. Configure Vacuula integration to point to: {server.base_url}")
+        print("  2. Discovered robots will appear automatically in HA!")
+    print("=" * 74)
 
 
 def print_help() -> None:
@@ -112,17 +160,19 @@ def print_help() -> None:
     print(
         """
 Available interactive commands:
-  status                 - Show dev server info and all robot states
-  clean [serial]         - Start cleaning (BUSY state)
+  status                 - Show dev server info, mock robots, and all 25 integration entities
+  clean [serial]         - Start map/zone cleaning (BUSY state)
+  explore [serial]       - Start persistent map exploration (action=12)
   pause [serial]         - Pause current cleaning
   resume [serial]        - Resume paused cleaning
   stop [serial]          - Stop cleaning (return to IDLE)
   dock [serial]          - Send robot back to charging base
+  finish [serial]        - Complete cleaning run and return to dock
   battery [serial] <pct> - Update battery level (0-100)
-  alert [serial] <code>  - Trigger an alert (e.g. dustbin_full, clear_path)
-  error [serial] <code>  - Trigger an error (e.g. ui_error_brush_stuck)
+  alert [serial] <code>  - Trigger an alert (e.g. dustbin_full, maint_brush_change, clear_path)
+  error [serial] <code>  - Trigger an error (e.g. ui_error_brush_stuck, ui_error_navigation_stuck)
   clear [serial]         - Clear active alerts and errors
-  disconnect [serial]    - Simulate WiFi/server disconnection
+  disconnect [serial]    - Simulate WiFi/server disconnection (Away)
   reconnect [serial]     - Reconnect disconnected robot
   add <name>             - Spawn and link a new mock Neato robot
   help                   - Show this command reference
@@ -150,14 +200,24 @@ def resolve_robot(
 
 
 def interactive_loop(
-    server: VacuulaServerManager, robots: list[MockNeatoRobot]
+    server: VacuulaServerManager,
+    robots: list[MockNeatoRobot],
+    sandbox: VacuulaDevSandbox | None = None,
+    sandbox_loop: asyncio.AbstractEventLoop | None = None,
 ) -> None:
     """Run interactive REPL loop."""
+
+    def _notify_sandbox() -> None:
+        if sandbox is not None and sandbox_loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                sandbox._async_refresh_runtime(), sandbox_loop
+            )
+
     print("Type 'help' for available commands, or 'quit' to exit.")
     while server.is_running:
         try:
             line = input("vacuula-dev> ").strip()
-        except (EOFError, KeyboardInterrupt):
+        except EOFError, KeyboardInterrupt:
             print("\nExiting...")
             break
 
@@ -186,26 +246,45 @@ def interactive_loop(
                 print(
                     f" - {r.serial} [{r.name}]: connected={r.is_connected}, state={r.state}, action={r.action}, charge={r.charge}%, docked={r.is_docked}, alert={r.alert}, error={r.error}"
                 )
+            if sandbox is not None:
+                print(
+                    f"\nIntegration entities ({len(sandbox.entities)} loaded across 7 platforms):"
+                )
+                for ent in sandbox.build_entity_inspector_list():
+                    print(
+                        f" - {ent['entity_id']:42s} = {ent['state']!r:14s} ({ent['entity_class']})"
+                    )
 
         elif cmd == "clean":
             target = args[0] if args else None
             r = resolve_robot(robots, target)
             if r:
-                r.set_cleaning()
+                r.set_cleaning(action=11, category=4)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) set to CLEANING (state=2).")
+
+        elif cmd == "explore":
+            target = args[0] if args else None
+            r = resolve_robot(robots, target)
+            if r:
+                r.set_exploring()
+                _notify_sandbox()
+                print(f"Robot {r.serial} ({r.name}) set to EXPLORING MAP (action=12).")
 
         elif cmd == "pause":
             target = args[0] if args else None
             r = resolve_robot(robots, target)
             if r:
                 r.set_paused()
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) set to PAUSED (state=3).")
 
         elif cmd == "resume":
             target = args[0] if args else None
             r = resolve_robot(robots, target)
             if r:
-                r.set_cleaning()
+                r.set_cleaning(action=r.action or 11)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) RESUMED cleaning (state=2).")
 
         elif cmd == "stop":
@@ -213,6 +292,7 @@ def interactive_loop(
             r = resolve_robot(robots, target)
             if r:
                 r.set_idle()
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) STOPPED (state=1).")
 
         elif cmd == "dock":
@@ -220,7 +300,16 @@ def interactive_loop(
             r = resolve_robot(robots, target)
             if r:
                 r.set_docked(True)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) DOCKED (is_docked=True, state=1).")
+
+        elif cmd == "finish":
+            target = args[0] if args else None
+            r = resolve_robot(robots, target)
+            if r:
+                r.finish_cleaning_run()
+                _notify_sandbox()
+                print(f"Robot {r.serial} ({r.name}) COMPLETED cleaning run and docked.")
 
         elif cmd == "battery":
             if not args:
@@ -231,6 +320,7 @@ def interactive_loop(
             r = resolve_robot(robots, target)
             if r:
                 r.set_battery(pct)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) battery set to {pct}%.")
 
         elif cmd == "alert":
@@ -242,6 +332,7 @@ def interactive_loop(
             r = resolve_robot(robots, target)
             if r:
                 r.set_alert(code)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) alert set to '{code}'.")
 
         elif cmd == "error":
@@ -253,6 +344,7 @@ def interactive_loop(
             r = resolve_robot(robots, target)
             if r:
                 r.set_error(code)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) error set to '{code}' (state=4).")
 
         elif cmd == "clear":
@@ -261,20 +353,25 @@ def interactive_loop(
             if r:
                 r.set_alert(None)
                 r.set_error(None)
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) cleared alerts and errors.")
 
         elif cmd == "disconnect":
             target = args[0] if args else None
             r = resolve_robot(robots, target)
             if r:
+                r._user_disconnected = True  # type: ignore[attr-defined]  # noqa: SLF001
                 r.disconnect()
+                _notify_sandbox()
                 print(f"Robot {r.serial} ({r.name}) disconnected from server.")
 
         elif cmd == "reconnect":
             target = args[0] if args else None
             r = resolve_robot(robots, target)
             if r:
+                r._user_disconnected = False  # type: ignore[attr-defined]  # noqa: SLF001
                 if r.connect(server.host, server.port):
+                    _notify_sandbox()
                     print(f"Robot {r.serial} ({r.name}) reconnected!")
                 else:
                     print(f"Failed to reconnect {r.serial}.")
@@ -290,6 +387,12 @@ def interactive_loop(
                     installer_version="1.1.0-b3",
                 )
                 robots.append(new_robot)
+                if sandbox is not None and sandbox_loop is not None:
+                    fut = asyncio.run_coroutine_threadsafe(
+                        sandbox._setup_real_integration_entities(), sandbox_loop
+                    )
+                    fut.result(timeout=5.0)
+                    _notify_sandbox()
                 print(f"Spawned, linked, and connected new robot {serial} ('{name}').")
             except Exception as e:
                 print(f"Error adding robot: {e}")
@@ -341,7 +444,30 @@ def main() -> None:
         except Exception as e:
             print(f"Warning: could not add robot {serial}: {e}", file=sys.stderr)
 
-    print_banner(server, robots)
+    sandbox_loop: asyncio.AbstractEventLoop | None = None
+    sandbox: VacuulaDevSandbox | None = None
+
+    if args.sandbox:
+        sandbox = VacuulaDevSandbox(
+            vacuula_url=server.base_url,
+            server_manager=server,
+            host=args.host,
+            port=args.sandbox_port,
+        )
+        sandbox_loop = asyncio.new_event_loop()
+        ready_ev = threading.Event()
+
+        def _run_sandbox() -> None:
+            assert sandbox_loop is not None and sandbox is not None
+            asyncio.set_event_loop(sandbox_loop)
+            sandbox_loop.run_until_complete(sandbox.async_start())
+            ready_ev.set()
+            sandbox_loop.run_forever()
+
+        threading.Thread(target=_run_sandbox, daemon=True).start()
+        ready_ev.wait(timeout=5.0)
+
+    print_banner(server, robots, sandbox=sandbox)
 
     try:
         if args.non_interactive:
@@ -349,10 +475,19 @@ def main() -> None:
             while True:
                 time.sleep(1)
         else:
-            interactive_loop(server, robots)
+            interactive_loop(server, robots, sandbox=sandbox, sandbox_loop=sandbox_loop)
     except KeyboardInterrupt:
         print("\nShutdown signal received.")
     finally:
+        if sandbox is not None and sandbox_loop is not None:
+            fut = asyncio.run_coroutine_threadsafe(sandbox.async_stop(), sandbox_loop)
+            with (
+                sys.exc_info()[0]
+                if False
+                else __import__("contextlib").suppress(Exception)
+            ):
+                fut.result(timeout=3.0)
+            sandbox_loop.call_soon_threadsafe(sandbox_loop.stop)
         print("Stopping Vacuula dev server and mock robots...")
         server.stop()
         print("Vacuula dev server stopped cleanly.")

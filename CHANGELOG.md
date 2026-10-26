@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-26
+
+### Added
+- **Zero-HA Decoupled Core (`custom_components/vacuula/core/` & `packages/aiovacuula`):** Extracted the Vacuula protocol constants, async REST + SSE client (`VacuulaApiClient`), pure-Python RLE PNG map renderer (`render_map_png`), and domain state controller (`VacuulaController`) into a self-contained core subpackage with **zero Home Assistant dependencies**, exposed as the `aiovacuula` uv workspace package while keeping `"requirements": []` in `manifest.json` for 100% HACS compatibility.
+- **Full-Stack Developer Workbench & Sandbox (`scripts/run_vacuula_dev_server.py` & `tests/dev_server/`):** Single-command developer environment that spins up a real upstream `vacuula_server` (`:8050`), simulated Neato Botvac D7 robot(s) (`MockNeatoRobot`) with seeded RLE floorplans and run history, the actual `custom_components/vacuula` integration in-process (all 25 entities across all 7 Home Assistant platforms), and a 3-column browser workbench (`:8124`) featuring `<vacuula-map-card>`, `<vacuula-map-card-editor>`, the live Integration Entity & Device Registry Inspector, and the **Developer Event & Scenario Studio**.
+- **Developer Event & Scenario Studio:** Added 1-click triggers in the browser sandbox and interactive CLI for cleaning lifecycle transitions (`clean`, `house_clean`, `spot`, `explore`, `pause`, `stop`, `dock`, `finish_run`), all hardware alerts (`dustbin_full`, `dustbin_missing`, `maint_brush_change`, `maint_filter_change`, `clear_path`, `nav_floorplan_not_created`), hardware errors (`ui_error_brush_stuck`, `ui_error_Brush_overload`, `ui_error_navigation_stuck`, `ui_error_bumper_stuck`, `ui_error_picked_up`, `ui_error_undock_failed`), live battery slider, installer version switching (`1.0.0-b28` vs `1.1.0-b3`), and Wi-Fi drop/reconnect simulation.
+- **Decoupled Core & Live Server Test Suites:** Added `tests/core/test_core_decoupled.py` (verifying `sys.modules` has zero `homeassistant` imports) and `tests/test_live_vacuula_server.py` (testing end-to-end against a real `vacuula_server` process and browser sandbox).
+
+### Changed
+- **Migrated to Python 3.14:** Upgraded project runtime, type targets, `uv.lock`, and GitHub Actions validation workflows to Python 3.14, matching the upstream `vacuula_server` runtime.
+
+### Fixed
+- **Per-Robot Command Lock Eviction:** Evicted disconnected robot `asyncio.Lock` instances in `VacuulaApiClient.evict_stale_locks()` to prevent unbounded lock dictionary growth over long runtimes.
+- **Explicit Authentication Error Classification:** `VacuulaApiClient._request()` now raises `VacuulaAuthError` on HTTP 401/403 responses.
+- **Robust Hostname Extraction in Config Flow:** Replaced fragile string splitting in `config_flow.py` title generation with `urllib.parse.urlparse(url).hostname`.
+- **Gen3 SSE Frame Validation:** `VacuulaCoordinator._listen_robot_events` now verifies `"state" in frame["data"]` before overwriting robot state, ignoring non-state keepalive frames (`ping`).
+- **Mock Neato Persistent Socket Stability:** Replaced `sock.makefile()` with a non-corrupting `select.select()` + `bytearray` chunked stream reader with 15-second keepalive `ping` frames so idle simulated robots never time out against `vacuula_server`.
+
 ## [0.6.2] - 2026-10-26
 
 ### Added
@@ -79,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.7.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.5.2...v0.6.0

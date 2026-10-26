@@ -15,7 +15,6 @@ from custom_components.vacuula.api import (
 from custom_components.vacuula.const import (
     DOMAIN,
     GEN3_ACTION_DOCKING,
-    GEN3_ACTION_HOUSE_CLEANING,
     GEN3_ACTION_MAP_CLEANING,
     GEN3_ACTION_NONE,
     GEN3_STATE_BUSY,
@@ -27,16 +26,27 @@ from custom_components.vacuula.coordinator import (
     VacuulaCoordinator,
     is_installer_outdated,
 )
+from tests.dev_server.sandbox import VacuulaDevSandbox
 from tests.dev_server.server_manager import VacuulaServerManager
 
 
-@pytest.fixture
-def vacuula_dev_server(socket_enabled: None):
-    """Start an isolated real Vacuula dev server on an ephemeral port."""
+@pytest.fixture(scope="module")
+def _shared_vacuula_server():
+    """Start a shared isolated real Vacuula dev server for the module."""
     with VacuulaServerManager(
         app_version="1.1.0-b9", min_installer_version="1.1.0-b3"
     ) as srv:
         yield srv
+
+
+@pytest.fixture
+def vacuula_dev_server(
+    socket_enabled: None, _shared_vacuula_server: VacuulaServerManager
+):
+    """Reset the shared Vacuula dev server before and after each test for clean isolation."""
+    _shared_vacuula_server.reset()
+    yield _shared_vacuula_server
+    _shared_vacuula_server.reset()
 
 
 @pytest.mark.asyncio
@@ -124,11 +134,11 @@ async def test_live_cleaning_cycle_commands(
     async with aiohttp.ClientSession() as session:
         client = VacuulaApiClient(vacuula_dev_server.base_url, session)
 
-        # 1. Start cleaning
+        # 1. Start cleaning (defaults to GEN3_CATEGORY_MAP -> action 11)
         start_res = await client.async_start_cleaning(robot.serial, ROBOT_TYPE_GEN3)
         assert start_res["result"] == "ok"
         assert robot.state == GEN3_STATE_BUSY
-        assert robot.action == GEN3_ACTION_HOUSE_CLEANING
+        assert robot.action == GEN3_ACTION_MAP_CLEANING
         assert robot.is_docked is False
 
         # Verify state through API
@@ -203,8 +213,10 @@ async def test_live_locate_and_schedule(
 
 
 @pytest.mark.asyncio
-async def test_live_zone_cleaning(vacuula_dev_server: VacuulaServerManager) -> None:
-    """Test zone cleaning command dispatch with boundary ID."""
+async def test_live_zone_cleaning_and_seeded_maps(
+    vacuula_dev_server: VacuulaServerManager,
+) -> None:
+    """Test seeded RLE maps/runs and zone cleaning command dispatch."""
     robot = vacuula_dev_server.add_mock_robot(
         serial="OPS00007-001122334407",
         name="Zone Bot",
@@ -212,10 +224,25 @@ async def test_live_zone_cleaning(vacuula_dev_server: VacuulaServerManager) -> N
 
     async with aiohttp.ClientSession() as session:
         client = VacuulaApiClient(vacuula_dev_server.base_url, session)
+
+        maps = await client.async_get_maps(robot.serial)
+        assert len(maps) == 1
+        assert maps[0]["id"] == "map-floor-1"
+
+        floormap = await client.async_get_map_detail(robot.serial, "map-floor-1")
+        assert floormap["width"] == 64
+        assert floormap["height"] == 64
+        assert isinstance(floormap["rle"], list)
+
+        runs = await client.async_get_runs(robot.serial)
+        assert len(runs) == 1
+        runmap = await client.async_get_run_detail(robot.serial, runs[0]["id"])
+        assert runmap["width"] == 64
+
         res = await client.async_start_zone_cleaning(
             serial=robot.serial,
             robot_type=ROBOT_TYPE_GEN3,
-            map_id="map-123",
+            map_id="map-floor-1",
             zone_ids=["bnd-kitchen"],
         )
         assert res["result"] == "ok"
@@ -244,7 +271,7 @@ async def test_live_sse_events_stream(
         listener_task = asyncio.create_task(_listen())
 
         # Give listener time to connect and receive initial robots event
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.3)
 
         # Trigger event by adding a new robot
         vacuula_dev_server.add_mock_robot(
@@ -253,7 +280,7 @@ async def test_live_sse_events_stream(
         )
 
         try:
-            await asyncio.wait_for(listener_task, timeout=4.0)
+            await asyncio.wait_for(listener_task, timeout=3.0)
         except TimeoutError:
             pass
         finally:
@@ -287,7 +314,6 @@ async def test_live_coordinator_polling(
         client = VacuulaApiClient(vacuula_dev_server.base_url, session)
         coordinator = VacuulaCoordinator(hass, entry, client)
 
-        # Perform initial refresh
         await coordinator.async_refresh()
 
         assert robot.serial in coordinator.data
@@ -296,6 +322,8 @@ async def test_live_coordinator_polling(
         assert data.connected is True
         assert data.state["details"]["charge"] == 72
         assert data.installed_with == "1.1.0-b3"
+        assert data.active_map_id == "map-floor-1"
+        assert len(data.zones) == 2
         assert is_installer_outdated(data.installed_with, "1.1.0-b3") is False
 
 
@@ -304,7 +332,6 @@ async def test_live_coordinator_installer_compatibility_check(
     hass, vacuula_dev_server: VacuulaServerManager
 ) -> None:
     """Test coordinator installer version check against Vacuula min_installer_version."""
-    # Robot with outdated installer version
     legacy_robot = vacuula_dev_server.add_mock_robot(
         serial="OPS00010-001122334410",
         name="Legacy Bot",
@@ -327,7 +354,6 @@ async def test_live_coordinator_installer_compatibility_check(
         assert legacy_robot.serial in coordinator.data
         data = coordinator.data[legacy_robot.serial]
         assert data.installed_with == "1.0.0-b28"
-        # Since server requires 1.1.0-b3, 1.0.0-b28 is flagged unsupported
         assert is_installer_outdated(data.installed_with, "1.1.0-b3") is True
 
 
@@ -356,11 +382,176 @@ async def test_live_robot_disconnect_handling(
 
         # Disconnect robot
         robot.disconnect()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.2)
 
         # Refresh coordinator
         await coordinator.async_refresh()
         assert coordinator.data[robot.serial].connected is False
+
+
+@pytest.mark.asyncio
+async def test_live_standalone_sandbox_end_to_end(
+    vacuula_dev_server: VacuulaServerManager,
+) -> None:
+    """Test the Zero-HA Standalone Developer Sandbox hosting vacuula-map-card.js."""
+    robot = vacuula_dev_server.add_mock_robot(
+        serial="OPS00012-001122334412",
+        name="Sandbox D7",
+    )
+
+    sandbox = VacuulaDevSandbox(
+        vacuula_url=vacuula_dev_server.base_url,
+        server_manager=vacuula_dev_server,
+        port=0,
+    )
+    await sandbox.async_start()
+    try:
+        async with aiohttp.ClientSession() as session:
+            # 1. Verify HTML & JS card serving
+            async with session.get(f"{sandbox.sandbox_url}/") as resp:
+                assert resp.status == 200
+                text = await resp.text()
+                assert "<vacuula-map-card" in text
+
+            async with session.get(
+                f"{sandbox.sandbox_url}/vacuula_frontend/vacuula-map-card.js"
+            ) as resp:
+                assert resp.status == 200
+                js_text = await resp.text()
+                assert "VacuulaMapCard" in js_text
+
+            # 2. Verify synthesized hass.states and real integration entities
+            async with session.get(f"{sandbox.sandbox_url}/api/sandbox/states") as resp:
+                assert resp.status == 200
+                payload = await resp.json()
+                states = payload["states"]
+                assert "vacuum.sandbox_d7" in states
+                assert states["vacuum.sandbox_d7"]["state"] == "docked"
+                assert "image.sandbox_d7_floor_map" in states
+                assert (
+                    len(states["image.sandbox_d7_floor_map"]["attributes"]["zones"])
+                    == 2
+                )
+
+                # Verify that all 7 custom_components/vacuula entity platforms are instantiated
+                entities = payload["entities"]
+                assert len(entities) >= 20
+                entity_classes = {e["entity_class"] for e in entities}
+                assert "VacuulaVacuumEntity" in entity_classes
+                assert "VacuulaFloorMapImage" in entity_classes
+                assert "VacuulaBatterySensor" in entity_classes
+                assert "VacuulaConnectedBinarySensor" in entity_classes
+                assert "VacuulaNavigationModeSelect" in entity_classes
+                assert "VacuulaScheduleSwitch" in entity_classes
+                assert "VacuulaCleanZoneButton" in entity_classes
+
+                # Verify Device Registry info from VacuulaEntity.device_info
+                devices = payload["devices"]
+                assert len(devices) == 1
+                assert devices[0]["serial"] == robot.serial
+                assert devices[0]["name"] == "Sandbox D7"
+
+            # 3. Verify PNG map rendering endpoints
+            async with session.get(
+                f"{sandbox.sandbox_url}/api/sandbox/map/{robot.serial}/floor.png"
+            ) as resp:
+                assert resp.status == 200
+                png = await resp.read()
+                assert png.startswith(b"\x89PNG\r\n\x1a\n")
+
+            # 4. Verify interacting with real integration entities (Select, Switch, Button)
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/call_service",
+                json={
+                    "domain": "select",
+                    "service": "select_option",
+                    "service_data": {
+                        "entity_id": "select.sandbox_d7_target_zone",
+                        "option": "Kitchen",
+                    },
+                },
+            ) as resp:
+                assert resp.status == 200
+                updated = await resp.json()
+                assert (
+                    updated["states"]["select.sandbox_d7_target_zone"]["state"]
+                    == "Kitchen"
+                )
+
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/call_service",
+                json={
+                    "domain": "button",
+                    "service": "press",
+                    "service_data": {
+                        "entity_id": "button.sandbox_d7_locate",
+                    },
+                },
+            ) as resp:
+                assert resp.status == 200
+                assert robot.locate_calls == 1
+
+            # 5. Verify calling zone cleaning service via sandbox bridge
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/call_service",
+                json={
+                    "domain": "vacuula",
+                    "service": "clean_zones",
+                    "service_data": {
+                        "entity_id": "vacuum.sandbox_d7",
+                        "zones": ["Kitchen"],
+                    },
+                },
+            ) as resp:
+                assert resp.status == 200
+                updated = await resp.json()
+                assert updated["states"]["vacuum.sandbox_d7"]["state"] == "cleaning"
+                assert robot.state == GEN3_STATE_BUSY
+
+            # 6. Verify triggering hardware events & scenarios via /api/sandbox/mock_robot
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/mock_robot",
+                json={
+                    "serial": robot.serial,
+                    "action": "alert",
+                    "value": "dustbin_full",
+                },
+            ) as resp:
+                assert resp.status == 200
+                ev_data = await resp.json()
+                assert (
+                    ev_data["states"]["sensor.sandbox_d7_alert"]["state"]
+                    == "dustbin_full"
+                )
+                assert (
+                    ev_data["states"]["binary_sensor.sandbox_d7_dust_bin_full"]["state"]
+                    == "on"
+                )
+
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/mock_robot",
+                json={
+                    "serial": robot.serial,
+                    "action": "error",
+                    "value": "ui_error_brush_stuck",
+                },
+            ) as resp:
+                assert resp.status == 200
+                ev_data = await resp.json()
+                assert ev_data["states"]["vacuum.sandbox_d7"]["state"] == "error"
+
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/mock_robot",
+                json={"serial": robot.serial, "action": "clear"},
+            ) as resp:
+                assert resp.status == 200
+                ev_data = await resp.json()
+                assert (
+                    ev_data["states"]["binary_sensor.sandbox_d7_dust_bin_full"]["state"]
+                    == "off"
+                )
+    finally:
+        await sandbox.async_stop()
 
 
 @pytest.mark.asyncio
@@ -370,7 +561,7 @@ async def test_live_legacy_server_v1_0_0(socket_enabled: None) -> None:
         app_version="1.0.0", min_installer_version=None
     ) as legacy_srv:
         robot = legacy_srv.add_mock_robot(
-            serial="OPS00012-001122334412",
+            serial="OPS00013-001122334413",
             name="Vintage D7",
             installer_version="1.0.0-b28",
         )
