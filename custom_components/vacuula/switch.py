@@ -54,7 +54,9 @@ class VacuulaScheduleSwitch(VacuulaEntity, SwitchEntity):
         """Return True if the robot's internal schedule is enabled."""
         if not self.robot or not self.robot.state:
             return None
-        return bool(self.robot.state.get("details", {}).get("isScheduleEnabled", False))
+        return bool(
+            (self.robot.state.get("details") or {}).get("isScheduleEnabled", False)
+        )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable the robot's internal schedule."""

@@ -239,6 +239,13 @@ async def test_vacuum_fan_speed_and_attributes(hass: HomeAssistant) -> None:
     assert attrs["available_zones"] == ["Hallway"]
     assert attrs["selected_zone"] == ALL_ZONES_OPTION
 
+    # Test installed_with and outdated_installer attributes
+    robot.installed_with = "1.0.0"
+    coordinator.server_info = {"min_installer_version": "1.1.0-b3"}
+    attrs_with_installer = entity.extra_state_attributes
+    assert attrs_with_installer["installed_with"] == "1.0.0"
+    assert attrs_with_installer["outdated_installer"] is True
+
 
 async def test_vacuum_setup_entry(hass: HomeAssistant) -> None:
     """Test async_setup_entry creates vacuum entity for discovered robots."""

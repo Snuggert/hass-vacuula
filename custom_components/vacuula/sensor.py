@@ -67,9 +67,9 @@ class VacuulaBatterySensor(VacuulaEntity, SensorEntity):
         if not robot or not robot.state:
             return None
         if robot.robot_type == ROBOT_TYPE_GEN3:
-            charge = robot.state.get("details", {}).get("charge")
+            charge = (robot.state.get("details") or {}).get("charge")
             return int(charge) if charge is not None else None
-        details = self._gen4_body.get("details", {})
+        details = self._gen4_body.get("details") or {}
         charge = details.get("charge")
         return int(charge) if charge is not None else None
 

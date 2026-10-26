@@ -107,3 +107,12 @@ async def test_lovelace_resource_registration(hass: HomeAssistant) -> None:
     # Test frontend register
     with patch("pathlib.Path.is_file", return_value=True):
         await _async_register_frontend(hass)
+
+    # Test frontend register when card file is missing -> returns early
+    with patch("pathlib.Path.is_file", return_value=False):
+        await _async_register_frontend(hass)
+
+    # Test lovelace registration when resources is None or has no async_items
+    hass.data["lovelace"] = MagicMock()
+    del hass.data["lovelace"].resources
+    await _async_register_lovelace_resource(hass, "/test/url")

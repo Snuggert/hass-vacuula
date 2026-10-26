@@ -93,7 +93,10 @@ class VacuulaApiClient:
                 serial,
                 {"cmd": "getMapBoundaries", "params": {"mapId": map_id}},
             )
-            boundaries = resp.get("data", {}).get("boundaries", [])
+            data = resp.get("data") if isinstance(resp, dict) else None
+            boundaries = (
+                (data or {}).get("boundaries", []) if isinstance(data, dict) else []
+            )
             return boundaries if isinstance(boundaries, list) else []
         res = await self._request(
             "GET", f"/api/robot/{_seg(serial)}/maps/{_seg(map_id)}/boundaries"

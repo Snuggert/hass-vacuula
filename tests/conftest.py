@@ -16,8 +16,11 @@ except Exception:
     pass
 
 MOCK_SERVER_INFO: dict[str, Any] = {
-    "version": "1.0.0",
+    "version": "1.1.0",
+    "min_installer_version": "1.1.0-b3",
+    "gen3_port": 335,
     "gen4_port": 3443,
+    "ha_ingress": False,
     "timezone": "Europe/Amsterdam",
     "utc_offset_minutes": 120,
 }
@@ -27,6 +30,7 @@ MOCK_ROBOTS: dict[str, Any] = {
         "name": "Mappa",
         "type": "neato.gen3",
         "connected": True,
+        "installed_with": "1.1.0-b6",
         "nucleo_url": "http://192.168.1.60:80",
     }
 }

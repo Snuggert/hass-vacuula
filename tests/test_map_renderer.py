@@ -5,6 +5,7 @@ from __future__ import annotations
 from custom_components.vacuula.map_renderer import (
     MAX_MAP_DIM,
     _decode_rle,
+    _fill_polygon,
     _parse_hex_color,
     compute_cropped_zones,
     get_crop_box,
@@ -190,3 +191,67 @@ def test_map_renderer_edge_cases() -> None:
     png_empty = render_map_png(empty_floormap)
     assert png_empty is not None
     assert png_empty.startswith(b"\x89PNG")
+
+
+def test_render_map_gen4_base_and_normalized_dock() -> None:
+    """Test dock rendering with Gen4 world coords (flipped Y) and normalized base fallback."""
+    # Gen4 floormap with base and metadata
+    gen4_floormap = {
+        "width": 100,
+        "height": 100,
+        "rle": [[1, 10000]],
+        "base": [1.0, 2.0, 0.0],
+        "metadata": {
+            "origin_x": 0.0,
+            "origin_y": 0.0,
+            "resolution": 0.05,
+        },
+    }
+    png_gen4 = render_map_png(gen4_floormap)
+    assert png_gen4 is not None
+    assert png_gen4.startswith(b"\x89PNG")
+
+    # Normalized base fallback (e.g. [0.5, 0.5])
+    norm_floormap = {
+        "width": 50,
+        "height": 50,
+        "rle": [[1, 2500]],
+        "base": [0.5, 0.5],
+    }
+    png_norm = render_map_png(norm_floormap)
+    assert png_norm is not None
+    assert png_norm.startswith(b"\x89PNG")
+
+
+def test_map_renderer_additional_edge_cases() -> None:
+    """Test degenerate polygons, zero-resolution metadata, walls, and dock markers."""
+    # 1. _fill_polygon with degenerate < 3 vertices
+    rgba = bytearray(10 * 10 * 4)
+    _fill_polygon(rgba, None, 10, 10, [(1, 1), (2, 2)], (255, 0, 0))
+    # Buffer should remain completely unmodified
+    assert all(b == 0 for b in rgba)
+
+    # 2. _decode_rle with negative count
+    decoded = _decode_rle([[1, -5]], expected_len=3, default_val=0)
+    assert list(decoded) == [0, 0, 0]
+
+    # 3. render_map_png with walls (val=2), dock marker (val=100 & 200), and zero resolution
+    map_with_walls_and_zero_res = {
+        "width": 10,
+        "height": 10,
+        "rle": [[2, 50], [1, 50]],  # Half walls, half free floor
+        "base": [1.0, 1.0],
+        "metadata": {
+            "origin_x": 0.0,
+            "origin_y": 0.0,
+            "resolution": 0.0,  # Zero resolution edge case
+        },
+    }
+    runmap_with_docks = {
+        "width": 10,
+        "height": 10,
+        "rle": [[100, 5], [200, 5], [128, 90]],  # Dock markers
+    }
+    png = render_map_png(map_with_walls_and_zero_res, runmap=runmap_with_docks)
+    assert png is not None
+    assert png.startswith(b"\x89PNG")

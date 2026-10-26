@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-10-26
+
+### Added
+- **Full Vacuula v1.1.0 Release Compliance:** Added comprehensive support and cross-version compatibility for the upstream Vacuula server v1.1.0 release.
+- **Outdated Robot Installer Detection:** Added `binary_sensor.<robot>_installer_outdated` (`VacuulaOutdatedInstallerBinarySensor`) with device class `problem` and category `diagnostic` to notify users when a Gen3 robot was flashed with an older installer version (< `1.1.0-b3`) that requires updating for full v1.1 compatibility.
+- **Diagnostic Attributes for Installer Versions:** Added `installed_with` and `outdated_installer` state attributes to `vacuum.<robot>`, as well as inclusion in downloadable device diagnostics.
+- **Server Metadata Caching:** Coordinator now caches extended Vacuula server metadata (`min_installer_version`, `gen3_port`, `gen4_port`, `ha_ingress`, `timezone`) for diagnostic inspections.
+- **Gen4 Map Dock Coordinate Alignment:** Enhanced pure-Python `map_renderer.py` to handle inverted Gen4 Y-dock coordinates introduced in Vacuula v1.1.0 alongside world coordinate fallbacks.
+- **Vacuula Prerequisite Callout & Architecture Diagram:** Added clear prerequisite documentation and a Mermaid system architecture diagram to `README.md` clarifying that an existing Vacuula server is required on the local network.
+- **Cross-Version Compatibility Matrix:** Added dedicated `COMPATIBILITY.md` detailing interoperability across Vacuula server releases (v1.0.0, v1.1.0+), Neato robot generations (Gen3, Gen4), and installer firmware versions.
+
+### Changed
+- **Default Server Port Updated:** Updated `DEFAULT_URL` in `const.py` to `http://vacuula.local:8050` reflecting the upstream Vacuula v1.1.0 default port change from 80 to 8050 and official mDNS hostname `vacuula.local`. Dynamic Zeroconf discovery continues to support any custom port.
+
 ## [0.6.1] - 2026-10-25
 
 ### Changed
@@ -65,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.6.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Snuggert/hass-vacuula/releases/tag/v0.5.1

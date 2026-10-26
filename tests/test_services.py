@@ -311,3 +311,57 @@ async def test_service_api_error_and_refresh_all(
 
     # 3. Duplicate registration is idempotent
     _async_register_services(hass)
+
+
+async def test_service_clean_zones_scalar_and_unmatched_registry(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test clean_zones with a scalar non-string/non-list zone input and unmatched registry entity."""
+    _, client, _ = await setup_mock_environment(hass, mock_robot)
+    client.async_start_zone_cleaning.return_value = {"status": "ok"}
+
+    # 1. Non-str, non-list scalar (e.g. integer zone token 123)
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CLEAN_ZONES,
+        {"serial": "OPS123", "zones": 123},
+        blocking=True,
+    )
+    client.async_start_zone_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        "map-1",
+        ["123"],
+        fan_speed="turbo",
+        navigation_mode="normal",
+    )
+
+    # 2. Entity registry entry with unique_id that does NOT match any robot
+    ent_reg = er.async_get(hass)
+    ent_reg.async_get_or_create(
+        "vacuum",
+        DOMAIN,
+        "UNMATCHED_ROBOT_VACUUM",
+        suggested_object_id="orphan_vacuum",
+    )
+    hass.states.async_set("vacuum.orphan_vacuum", "docked")
+
+    # When entity_id resolves to None serial, and multiple robots exist, error is raised
+    robot2 = VacuulaRobotData(
+        serial="OTHER_BOT",
+        name="Other Bot",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    mock_robot_dict = {
+        mock_robot.serial: mock_robot,
+        robot2.serial: robot2,
+    }
+    with pytest.raises(HomeAssistantError, match="Multiple robots are configured"):
+        _async_register_services(hass)
+        from custom_components.vacuula import _resolve_target_robot
+
+        # Set coordinator data to 2 robots
+        entry = hass.config_entries.async_entries(DOMAIN)[0]
+        entry.runtime_data.data = mock_robot_dict
+        _resolve_target_robot(hass, entity_id="vacuum.orphan_vacuum")

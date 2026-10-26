@@ -16,6 +16,7 @@ from custom_components.vacuula.binary_sensor import (
     VacuulaConnectedBinarySensor,
     VacuulaDockedBinarySensor,
     VacuulaDockSeenBinarySensor,
+    VacuulaOutdatedInstallerBinarySensor,
     async_setup_entry,
 )
 from custom_components.vacuula.const import (
@@ -278,5 +279,35 @@ async def test_binary_sensor_setup_entry_gen4(hass: HomeAssistant) -> None:
     assert "G4-123_docked" in keys
     assert "G4-123_charging" in keys
     assert "G4-123_bin_full" in keys
-    # Gen4 does not include dock_seen
+    # Gen4 does not include dock_seen or installer_outdated
     assert "G4-123_dock_seen" not in keys
+    assert "G4-123_installer_outdated" not in keys
+
+
+async def test_installer_outdated_binary_sensor(hass: HomeAssistant) -> None:
+    """Test VacuulaOutdatedInstallerBinarySensor states and attributes."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        installed_with="1.0.0",
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot)
+    coordinator.server_info = {"min_installer_version": "1.1.0-b3"}
+
+    sensor = VacuulaOutdatedInstallerBinarySensor(coordinator, "OPS123")
+    assert sensor.available is True
+    # 1.0.0 < 1.1.0-b3 -> problem detected (sensor is ON)
+    assert sensor.is_on is True
+    attrs = sensor.extra_state_attributes
+    assert attrs["installed_with"] == "1.0.0"
+    assert attrs["minimum_installer_version"] == "1.1.0-b3"
+
+    # Upgraded installer -> sensor is OFF
+    robot.installed_with = "1.1.0-b6"
+    assert sensor.is_on is False
+
+    # Missing installed_with -> False
+    robot.installed_with = None
+    assert sensor.is_on is False

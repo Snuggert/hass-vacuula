@@ -422,3 +422,315 @@ async def test_coordinator_refresh_maps_api_errors(hass: HomeAssistant) -> None:
     # 3. Duplicate notify new zones early return
     coordinator._known_zones["OPS123"] = {"z1"}
     coordinator._notify_new_zones("OPS123", [{"id": "z1", "name": "Kitchen"}])
+
+
+def test_parse_installer_version_and_outdated_check() -> None:
+    """Test installer version parsing and outdated logic matching Vacuula v1.1.0."""
+    from custom_components.vacuula.coordinator import (
+        is_installer_outdated,
+        parse_installer_version,
+    )
+
+    # Valid versions
+    assert parse_installer_version("1.0.0") == (1, 0, 0, float("inf"))
+    assert parse_installer_version("1.1.0-b3") == (1, 1, 0, 3)
+    assert parse_installer_version("1.1.0-b6") == (1, 1, 0, 6)
+    assert parse_installer_version("1.1.0") == (1, 1, 0, float("inf"))
+
+    # Invalid version string fallback
+    assert parse_installer_version("invalid") == (-999, -999, -999, float("-inf"))
+
+    # Outdated comparisons against min version 1.1.0-b3
+    assert is_installer_outdated("1.0.0", "1.1.0-b3") is True
+    assert is_installer_outdated("1.1.0-b1", "1.1.0-b3") is True
+    assert is_installer_outdated("1.1.0-b2", "1.1.0-b3") is True
+    assert is_installer_outdated("1.1.0-b3", "1.1.0-b3") is False
+    assert is_installer_outdated("1.1.0-b6", "1.1.0-b3") is False
+    assert is_installer_outdated("1.1.0", "1.1.0-b3") is False
+    assert is_installer_outdated("1.2.0", "1.1.0-b3") is False
+
+    # Dev and None versions are never considered outdated
+    assert is_installer_outdated("1.1.0-dev", "1.1.0-b3") is False
+    assert is_installer_outdated(None, "1.1.0-b3") is False
+    assert is_installer_outdated("", "1.1.0-b3") is False
+
+
+async def test_coordinator_handles_v110_server_info_and_installed_with(
+    hass: HomeAssistant,
+) -> None:
+    """Test coordinator updates server_info and robot installed_with field."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    client.async_get_server_info.return_value = {
+        "version": "1.1.0",
+        "min_installer_version": "1.1.0-b3",
+        "gen3_port": 335,
+        "gen4_port": 3443,
+        "ha_ingress": False,
+        "timezone": "Europe/Oslo",
+        "utc_offset_minutes": 60,
+    }
+    client.async_get_robots.return_value = {
+        "OPS123": {
+            "name": "Mappa",
+            "type": ROBOT_TYPE_GEN3,
+            "connected": True,
+            "installed_with": "1.0.0",
+        }
+    }
+    client.async_get_robot_state.return_value = {"state": 1}
+    client.async_get_maps.return_value = []
+    client.async_get_runs.return_value = []
+
+    async def mock_iter_robot_events(_serial: str):
+        if False:
+            yield {}
+
+    client.async_iter_robot_events = mock_iter_robot_events
+
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    data = await coordinator._async_update_data()
+
+    assert coordinator.server_info["version"] == "1.1.0"
+    assert coordinator.server_info["min_installer_version"] == "1.1.0-b3"
+    assert coordinator.server_info["gen3_port"] == 335
+    assert data["OPS123"].installed_with == "1.0.0"
+
+
+async def test_coordinator_did_finish_cleaning_all_edge_cases(
+    hass: HomeAssistant,
+) -> None:
+    """Test comprehensive edge cases for _did_finish_cleaning across Gen3 and Gen4."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+    coordinator = VacuulaCoordinator(hass, entry, AsyncMock())
+
+    # Empty or None states
+    assert coordinator._did_finish_cleaning(ROBOT_TYPE_GEN3, {}, {}) is False
+    assert (
+        coordinator._did_finish_cleaning(ROBOT_TYPE_GEN3, None, {"state": 1})  # type: ignore[arg-type]
+        is False
+    )
+    assert (
+        coordinator._did_finish_cleaning(ROBOT_TYPE_GEN3, {"state": 2}, None)  # type: ignore[arg-type]
+        is False
+    )
+
+    # Gen3 transitions
+    assert (
+        coordinator._did_finish_cleaning(ROBOT_TYPE_GEN3, {"state": 2}, {"state": 3})
+        is False
+    )
+    assert (
+        coordinator._did_finish_cleaning(ROBOT_TYPE_GEN3, {"state": 1}, {"state": 2})
+        is False
+    )
+
+    # Gen4 transitions
+    # Case insensitivity
+    assert (
+        coordinator._did_finish_cleaning(
+            ROBOT_TYPE_GEN4,
+            {"body": {"state": "BUSY"}},
+            {"body": {"state": "IDLE"}},
+        )
+        is True
+    )
+    # Busy to Paused
+    assert (
+        coordinator._did_finish_cleaning(
+            ROBOT_TYPE_GEN4,
+            {"body": {"state": "busy"}},
+            {"body": {"state": "paused"}},
+        )
+        is False
+    )
+    # Flat states without nested body
+    assert (
+        coordinator._did_finish_cleaning(
+            ROBOT_TYPE_GEN4,
+            {"state": "busy"},
+            {"state": "idle"},
+        )
+        is True
+    )
+    # Non-dict bodies
+    assert (
+        coordinator._did_finish_cleaning(
+            ROBOT_TYPE_GEN4,
+            {"body": "not_a_dict"},
+            {"body": {"state": "idle"}},
+        )
+        is False
+    )
+    assert (
+        coordinator._did_finish_cleaning(
+            ROBOT_TYPE_GEN4,
+            {"body": None},
+            {"body": {"state": "idle"}},
+        )
+        is False
+    )
+
+
+async def test_coordinator_resolve_zone_ids_edge_cases() -> None:
+    """Test room zone resolution with empty tokens, case variations, unknown IDs, and malformed zones."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        zones=[
+            {"id": "zone-k", "name": "Kitchen"},
+            {"id": "zone-lr", "name": "Living Room"},
+            {"id": None, "name": "InvalidZone1"},
+            {"id": "zone-no-name", "name": None},
+            {},
+        ],
+    )
+
+    # 1. Matching by case-insensitive name with whitespace
+    assert robot.resolve_zone_ids(["  kItChEn  "]) == ["zone-k"]
+
+    # 2. Matching directly by ID
+    assert robot.resolve_zone_ids(["zone-lr"]) == ["zone-lr"]
+
+    # 3. Empty strings and pure whitespace are skipped
+    assert robot.resolve_zone_ids(["", "   ", "Kitchen"]) == ["zone-k"]
+
+    # 4. Unknown tokens are preserved as fallback raw IDs
+    assert robot.resolve_zone_ids(["Basement", "zone-k"]) == ["Basement", "zone-k"]
+
+
+async def test_coordinator_notify_new_zones_and_callback_removal(
+    hass: HomeAssistant,
+) -> None:
+    """Test deduplication of new zones and unregistering callbacks."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+    coordinator = VacuulaCoordinator(hass, entry, AsyncMock())
+
+    received_zones: list[list[dict[str, Any]]] = []
+
+    def on_new_zones(serial: str, zones: list[dict[str, Any]]) -> None:
+        received_zones.append(zones)
+
+    remove_cb = coordinator.register_new_zones_callback(on_new_zones)
+
+    # First notification: adds zone 1 & 2
+    coordinator._notify_new_zones(
+        "s1",
+        [
+            {"id": "z1", "name": "Room 1"},
+            {"id": "z2", "name": "Room 2"},
+            {"id": None, "name": "NoId"},
+        ],
+    )
+    assert len(received_zones) == 1
+    assert len(received_zones[0]) == 2
+
+    # Second notification with duplicate zones: should not call callback
+    coordinator._notify_new_zones(
+        "s1",
+        [{"id": "z1", "name": "Room 1"}, {"id": "z2", "name": "Room 2"}],
+    )
+    assert len(received_zones) == 1
+
+    # Remove callback
+    remove_cb()
+    coordinator._notify_new_zones("s1", [{"id": "z3", "name": "Room 3"}])
+    assert len(received_zones) == 1
+
+
+async def test_coordinator_apply_command_response_edge_cases(
+    hass: HomeAssistant,
+) -> None:
+    """Test apply_command_response with missing serial, missing details, and Gen4 responses."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+    coordinator = VacuulaCoordinator(hass, entry, AsyncMock())
+    robot_gen3 = VacuulaRobotData(
+        serial="s1",
+        name="Gen3 Bot",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    robot_gen4 = VacuulaRobotData(
+        serial="s2",
+        name="Gen4 Bot",
+        robot_type=ROBOT_TYPE_GEN4,
+        connected=True,
+    )
+    coordinator.data = {"s1": robot_gen3, "s2": robot_gen4}
+    coordinator.async_refresh_robot = AsyncMock()
+
+    # 1. Serial not in coordinator.data -> returns safely without doing anything
+    await coordinator.async_apply_command_response("unknown_serial", {"state": 1})
+    coordinator.async_refresh_robot.assert_not_called()
+
+    # 2. Gen3 response without 'details' -> falls back to async_refresh_robot
+    await coordinator.async_apply_command_response("s1", {"state": 1})
+    coordinator.async_refresh_robot.assert_awaited_once_with("s1")
+    coordinator.async_refresh_robot.reset_mock()
+
+    # 3. Gen4 response -> falls back to async_refresh_robot
+    await coordinator.async_apply_command_response("s2", {"ability": "state.show"})
+    coordinator.async_refresh_robot.assert_awaited_once_with("s2")
+
+
+async def test_coordinator_listen_robot_events_gen4_and_disconnect(
+    hass: HomeAssistant,
+) -> None:
+    """Test Gen4 SSE event frame processing and disconnected robot loop exit."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    robot_gen4 = VacuulaRobotData(
+        serial="g4",
+        name="Gen4 Bot",
+        robot_type=ROBOT_TYPE_GEN4,
+        connected=True,
+        state={"body": {"state": "idle"}},
+    )
+    coordinator.data = {"g4": robot_gen4}
+
+    # Stream containing Gen4 body frame and an invalid body frame
+    async def fake_g4_stream(_serial: str):
+        yield {"event": {"body": {"state": "busy"}}}
+        yield {"event": {"body": "invalid_string"}}
+        yield {"event": None}
+        coordinator._stopping = True
+
+    client.async_iter_robot_events = fake_g4_stream
+
+    await coordinator._listen_robot_events("g4")
+    assert robot_gen4.state == {"body": {"state": "busy"}}
+
+    # Disconnected robot terminates loop immediately
+    robot_gen4.connected = False
+    coordinator._stopping = False
+    await coordinator._listen_robot_events("g4")

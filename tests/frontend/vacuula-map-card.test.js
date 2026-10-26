@@ -375,6 +375,109 @@ describe("VacuulaMapCard DOM Rendering and Interaction", () => {
     const root = card.shadowRoot;
     expect(root.querySelector(".alert-banner")).toBeNull();
   });
+
+  it("handles missing or null vacuum entity gracefully", () => {
+    card.setConfig({ entity: "vacuum.nonexistent" });
+    card.hass = mockHass;
+    const root = card.shadowRoot;
+    expect(root?.querySelector(".empty-map")?.textContent).toContain(
+      "Entity vacuum.nonexistent not found"
+    );
+  });
+
+  it("handles entity with no floor map picture gracefully", () => {
+    mockHass.states["image.neato_d7_floor_map"].attributes.entity_picture = "";
+    card.hass = { ...mockHass };
+    const root = card.shadowRoot;
+    expect(root?.querySelector(".empty-map")?.textContent).toContain("No floor map available yet");
+  });
+
+  it("handles unknown alert codes gracefully without crashing", () => {
+    mockHass.states["sensor.neato_d7_alert"].state = "ui_error_laser_sensor_dirty";
+    mockHass.states["button.neato_d7_dismiss_alert"] = undefined;
+    card.hass = { ...mockHass };
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    const banner = el(root, ".alert-banner");
+    expect(banner.textContent).toContain("Laser sensor dirty");
+    expect(banner.textContent).toContain("Active condition: Laser sensor dirty.");
+    expect(root.querySelector("#btn-dismiss-alert")).toBeNull();
+  });
+
+  it("handles alert from errors list in vacState", () => {
+    mockHass.states["sensor.neato_d7_alert"].state = "none";
+    mockHass.states["vacuum.neato_d7"].attributes.errors = [{ code: "cliff_sensor" }];
+    card.hass = { ...mockHass };
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    const banner = el(root, ".alert-banner");
+    expect(banner.textContent).toContain("Drop Sensor Error");
+    expect(banner.className).toContain("error");
+  });
+
+  it("escapes XSS payloads in custom title and room names", () => {
+    card.setConfig({
+      entity: "vacuum.neato_d7",
+      title: "<script>alert('xss')</script>",
+    });
+    mockHass.states["image.neato_d7_floor_map"].attributes.zones = [
+      {
+        id: "z-mal",
+        name: "<img src=x onerror=alert(1)>",
+        color: "#38bdf8",
+        x: 0.5,
+        y: 0.5,
+        points: [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+        ],
+      },
+    ];
+    card.hass = { ...mockHass };
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    const title = el(root, ".robot-name");
+    expect(title.textContent).toBe("<script>alert('xss')</script>");
+    expect(title.querySelector("script")).toBeNull();
+
+    const chip = el(root, ".zone-chip");
+    expect(chip.querySelector("img")).toBeNull();
+  });
+
+  it("handles paused vacuum state with Resume start button", () => {
+    mockHass.states["vacuum.neato_d7"].state = "paused";
+    card.hass = { ...mockHass };
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    const startBtn = el(root, "#btn-start");
+    expect(startBtn.textContent).toContain("Resume");
+    startBtn.click();
+    expect(callServiceMock).toHaveBeenCalledWith("vacuum", "start", {
+      entity_id: "vacuum.neato_d7",
+    });
+  });
+
+  it("handles custom map_height with valid CSS units", () => {
+    card.setConfig({ entity: "vacuum.neato_d7", map_height: "450px" });
+    const customVars = card._getCustomHeightVars();
+    expect(customVars).toContain("--vacuula-map-max-height: 450px;");
+    expect(customVars).toContain("--vacuula-map-min-height: 450px;");
+  });
+
+  it("dispatches navigation mode, schedule toggle, and map refresh service calls", () => {
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+
+    // Schedule toggle button
+    const schedBtn = el(root, "#btn-schedule");
+    schedBtn.click();
+    expect(callServiceMock).toHaveBeenCalledWith("switch", "toggle", {
+      entity_id: "switch.neato_d7_schedule",
+    });
+
+    // Refresh maps button
+    const refreshBtn = el(root, "#btn-refresh-map");
+    refreshBtn.click();
+    expect(callServiceMock).toHaveBeenCalledWith("vacuula", "refresh_maps", {
+      entity_id: "vacuum.neato_d7",
+    });
+  });
 });
 
 describe("VacuulaMapCardEditor Custom Element", () => {

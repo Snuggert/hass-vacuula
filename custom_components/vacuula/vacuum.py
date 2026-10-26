@@ -44,7 +44,7 @@ from .const import (
     GEN3_STATE_PAUSED,
     ROBOT_TYPE_GEN3,
 )
-from .coordinator import VacuulaCoordinator
+from .coordinator import VacuulaCoordinator, is_installer_outdated
 from .entity import VacuulaEntity
 
 SUPPORTED_FEATURES = (
@@ -103,7 +103,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         if robot.robot_type == ROBOT_TYPE_GEN3:
             state_code = robot.state.get("state")
             action_code = robot.state.get("action", 0)
-            details = robot.state.get("details", {})
+            details = robot.state.get("details") or {}
 
             if state_code == GEN3_STATE_ERROR or robot.state.get("error"):
                 return VacuumActivity.ERROR
@@ -134,7 +134,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         body = self._gen4_body
         state_str = str(body.get("state", "")).lower()
         action_str = str(body.get("action", "")).lower()
-        details = body.get("details", {})
+        details = body.get("details") or {}
         errors = body.get("errors")
 
         if state_str == "error" or (isinstance(errors, list) and len(errors) > 0):
@@ -178,6 +178,12 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
                     "alert": robot.state.get("alert"),
                 }
             )
+            if robot.installed_with:
+                base_attrs["installed_with"] = robot.installed_with
+                min_ver = self.coordinator.server_info.get("min_installer_version")
+                base_attrs["outdated_installer"] = is_installer_outdated(
+                    robot.installed_with, min_ver
+                )
             return base_attrs
 
         body = self._gen4_body

@@ -424,9 +424,36 @@ def render_map_png(
 
     # Draw dock marker from floormap metadata
     dock = (floormap or {}).get("dock")
+    dx: int | None = None
+    dy: int | None = None
     if isinstance(dock, dict) and "pixel_x" in dock and "pixel_y" in dock:
         dx = int(round(float(dock["pixel_x"])))
         dy = int(round(float(dock["pixel_y"])))
+    elif (
+        floormap
+        and isinstance(floormap.get("base"), (list, tuple))
+        and len(floormap["base"]) >= 2
+    ):
+        base = floormap["base"]
+        md = floormap.get("metadata")
+        if (
+            isinstance(md, dict)
+            and "origin_x" in md
+            and "origin_y" in md
+            and "resolution" in md
+        ):
+            res = float(md["resolution"])
+            if res > 0:
+                px = (float(base[0]) - float(md["origin_x"])) / res
+                py = (float(base[1]) - float(md["origin_y"])) / res
+                # In Gen4 (Vacuula v1.1.0 commit ce2f53c), Y axis is flipped
+                dx = int(round(px))
+                dy = int(round(height - 1 - py))
+        elif 0.0 <= float(base[0]) <= 1.0 and 0.0 <= float(base[1]) <= 1.0:
+            dx = int(round(float(base[0]) * width))
+            dy = int(round(float(base[1]) * height))
+
+    if dx is not None and dy is not None:
         for oy in range(-4, 5):
             for ox in range(-4, 5):
                 px, py = dx + ox, dy + oy
