@@ -422,3 +422,82 @@ async def test_coordinator_refresh_maps_api_errors(hass: HomeAssistant) -> None:
     # 3. Duplicate notify new zones early return
     coordinator._known_zones["OPS123"] = {"z1"}
     coordinator._notify_new_zones("OPS123", [{"id": "z1", "name": "Kitchen"}])
+
+
+def test_parse_installer_version_and_outdated_check() -> None:
+    """Test installer version parsing and outdated logic matching Vacuula v1.1.0."""
+    from custom_components.vacuula.coordinator import (
+        is_installer_outdated,
+        parse_installer_version,
+    )
+
+    # Valid versions
+    assert parse_installer_version("1.0.0") == (1, 0, 0, float("inf"))
+    assert parse_installer_version("1.1.0-b3") == (1, 1, 0, 3)
+    assert parse_installer_version("1.1.0-b6") == (1, 1, 0, 6)
+    assert parse_installer_version("1.1.0") == (1, 1, 0, float("inf"))
+
+    # Invalid version string fallback
+    assert parse_installer_version("invalid") == (-999, -999, -999, float("-inf"))
+
+    # Outdated comparisons against min version 1.1.0-b3
+    assert is_installer_outdated("1.0.0", "1.1.0-b3") is True
+    assert is_installer_outdated("1.1.0-b1", "1.1.0-b3") is True
+    assert is_installer_outdated("1.1.0-b2", "1.1.0-b3") is True
+    assert is_installer_outdated("1.1.0-b3", "1.1.0-b3") is False
+    assert is_installer_outdated("1.1.0-b6", "1.1.0-b3") is False
+    assert is_installer_outdated("1.1.0", "1.1.0-b3") is False
+    assert is_installer_outdated("1.2.0", "1.1.0-b3") is False
+
+    # Dev and None versions are never considered outdated
+    assert is_installer_outdated("1.1.0-dev", "1.1.0-b3") is False
+    assert is_installer_outdated(None, "1.1.0-b3") is False
+    assert is_installer_outdated("", "1.1.0-b3") is False
+
+
+async def test_coordinator_handles_v110_server_info_and_installed_with(
+    hass: HomeAssistant,
+) -> None:
+    """Test coordinator updates server_info and robot installed_with field."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    client.async_get_server_info.return_value = {
+        "version": "1.1.0",
+        "min_installer_version": "1.1.0-b3",
+        "gen3_port": 335,
+        "gen4_port": 3443,
+        "ha_ingress": False,
+        "timezone": "Europe/Oslo",
+        "utc_offset_minutes": 60,
+    }
+    client.async_get_robots.return_value = {
+        "OPS123": {
+            "name": "Mappa",
+            "type": ROBOT_TYPE_GEN3,
+            "connected": True,
+            "installed_with": "1.0.0",
+        }
+    }
+    client.async_get_robot_state.return_value = {"state": 1}
+    client.async_get_maps.return_value = []
+    client.async_get_runs.return_value = []
+
+    async def mock_iter_robot_events(_serial: str):
+        if False:
+            yield {}
+
+    client.async_iter_robot_events = mock_iter_robot_events
+
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    data = await coordinator._async_update_data()
+
+    assert coordinator.server_info["version"] == "1.1.0"
+    assert coordinator.server_info["min_installer_version"] == "1.1.0-b3"
+    assert coordinator.server_info["gen3_port"] == 335
+    assert data["OPS123"].installed_with == "1.0.0"

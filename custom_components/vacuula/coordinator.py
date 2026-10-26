@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -32,6 +33,28 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-b(\d+))?$")
+
+
+def parse_installer_version(v: str) -> tuple[int, int, int, float]:
+    """Parse an X.Y.Z[-bN] installer version string into a comparable tuple."""
+    m = _VERSION_RE.match(v.strip())
+    if not m:
+        return (-999, -999, -999, float("-inf"))
+    major, minor, patch, beta = m.groups()
+    beta_rank = int(beta) if beta is not None else float("inf")
+    return (int(major), int(minor), int(patch), beta_rank)
+
+
+def is_installer_outdated(
+    installed_with: str | None, min_version: str | None = "1.1.0-b3"
+) -> bool:
+    """Return True if installed_with is older than min_version."""
+    if not installed_with or "dev" in installed_with:
+        return False
+    target_min = min_version or "1.1.0-b3"
+    return parse_installer_version(installed_with) < parse_installer_version(target_min)
+
 
 @dataclass
 class VacuulaRobotData:
@@ -57,6 +80,7 @@ class VacuulaRobotData:
     last_runmap: dict[str, Any] | None = None
     total_runs: int = 0
     maps_loaded: bool = False
+    installed_with: str | None = None
 
     def sync_preferences_from_state(self) -> None:
         """Seed cleaning preferences from robot state when available."""
@@ -122,6 +146,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                 update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
             )
         self.client = client
+        self.server_info: dict[str, Any] = {}
         self._known_serials: set[str] = set()
         self._known_zones: dict[str, set[str]] = {}
         self._new_robot_callbacks: list[Callable[[list[str]], None]] = []
@@ -350,10 +375,13 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                             connected = bool(meta.get("connected", False))
                             robot_type = str(meta.get("type", ""))
                             name = str(meta.get("name", serial))
+                            installed_with = meta.get("installed_with")
                             if serial in updated:
                                 was_connected = updated[serial].connected
                                 updated[serial].connected = connected
                                 updated[serial].name = name
+                                if installed_with is not None:
+                                    updated[serial].installed_with = installed_with
                                 if connected and not was_connected:
                                     newly_connected.append(serial)
                             else:
@@ -362,6 +390,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                                     name=name,
                                     robot_type=robot_type,
                                     connected=connected,
+                                    installed_with=installed_with,
                                 )
                                 if connected:
                                     newly_connected.append(serial)
@@ -471,6 +500,14 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
 
     async def _async_update_data(self) -> dict[str, VacuulaRobotData]:
         """Fetch robot list and concurrently poll state for connected robots."""
+        if not self.server_info:
+            try:
+                info = await self.client.async_get_server_info()
+                if isinstance(info, dict):
+                    self.server_info = info
+            except Exception:  # noqa: BLE001
+                pass
+
         try:
             robots_raw = await self.client.async_get_robots()
         except VacuulaApiError as err:
@@ -486,6 +523,9 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
             robot_type = str(meta.get("type", ""))
             name = str(meta.get("name", serial))
             prev = previous.get(serial)
+            installed_with = meta.get("installed_with") or (
+                prev.installed_with if prev else None
+            )
 
             robot_data = VacuulaRobotData(
                 serial=serial,
@@ -514,6 +554,7 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
                 last_runmap=prev.last_runmap if prev else None,
                 total_runs=prev.total_runs if prev else 0,
                 maps_loaded=prev.maps_loaded if prev else False,
+                installed_with=installed_with,
             )
 
             if connected:

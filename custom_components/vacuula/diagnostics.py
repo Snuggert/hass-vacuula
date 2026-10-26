@@ -41,6 +41,7 @@ def _serialize_robot(robot: VacuulaRobotData) -> dict[str, Any]:
         "name": robot.name,
         "robot_type": robot.robot_type,
         "connected": robot.connected,
+        "installed_with": robot.installed_with,
         "preferred_fan_speed": robot.preferred_fan_speed,
         "preferred_navigation_mode": robot.preferred_navigation_mode,
         "preferred_category": robot.preferred_category,

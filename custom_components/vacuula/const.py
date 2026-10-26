@@ -13,7 +13,8 @@ PLATFORMS: list[Platform] = [
     Platform.IMAGE,
 ]
 
-DEFAULT_URL = "http://vacuula.lan"
+DEFAULT_URL = "http://vacuula.local:8050"
+DEFAULT_VACUULA_PORT = 8050
 DEFAULT_SCAN_INTERVAL = 30
 
 ROBOT_TYPE_GEN3 = "neato.gen3"

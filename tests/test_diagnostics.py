@@ -37,6 +37,7 @@ async def test_config_entry_diagnostics_redaction(hass: HomeAssistant) -> None:
         name="Living Room Bot",
         robot_type="neato.gen3",
         connected=True,
+        installed_with="1.1.0-b6",
     )
     coordinator.data = {"OPS123-SECRET-SERIAL": robot}
     entry.runtime_data = coordinator
@@ -57,6 +58,7 @@ async def test_config_entry_diagnostics_redaction(hass: HomeAssistant) -> None:
     # Robot serial field must be redacted
     assert diag["robots"]["robot_1"]["serial"] == "**REDACTED**"
     assert diag["robots"]["robot_1"]["name"] == "Living Room Bot"
+    assert diag["robots"]["robot_1"]["installed_with"] == "1.1.0-b6"
 
     # Test when async_get_server_info raises exception
     coordinator.client.async_get_server_info = AsyncMock(

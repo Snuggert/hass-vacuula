@@ -190,3 +190,33 @@ def test_map_renderer_edge_cases() -> None:
     png_empty = render_map_png(empty_floormap)
     assert png_empty is not None
     assert png_empty.startswith(b"\x89PNG")
+
+
+def test_render_map_gen4_base_and_normalized_dock() -> None:
+    """Test dock rendering with Gen4 world coords (flipped Y) and normalized base fallback."""
+    # Gen4 floormap with base and metadata
+    gen4_floormap = {
+        "width": 100,
+        "height": 100,
+        "rle": [[1, 10000]],
+        "base": [1.0, 2.0, 0.0],
+        "metadata": {
+            "origin_x": 0.0,
+            "origin_y": 0.0,
+            "resolution": 0.05,
+        },
+    }
+    png_gen4 = render_map_png(gen4_floormap)
+    assert png_gen4 is not None
+    assert png_gen4.startswith(b"\x89PNG")
+
+    # Normalized base fallback (e.g. [0.5, 0.5])
+    norm_floormap = {
+        "width": 50,
+        "height": 50,
+        "rle": [[1, 2500]],
+        "base": [0.5, 0.5],
+    }
+    png_norm = render_map_png(norm_floormap)
+    assert png_norm is not None
+    assert png_norm.startswith(b"\x89PNG")

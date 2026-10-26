@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import VacuulaConfigEntry
 from .const import ROBOT_TYPE_GEN3
-from .coordinator import VacuulaCoordinator
+from .coordinator import VacuulaCoordinator, is_installer_outdated
 from .entity import VacuulaEntity
 
 
@@ -41,6 +41,9 @@ async def async_setup_entry(
             robot = coordinator.data.get(serial)
             if robot and robot.robot_type == ROBOT_TYPE_GEN3:
                 entities.append(VacuulaDockSeenBinarySensor(coordinator, serial))
+                entities.append(
+                    VacuulaOutdatedInstallerBinarySensor(coordinator, serial)
+                )
         async_add_entities(entities)
 
     entry.async_on_unload(
@@ -182,3 +185,42 @@ class VacuulaBinFullBinarySensor(VacuulaEntity, BinarySensorEntity):
             if self.is_on
             else "Normal",
         }
+
+
+class VacuulaOutdatedInstallerBinarySensor(VacuulaEntity, BinarySensorEntity):
+    """Diagnostic binary sensor indicating whether the robot installer needs an update."""
+
+    _attr_translation_key = "installer_outdated"
+    _attr_name = "Installer outdated"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
+        """Initialize the outdated installer binary sensor."""
+        super().__init__(coordinator, serial, "installer_outdated")
+
+    @property
+    def available(self) -> bool:
+        """Available whenever the Vacuula server itself is reachable."""
+        return bool(self.coordinator.last_update_success and self._robot is not None)
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if the robot was installed with an outdated installer."""
+        robot = self._robot
+        if not robot or not robot.installed_with:
+            return False
+        min_ver = self.coordinator.server_info.get("min_installer_version")
+        return is_installer_outdated(robot.installed_with, min_ver)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return installer version metadata."""
+        robot = self._robot
+        attrs: dict[str, Any] = {}
+        if robot and robot.installed_with:
+            attrs["installed_with"] = robot.installed_with
+        min_ver = self.coordinator.server_info.get("min_installer_version")
+        if min_ver:
+            attrs["minimum_installer_version"] = min_ver
+        return attrs
