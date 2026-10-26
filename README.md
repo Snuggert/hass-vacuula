@@ -8,7 +8,8 @@
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
-  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.1-0ea5e9.svg?style=flat-square" alt="Version 0.6.1" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.2-0ea5e9.svg?style=flat-square" alt="Version 0.6.2" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md"><img src="https://img.shields.io/badge/Vacuula_Compatibility-v1.0_%7C_v1.1+-success.svg?style=flat-square" alt="Vacuula Compatibility: v1.0 | v1.1+" /></a>
   <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
   <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>
   <a href="https://github.com/Snuggert/hass-vacuula/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-f59e0b.svg?style=flat-square" alt="License: MIT" /></a>
@@ -37,6 +38,8 @@
 > * **This Integration (`hass-vacuula`)** runs inside Home Assistant and connects to your **Vacuula server** over HTTP/SSE, creating vacuum entities, sensors, room zone selection, and the interactive Lovelace map card.
 >
 > If you have not set up Vacuula yet, please follow the [official Vacuula setup guide](https://github.com/vacuula/vacuula) before installing this integration.
+>
+> 📖 **Cross-Version Support**: For a complete version-by-version breakdown of Vacuula server releases (v1.0.0, v1.1.0+), Neato robot generations, and firmware installer compatibility, consult our [**Compatibility Guide**](https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md).
 
 An independent, full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for robot vacuums connecting through [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
 

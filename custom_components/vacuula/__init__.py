@@ -33,7 +33,7 @@ from .coordinator import VacuulaCoordinator, VacuulaRobotData
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.6.1"
+FRONTEND_VERSION = "0.6.2"
 
 try:
     VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
