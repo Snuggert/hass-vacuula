@@ -25,7 +25,54 @@
 > All issues and support requests must be opened exclusively on this repository:
 > 👉 [**Snuggert/hass-vacuula Issues**](https://github.com/Snuggert/hass-vacuula/issues)
 
+> [!WARNING]
+> ### ⚡ Prerequisite: A Working Vacuula Server Instance is Required
+>
+> **This integration does NOT communicate directly with your Neato robot vacuum and does NOT replace the Vacuula server software.**
+>
+> To use this integration, you **must already have a running instance of the [Vacuula Server](https://github.com/vacuula/vacuula)** (deployed via Docker, Home Assistant Add-on, TrueNAS, or bare metal) and your Neato robot must already be linked and communicating with it.
+>
+> * **The Robot Vacuum** connects over Wi-Fi directly to your **Vacuula server** (handling Neato cloud replacement, robot TLS connections, firmware comms, and raw map data).
+> * **The Vacuula Server** stores floorplans, cleaning runs, and coordinates in its local database (`vacuula.db`) and exposes a local REST API & SSE event stream.
+> * **This Integration (`hass-vacuula`)** runs inside Home Assistant and connects to your **Vacuula server** over HTTP/SSE, creating vacuum entities, sensors, room zone selection, and the interactive Lovelace map card.
+>
+> If you have not set up Vacuula yet, please follow the [official Vacuula setup guide](https://github.com/vacuula/vacuula) before installing this integration.
+
 An independent, full-featured, **100% local push** [Home Assistant](https://www.home-assistant.io/) custom integration and bundled interactive Lovelace map card for robot vacuums connecting through [**Vacuula**](https://github.com/vacuula/vacuula) — the local cloud replacement server for **Neato Botvac Connected** (Gen3: D3, D4, D5, D6, D7) and **Gen4** (D8, D9, D10) robot vacuums.
+
+---
+
+## 📐 System Architecture
+
+The diagram below illustrates how your robot vacuum, the Vacuula server, and this Home Assistant integration interact across your local network:
+
+```mermaid
+flowchart LR
+    subgraph LAN ["Your Local Home Network (LAN & Wi-Fi)"]
+        direction LR
+
+        subgraph RobotArea ["🤖 Robot Vacuum"]
+            ROBOT["<b>Neato Botvac Connected</b><br/>D3, D4, D5, D6, D7 (Gen3)<br/>D8, D9, D10 (Gen4)<br/><i>Configured to point to Vacuula</i>"]
+        end
+
+        subgraph ServerArea ["⚡ Vacuula Server (Prerequisite)"]
+            SERVER["<b>Vacuula Server</b><br/>Docker / HA Add-on / TrueNAS<br/><i>Robot TLS Comms & State Engine</i>"]
+            DB[("<b>vacuula.db</b><br/>Floorplans & Run History")]
+            SERVER --- DB
+        end
+
+        subgraph HAArea ["🏠 Home Assistant"]
+            INTEG["<b>Neato Botvac Integration</b><br/>(hass-vacuula)<br/><i>Local Push SSE & REST Client</i>"]
+            ENTITIES["<b>HA Entities</b><br/>Vacuum, Sensors, Switches,<br/>Buttons & Map Images"]
+            CARD["<b>Lovelace Map Card</b><br/>(custom:vacuula-map-card)<br/><i>Interactive Zone Cleaning</i>"]
+            INTEG --> ENTITIES
+            INTEG --> CARD
+        end
+
+        ROBOT <-->|"Wi-Fi / TLS<br/>Port 335 (Gen3) / 3443 (Gen4)"| SERVER
+        SERVER <-->|"Local REST API & SSE Push<br/>Port 8050 (Default)"| INTEG
+    end
+```
 
 ---
 
@@ -85,7 +132,7 @@ If the integration does not appear in your HACS search results yet:
 
 1. Copy the `custom_components/vacuula` folder into your Home Assistant `<config>/custom_components/` directory.
 2. Restart Home Assistant.
-3. Add **Neato Botvac** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://vacuula.local:8085`).
+3. Add **Neato Botvac** via **Settings → Devices & Services → Add Integration** and enter your Vacuula server URL (e.g. `http://vacuula.local:8050` or `http://192.168.1.50:8050`).
 
 ### Server URL Format
 
