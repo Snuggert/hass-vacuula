@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to promote to public GitHub Release (e.g. v0.7.0)"
+        description: "Tag to promote to public GitHub Release (e.g. v0.7.2)"
         required: true
-        default: "v0.7.0"
+        default: "v0.7.2"
       promote:
         description: "Promote to public release (true = publish publicly, false = draft only)"
         type: boolean
@@ -35,6 +35,11 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 1
+
+      - name: Build HACS Release Zip (vacuula.zip)
+        run: |
+          cd "${{ github.workspace }}/custom_components/vacuula"
+          zip -r "${{ github.workspace }}/vacuula.zip" ./ -x "*/__pycache__/*" "*.pyc"
 
       - name: Create or Promote GitHub Release
         env:
@@ -88,17 +93,19 @@ jobs:
           if [ "$IS_DISPATCH" = "true" ] && [ "$SHOULD_PROMOTE" = "true" ]; then
             echo "🚀 Promoting $TAG to full public release after manual approval..."
             if [ "$EXISTS" = "true" ]; then
+              gh release upload "$TAG" vacuula.zip --clobber
               gh release edit "$TAG" --draft=false $NOTES_ARG
             else
-              gh release create "$TAG" --title "$TAG" --draft=false $NOTES_ARG
+              gh release create "$TAG" vacuula.zip --title "$TAG" --draft=false $NOTES_ARG
             fi
             echo "✅ Release $TAG is now publicly published!"
           else
             echo "📝 Preparing draft release for $TAG (awaiting manual testing & promotion)..."
             if [ "$EXISTS" = "true" ]; then
+              gh release upload "$TAG" vacuula.zip --clobber
               gh release edit "$TAG" --draft=true $NOTES_ARG
             else
-              gh release create "$TAG" --title "$TAG" --draft=true $NOTES_ARG
+              gh release create "$TAG" vacuula.zip --title "$TAG" --draft=true $NOTES_ARG
             fi
             echo "📌 Draft release created for $TAG. Test it, then promote it to release!"
           fi

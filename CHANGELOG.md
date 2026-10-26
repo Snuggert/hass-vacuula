@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.2] - 2026-10-26
+
+### Changed
+- **Dedicated HACS Release Package (`vacuula.zip`) & Archive Filtering (`.gitattributes`):** Configured `zip_release: true` (`filename: "vacuula.zip"`) in `hacs.json` and updated `.github/workflows/release.yml` to build and attach a self-contained `vacuula.zip` containing only `custom_components/vacuula/`. Added `.gitattributes` (`export-ignore`) so GitHub's generated source archives also exclude development tooling, tests, and CI configuration.
+- **Unified `devtools` Package & Static Sandbox Assets:** Consolidated `packages/aiovacuula`, `tests/dev_server/`, and `scripts/` into a top-level `devtools/` package (`python -m devtools`) and extracted the developer sandbox UI into static HTML/CSS/JS assets (`devtools/static/`).
+
 ## [0.7.1] - 2026-10-26
 
 ### Changed
