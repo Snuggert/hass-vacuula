@@ -20,6 +20,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VacuulaApiClient
 from .const import (
+    DEFAULT_URL,
     DOMAIN,
     PLATFORMS,
     SERVICE_CLEAN_SPOT,
@@ -390,7 +391,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
     await _async_register_frontend(hass)
 
     session = async_get_clientsession(hass)
-    client = VacuulaApiClient(entry.data[CONF_URL], session)
+    server_url = entry.data.get(CONF_URL)
+    if not server_url and "host" in entry.data:
+        scheme = "https" if entry.data.get("use_ssl") else "http"
+        port = entry.data.get("port", 80)
+        server_url = f"{scheme}://{entry.data['host']}:{port}"
+    client = VacuulaApiClient(server_url or DEFAULT_URL, session)
     coordinator = VacuulaCoordinator(hass, entry, client)
 
     await coordinator.async_config_entry_first_refresh()

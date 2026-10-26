@@ -137,10 +137,14 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
                     data_updates={CONF_URL: url},
                 )
 
-        current_url = reconfigure_entry.data.get(CONF_URL, DEFAULT_URL)
+        current_url = reconfigure_entry.data.get(CONF_URL)
+        if not current_url and "host" in reconfigure_entry.data:
+            scheme = "https" if reconfigure_entry.data.get("use_ssl") else "http"
+            port = reconfigure_entry.data.get("port", 80)
+            current_url = f"{scheme}://{reconfigure_entry.data['host']}:{port}"
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=vol.Schema({vol.Required(CONF_URL, default=current_url): str}),
+            data_schema=vol.Schema({vol.Required(CONF_URL, default=current_url or DEFAULT_URL): str}),
             errors=errors,
         )
 
