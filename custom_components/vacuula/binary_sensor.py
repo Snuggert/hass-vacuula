@@ -17,6 +17,8 @@ from .const import ROBOT_TYPE_GEN3
 from .coordinator import VacuulaCoordinator, is_installer_outdated
 from .entity import VacuulaEntity
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -89,10 +91,7 @@ class VacuulaDockedBinarySensor(VacuulaEntity, BinarySensorEntity):
         robot = self._robot
         if not robot or not robot.state:
             return None
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            return bool((robot.state.get("details") or {}).get("isDocked"))
-        details = self._gen4_body.get("details") or {}
-        return bool(details.get("is_docked") or details.get("isDocked"))
+        return robot.is_docked
 
 
 class VacuulaChargingBinarySensor(VacuulaEntity, BinarySensorEntity):
@@ -111,10 +110,7 @@ class VacuulaChargingBinarySensor(VacuulaEntity, BinarySensorEntity):
         robot = self._robot
         if not robot or not robot.state:
             return None
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            return bool((robot.state.get("details") or {}).get("isCharging"))
-        details = self._gen4_body.get("details") or {}
-        return bool(details.get("is_charging") or details.get("isCharging"))
+        return robot.is_charging
 
 
 class VacuulaDockSeenBinarySensor(VacuulaEntity, BinarySensorEntity):
@@ -132,9 +128,7 @@ class VacuulaDockSeenBinarySensor(VacuulaEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         """Return True if the robot has seen its dock."""
         robot = self._robot
-        if not robot or not robot.state:
-            return None
-        return bool((robot.state.get("details") or {}).get("dockHasBeenSeen"))
+        return robot.dock_has_been_seen if robot else None
 
 
 class VacuulaBinFullBinarySensor(VacuulaEntity, BinarySensorEntity):
@@ -153,22 +147,7 @@ class VacuulaBinFullBinarySensor(VacuulaEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         """Return True if the dust bin is full or missing."""
         robot = self._robot
-        if not robot or not robot.state:
-            return None
-
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            alert = str(robot.state.get("alert") or "").lower()
-            error = str(robot.state.get("error") or "").lower()
-            return "dustbin" in alert or "dustbin" in error
-
-        errors = self._gen4_body.get("errors") or []
-        if isinstance(errors, list):
-            for err in errors:
-                if isinstance(err, dict):
-                    code = str(err.get("code") or "").lower()
-                    if "dustbin" in code or "bin_full" in code:
-                        return True
-        return False
+        return robot.is_bin_full if robot else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

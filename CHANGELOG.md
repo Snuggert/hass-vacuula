@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] - 2026-10-26
+
+### Changed
+- **O(runs) RLE Span Map Renderer (`custom_components/vacuula/core/map_renderer.py`):** Optimized `get_crop_box()` and `render_map_png()` to walk RLE spans directly instead of per-pixel loops, initialize RGBA buffers at C speed (`bytearray(b"\x18\x1c\x24\xff" * total)`), paint floor/wall/path/dock runs with slice assignment, and encode PNGs with fast `zlib.compress(..., level=1)`.
+- **Cached Cropped Zones & Content-Aware Map Cache Key (`custom_components/vacuula/image.py` & `core/models.py`):** Cached `cropped_zones` on `VacuulaRobotData` so `VacuulaFloorMapImage` and `VacuulaLastRunMapImage` state updates read normalized zones in $O(1)$ without main-thread RLE decoding, and keyed PNG image caching on `boundary_signature` so room renames and color changes invalidate cached map images immediately.
+- **Concurrent Map Detail, Boundary & Run Detail Fetching (`custom_components/vacuula/core/controller.py`):** Parallelized `async_get_map_detail`, `async_get_map_boundaries`, and `async_get_run_detail` in `async_load_robot_maps_and_runs()` via `asyncio.gather(..., return_exceptions=True)`, and parallelized multi-robot `vacuula.refresh_maps` calls.
+- **Core / Coordinator Deduplication & Entity Conciseness:** Unified robot polling, map/run loading, and Gen3 command-response application across `VacuulaController` and `VacuulaCoordinator`, delegated Gen3/Gen4 entity state properties to `VacuulaRobotData`, and added `PARALLEL_UPDATES = 0` across all 7 entity platforms.
+
+### Fixed
+- **Gen4 `is_docked` and `is_charging` Normalization:** Unified `VacuulaRobotData.is_docked`, `is_charging`, and `activity_state` to inspect both top-level `body` and `body["details"]` on Gen4 `FullRobotState` payloads.
+
 ## [0.7.0] - 2026-10-26
 
 ### Added
@@ -97,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.7.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.0...v0.6.1

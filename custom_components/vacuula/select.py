@@ -24,6 +24,8 @@ from .const import (
 from .coordinator import VacuulaCoordinator
 from .entity import VacuulaEntity
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,

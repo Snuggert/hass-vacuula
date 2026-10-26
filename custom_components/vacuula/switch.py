@@ -14,6 +14,8 @@ from .const import ROBOT_TYPE_GEN3
 from .coordinator import VacuulaCoordinator
 from .entity import VacuulaEntity
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -52,11 +54,7 @@ class VacuulaScheduleSwitch(VacuulaEntity, SwitchEntity):
     @property
     def is_on(self) -> bool | None:
         """Return True if the robot's internal schedule is enabled."""
-        if not self.robot or not self.robot.state:
-            return None
-        return bool(
-            (self.robot.state.get("details") or {}).get("isScheduleEnabled", False)
-        )
+        return self.robot.is_schedule_enabled if self.robot else None
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable the robot's internal schedule."""
