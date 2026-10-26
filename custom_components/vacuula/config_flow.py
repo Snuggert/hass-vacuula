@@ -144,7 +144,9 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
             current_url = f"{scheme}://{reconfigure_entry.data['host']}:{port}"
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=vol.Schema({vol.Required(CONF_URL, default=current_url or DEFAULT_URL): str}),
+            data_schema=vol.Schema(
+                {vol.Required(CONF_URL, default=current_url or DEFAULT_URL): str}
+            ),
             errors=errors,
         )
 
