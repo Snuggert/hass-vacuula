@@ -10,7 +10,7 @@ requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Snuggert" }]
 dependencies = [
-    "aiohttp>=3.9.0",
+    "aiohttp>=3.13.0",
 ]
 
 [tool.hatch.build.targets.wheel]

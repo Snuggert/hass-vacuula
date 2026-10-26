@@ -6,22 +6,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import voluptuous as vol
-
-try:
-    from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-except ImportError:  # pragma: no cover
-    from homeassistant.config_entries import ConfigFlow
-    from homeassistant.data_entry_flow import FlowResult as ConfigFlowResult  # type: ignore[assignment]
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_URL
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-try:
-    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-except ImportError, ModuleNotFoundError:  # pragma: no cover
-    try:
-        from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[attr-defined,no-redef]
-    except ImportError, ModuleNotFoundError:  # pragma: no cover
-        ZeroconfServiceInfo = Any  # type: ignore[assignment,misc]
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import DEFAULT_URL, DOMAIN

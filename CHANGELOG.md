@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Decoupled Core & Live Server Test Suites:** Added `tests/core/test_core_decoupled.py` (verifying `sys.modules` has zero `homeassistant` imports) and `tests/test_live_vacuula_server.py` (testing end-to-end against a real `vacuula_server` process and browser sandbox).
 
 ### Changed
-- **Migrated to Python 3.14:** Upgraded project runtime, type targets, `uv.lock`, and GitHub Actions validation workflows to Python 3.14, matching the upstream `vacuula_server` runtime.
+- **Migrated to Python 3.14 & Home Assistant 2026.3+:** Upgraded project runtime, type targets, `hacs.json` minimum Home Assistant version (`2026.3.0`), `requirements_test.txt` floor bounds, `uv.lock`, and GitHub Actions validation workflows to Python 3.14, matching the upstream `vacuula_server` runtime and removing legacy pre-2026 compatibility shims.
 
 ### Fixed
 - **Per-Robot Command Lock Eviction:** Evicted disconnected robot `asyncio.Lock` instances in `VacuulaApiClient.evict_stale_locks()` to prevent unbounded lock dictionary growth over long runtimes.

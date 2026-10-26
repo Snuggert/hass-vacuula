@@ -11,28 +11,8 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-try:
-    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-except ImportError, ModuleNotFoundError:
-    try:
-        from homeassistant.components.zeroconf import ZeroconfServiceInfo  # type: ignore[no-redef]
-    except ImportError, ModuleNotFoundError:
-        from dataclasses import dataclass
-
-        @dataclass
-        class ZeroconfServiceInfo:  # type: ignore[no-redef]
-            ip_address: Any = None
-            ip_addresses: list[Any] | None = None
-            host: str = ""
-            addresses: list[str] | None = None
-            port: int = 80
-            hostname: str = ""
-            type: str = ""
-            name: str = ""
-            properties: dict[str, Any] | None = None
-
 
 from custom_components.vacuula.api import VacuulaApiError
 from custom_components.vacuula.const import DOMAIN
@@ -230,10 +210,6 @@ async def test_zeroconf_link_local_rejected(hass: HomeAssistant) -> None:
     assert result["reason"] == "link_local_address"
 
 
-@pytest.mark.skipif(
-    not hasattr(config_entries, "SOURCE_RECONFIGURE"),
-    reason="SOURCE_RECONFIGURE requires Home Assistant 2024.4+",
-)
 async def test_reconfigure_step_success(hass: HomeAssistant) -> None:
     """Test reconfiguring an existing config entry."""
     entry = MockConfigEntry(
@@ -250,7 +226,7 @@ async def test_reconfigure_step_success(hass: HomeAssistant) -> None:
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={
-                "source": getattr(config_entries, "SOURCE_RECONFIGURE", "reconfigure"),
+                "source": config_entries.SOURCE_RECONFIGURE,
                 "entry_id": entry.entry_id,
             },
         )

@@ -4,14 +4,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any
 
 import voluptuous as vol
-
-try:
-    from homeassistant.components.http import StaticPathConfig
-except ImportError:  # pragma: no cover
-    StaticPathConfig = None  # type: ignore[assignment,misc]
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, CONF_URL
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -35,10 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
 FRONTEND_VERSION = "0.7.0"
 
-try:
-    VacuulaConfigEntry: TypeAlias = ConfigEntry[VacuulaCoordinator]
-except TypeError:  # pragma: no cover
-    VacuulaConfigEntry: TypeAlias = ConfigEntry  # type: ignore[misc,no-redef]
+type VacuulaConfigEntry = ConfigEntry[VacuulaCoordinator]
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:

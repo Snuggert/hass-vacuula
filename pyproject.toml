@@ -36,8 +36,6 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
-    "UP040", # TypeAlias annotation (standard in HA custom components)
-    "UP042", # StrEnum fallback for older python environments
 ]
 
 [tool.ruff.lint.isort]

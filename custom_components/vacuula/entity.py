@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-try:
-    from homeassistant.helpers.device_registry import DeviceInfo
-except ImportError:  # pragma: no cover
-    from homeassistant.helpers.entity import DeviceInfo  # type: ignore[assignment]
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, ROBOT_TYPE_GEN3

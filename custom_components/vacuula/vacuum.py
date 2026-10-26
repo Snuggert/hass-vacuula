@@ -6,25 +6,9 @@ from typing import Any
 
 from homeassistant.components.vacuum import (
     StateVacuumEntity,
+    VacuumActivity,
     VacuumEntityFeature,
 )
-
-try:
-    from homeassistant.components.vacuum import VacuumActivity
-except ImportError:  # pragma: no cover
-    from enum import Enum
-
-    class VacuumActivity(str, Enum):  # type: ignore[no-redef]
-        """Fallback enum for Home Assistant versions prior to 2023.9."""
-
-        CLEANING = "cleaning"
-        DOCKED = "docked"
-        IDLE = "idle"
-        PAUSED = "paused"
-        RETURNING = "returning"
-        ERROR = "error"
-
-
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 

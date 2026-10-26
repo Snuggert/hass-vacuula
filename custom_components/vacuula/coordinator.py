@@ -48,21 +48,13 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
         self, hass: HomeAssistant, entry: ConfigEntry, client: VacuulaApiClient
     ) -> None:
         self.config_entry = entry
-        try:
-            super().__init__(
-                hass,
-                _LOGGER,
-                config_entry=entry,
-                name=DOMAIN,
-                update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
-            )
-        except TypeError:  # pragma: no cover
-            super().__init__(
-                hass,
-                _LOGGER,
-                name=DOMAIN,
-                update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
-            )
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+        )
         self.client = client
         self.server_info: dict[str, Any] = {}
         self._known_serials: set[str] = set()

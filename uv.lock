@@ -138,7 +138,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "aiohttp", specifier = ">=3.9.0" }]
+requires-dist = [{ name = "aiohttp", specifier = ">=3.13.0" }]
 
 [[package]]
 name = "attrs"
