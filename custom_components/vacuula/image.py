@@ -12,7 +12,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import VacuulaConfigEntry
 from .coordinator import VacuulaCoordinator
 from .entity import VacuulaEntity
-from .map_renderer import compute_cropped_zones, render_map_png
+from .map_renderer import render_map_png
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -52,7 +54,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         VacuulaEntity.__init__(self, coordinator, serial, "floor_map")
         ImageEntity.__init__(self, coordinator.hass)
         self.hass = coordinator.hass
-        self._cached_key: tuple[str | None, int] | None = None
+        self._cached_key: tuple[str | None, tuple[Any, ...]] | None = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(UTC)
 
@@ -75,7 +77,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
             "serial": self._serial,
             "map_id": robot.active_map_id,
             "map_name": robot.active_map_name,
-            "zones": compute_cropped_zones(robot.floormap, robot.boundaries),
+            "zones": robot.cropped_zones,
         }
 
     @callback
@@ -83,7 +85,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         """Invalidate cache and bump timestamp when map or boundaries change."""
         robot = self._robot
         if robot:
-            new_key = (robot.active_map_id, len(robot.boundaries))
+            new_key = (robot.active_map_id, robot.boundary_signature)
             if new_key != self._cached_key:
                 self._attr_image_last_updated = datetime.now(UTC)
         super()._handle_coordinator_update()
@@ -93,7 +95,7 @@ class VacuulaFloorMapImage(VacuulaEntity, ImageEntity):
         robot = self._robot
         if not robot or not robot.floormap:
             return None
-        key = (robot.active_map_id, len(robot.boundaries))
+        key = (robot.active_map_id, robot.boundary_signature)
         if key == self._cached_key and self._cached_png is not None:
             return self._cached_png
 
@@ -117,7 +119,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         VacuulaEntity.__init__(self, coordinator, serial, "last_run_map")
         ImageEntity.__init__(self, coordinator.hass)
         self.hass = coordinator.hass
-        self._cached_key: tuple[str | None, str | None, int] | None = None
+        self._cached_key: tuple[str | None, str | None, tuple[Any, ...]] | None = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(UTC)
 
@@ -145,7 +147,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
             "start_at": robot.last_run.get("start_at"),
             "end_at": robot.last_run.get("end_at"),
             "status": robot.last_run.get("status"),
-            "zones": compute_cropped_zones(robot.floormap, robot.boundaries),
+            "zones": robot.cropped_zones,
         }
 
     @callback
@@ -156,7 +158,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
             new_key = (
                 robot.active_map_id,
                 robot.last_run_id,
-                len(robot.boundaries),
+                robot.boundary_signature,
             )
             if new_key != self._cached_key:
                 self._attr_image_last_updated = datetime.now(UTC)
@@ -167,7 +169,7 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         robot = self._robot
         if not robot or (not robot.last_runmap and not robot.floormap):
             return None
-        key = (robot.active_map_id, robot.last_run_id, len(robot.boundaries))
+        key = (robot.active_map_id, robot.last_run_id, robot.boundary_signature)
         if key == self._cached_key and self._cached_png is not None:
             return self._cached_png
 

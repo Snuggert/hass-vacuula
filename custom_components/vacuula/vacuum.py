@@ -18,18 +18,13 @@ from .const import (
     FAN_SPEED_TURBO,
     FAN_SPEEDS_GEN3,
     FAN_SPEEDS_GEN4,
-    GEN3_ACTION_DOCKING,
     GEN3_ACTION_NAMES,
-    GEN3_ACTION_SUSPENDED_CLEANING,
-    GEN3_ACTION_SUSPENDED_EXPLORATION,
-    GEN3_STATE_BUSY,
-    GEN3_STATE_ERROR,
-    GEN3_STATE_IDLE,
-    GEN3_STATE_PAUSED,
     ROBOT_TYPE_GEN3,
 )
 from .coordinator import VacuulaCoordinator, is_installer_outdated
 from .entity import VacuulaEntity
+
+PARALLEL_UPDATES = 0
 
 SUPPORTED_FEATURES = (
     VacuumEntityFeature.STATE
@@ -40,6 +35,15 @@ SUPPORTED_FEATURES = (
     | VacuumEntityFeature.LOCATE
     | VacuumEntityFeature.FAN_SPEED
 )
+
+_ACTIVITY_MAP: dict[str, VacuumActivity] = {
+    "error": VacuumActivity.ERROR,
+    "paused": VacuumActivity.PAUSED,
+    "returning": VacuumActivity.RETURNING,
+    "cleaning": VacuumActivity.CLEANING,
+    "docked": VacuumActivity.DOCKED,
+    "idle": VacuumActivity.IDLE,
+}
 
 
 async def async_setup_entry(
@@ -83,55 +87,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         robot = self._robot
         if not robot or not robot.state:
             return None
-
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            state_code = robot.state.get("state")
-            action_code = robot.state.get("action", 0)
-            details = robot.state.get("details") or {}
-
-            if state_code == GEN3_STATE_ERROR or robot.state.get("error"):
-                return VacuumActivity.ERROR
-            if state_code == GEN3_STATE_PAUSED:
-                return VacuumActivity.PAUSED
-            if state_code == GEN3_STATE_BUSY:
-                if action_code == GEN3_ACTION_DOCKING:
-                    return VacuumActivity.RETURNING
-                if action_code in (
-                    GEN3_ACTION_SUSPENDED_CLEANING,
-                    GEN3_ACTION_SUSPENDED_EXPLORATION,
-                ):
-                    return (
-                        VacuumActivity.DOCKED
-                        if details.get("isDocked")
-                        else VacuumActivity.PAUSED
-                    )
-                return VacuumActivity.CLEANING
-            if state_code == GEN3_STATE_IDLE:
-                return (
-                    VacuumActivity.DOCKED
-                    if details.get("isDocked")
-                    else VacuumActivity.IDLE
-                )
-            return VacuumActivity.IDLE
-
-        # Gen4 FullRobotState mapping
-        body = self._gen4_body
-        state_str = str(body.get("state", "")).lower()
-        action_str = str(body.get("action", "")).lower()
-        details = body.get("details") or {}
-        errors = body.get("errors")
-
-        if state_str == "error" or (isinstance(errors, list) and len(errors) > 0):
-            return VacuumActivity.ERROR
-        if state_str == "paused":
-            return VacuumActivity.PAUSED
-        if state_str == "busy":
-            if action_str == "docking":
-                return VacuumActivity.RETURNING
-            return VacuumActivity.CLEANING
-        if details.get("is_docked") or details.get("isDocked"):
-            return VacuumActivity.DOCKED
-        return VacuumActivity.IDLE
+        return _ACTIVITY_MAP.get(robot.activity_state, VacuumActivity.IDLE)
 
     @property
     def fan_speed(self) -> str | None:

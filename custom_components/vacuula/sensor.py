@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -15,9 +14,10 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import VacuulaConfigEntry
-from .const import GEN3_ACTION_NAMES, ROBOT_TYPE_GEN3
 from .coordinator import VacuulaCoordinator
 from .entity import VacuulaEntity
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -64,14 +64,7 @@ class VacuulaBatterySensor(VacuulaEntity, SensorEntity):
     def native_value(self) -> int | None:
         """Return battery percentage."""
         robot = self._robot
-        if not robot or not robot.state:
-            return None
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            charge = (robot.state.get("details") or {}).get("charge")
-            return int(charge) if charge is not None else None
-        details = self._gen4_body.get("details") or {}
-        charge = details.get("charge")
-        return int(charge) if charge is not None else None
+        return robot.battery_level if robot else None
 
 
 class VacuulaActionSensor(VacuulaEntity, SensorEntity):
@@ -91,10 +84,7 @@ class VacuulaActionSensor(VacuulaEntity, SensorEntity):
         robot = self._robot
         if not robot or not robot.state:
             return None
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            action_code = int(robot.state.get("action", 0))
-            return GEN3_ACTION_NAMES.get(action_code, f"unknown_{action_code}")
-        return str(self._gen4_body.get("action", "idle")).lower()
+        return robot.current_action_name
 
 
 class VacuulaAlertSensor(VacuulaEntity, SensorEntity):
@@ -113,16 +103,7 @@ class VacuulaAlertSensor(VacuulaEntity, SensorEntity):
     def native_value(self) -> str:
         """Return active error/alert code or 'none'."""
         robot = self._robot
-        if not robot or not robot.state:
-            return "none"
-        if robot.robot_type == ROBOT_TYPE_GEN3:
-            return str(robot.state.get("error") or robot.state.get("alert") or "none")
-        errors = self._gen4_body.get("errors")
-        if isinstance(errors, list) and errors:
-            first = errors[0]
-            if isinstance(first, dict) and first.get("code"):
-                return str(first["code"])
-        return "none"
+        return robot.alert_or_error if robot else "none"
 
 
 class VacuulaLastCleanAreaSensor(VacuulaEntity, SensorEntity):
@@ -194,19 +175,7 @@ class VacuulaLastCleanDurationSensor(VacuulaEntity, SensorEntity):
     def native_value(self) -> float | None:
         """Return duration of the last cleaning run in minutes."""
         robot = self._robot
-        if not robot or not robot.last_run:
-            return None
-        start_str = robot.last_run.get("start_at")
-        end_str = robot.last_run.get("end_at")
-        if not isinstance(start_str, str) or not isinstance(end_str, str):
-            return None
-        try:
-            start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-            seconds = max(0.0, (end_dt - start_dt).total_seconds())
-            return round(seconds / 60.0, 1)
-        except ValueError:
-            return None
+        return robot.last_clean_duration_min if robot else None
 
 
 class VacuulaTotalCleansSensor(VacuulaEntity, SensorEntity):

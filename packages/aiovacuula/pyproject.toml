@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aiovacuula"
-version = "0.7.0"
+version = "0.7.1"
 description = "Standalone async Python SDK and domain core for Vacuula servers (Zero Home Assistant dependencies)"
 requires-python = ">=3.14"
 license = { text = "MIT" }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from .const import (
@@ -14,6 +15,8 @@ from .const import (
     FAN_SPEED_TURBO,
     GEN3_ACTION_DOCKING,
     GEN3_ACTION_NAMES,
+    GEN3_ACTION_SUSPENDED_CLEANING,
+    GEN3_ACTION_SUSPENDED_EXPLORATION,
     GEN3_CATEGORY_HOUSE,
     GEN3_CATEGORY_MAP,
     GEN3_MODE_ECO,
@@ -96,6 +99,55 @@ class VacuulaRobotData:
     total_runs: int = 0
     maps_loaded: bool = False
     installed_with: str | None = None
+    _cropped_zones_key: tuple[Any, ...] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _cropped_zones_val: list[dict[str, Any]] = field(
+        default_factory=list, init=False, repr=False, compare=False
+    )
+
+    @property
+    def gen4_body(self) -> dict[str, Any]:
+        """Return the inner body dictionary for a Gen4 robot state."""
+        if not self.state:
+            return {}
+        body = self.state.get("body")
+        return body if isinstance(body, dict) else self.state
+
+    @property
+    def boundary_signature(self) -> tuple[Any, ...]:
+        """Return a fast hashable signature of current room boundaries."""
+        if not self.boundaries:
+            return ()
+        return tuple(
+            (
+                b.get("id"),
+                b.get("name"),
+                b.get("color"),
+                len(b.get("vertices") or ()),
+            )
+            for b in self.boundaries
+            if isinstance(b, dict)
+        )
+
+    @property
+    def cropped_zones(self) -> list[dict[str, Any]]:
+        """Return cropped zones normalized to [0..1], cached across state updates."""
+        if not self.floormap or not self.boundaries:
+            return []
+        rle = self.floormap.get("rle")
+        key = (
+            self.active_map_id,
+            id(self.floormap),
+            len(rle) if isinstance(rle, list) else 0,
+            self.boundary_signature,
+        )
+        if self._cropped_zones_key != key:
+            self._cropped_zones_val = compute_cropped_zones(
+                self.floormap, self.boundaries
+            )
+            self._cropped_zones_key = key
+        return self._cropped_zones_val
 
     def sync_preferences_from_state(self) -> None:
         """Seed cleaning preferences from robot state when available."""
@@ -140,39 +192,56 @@ class VacuulaRobotData:
         if not self.state:
             return "idle"
         if self.robot_type == ROBOT_TYPE_GEN3:
-            if self.state.get("error"):
-                return "error"
-            code = self.state.get("state")
-            action = self.state.get("action")
+            state_code = self.state.get("state")
+            action_code = self.state.get("action", 0)
             details = self.state.get("details") or {}
-            if code == GEN3_STATE_ERROR:
+            if state_code == GEN3_STATE_ERROR or self.state.get("error"):
                 return "error"
-            if action == GEN3_ACTION_DOCKING:
+            if action_code == GEN3_ACTION_DOCKING:
                 return "returning"
-            if code == GEN3_STATE_BUSY:
-                return "cleaning"
-            if code == GEN3_STATE_PAUSED:
+            if state_code == GEN3_STATE_PAUSED:
                 return "paused"
-            if details.get("isDocked"):
-                return "docked"
+            if state_code == GEN3_STATE_BUSY:
+                if action_code in (
+                    GEN3_ACTION_SUSPENDED_CLEANING,
+                    GEN3_ACTION_SUSPENDED_EXPLORATION,
+                ):
+                    return "docked" if details.get("isDocked") else "paused"
+                return "cleaning"
+            if state_code == GEN3_STATE_IDLE:
+                return "docked" if details.get("isDocked") else "idle"
             return "idle"
 
-        body = self.state.get("body", self.state)
-        if not isinstance(body, dict):
-            return "idle"
-        if body.get("error"):
+        body = self.gen4_body
+        state_str = str(body.get("state", "")).lower()
+        action_str = str(body.get("action", "")).lower()
+        details = body.get("details") or {}
+        errors = body.get("errors")
+
+        if (
+            body.get("error")
+            or "error" in state_str
+            or "fault" in state_str
+            or (isinstance(errors, list) and len(errors) > 0)
+        ):
             return "error"
-        raw = str(body.get("state", "")).lower()
-        action = str(body.get("action", "")).lower()
-        if "error" in raw or "fault" in raw:
-            return "error"
-        if "dock" in action or "return" in action or raw == "returning":
-            return "returning"
-        if raw in ("busy", "cleaning", "working"):
-            return "cleaning"
-        if raw == "paused":
+        if state_str == "paused":
             return "paused"
-        if body.get("is_docked") or body.get("docked") or raw == "docked":
+        if (
+            action_str == "docking"
+            or "return" in action_str
+            or state_str == "returning"
+        ):
+            return "returning"
+        if state_str in ("busy", "cleaning", "working"):
+            return "cleaning"
+        if (
+            details.get("is_docked")
+            or details.get("isDocked")
+            or body.get("is_docked")
+            or body.get("docked")
+            or state_str == "docked"
+        ):
             return "docked"
         return "idle"
 
@@ -182,50 +251,145 @@ class VacuulaRobotData:
         if not self.state:
             return None
         if self.robot_type == ROBOT_TYPE_GEN3:
-            charge = (self.state.get("details") or {}).get("charge")
-            return int(charge) if isinstance(charge, (int, float)) else None
-        body = self.state.get("body", self.state)
-        if isinstance(body, dict):
-            val = body.get("battery_level", body.get("charge"))
-            return int(val) if isinstance(val, (int, float)) else None
-        return None
+            val = (self.state.get("details") or {}).get("charge")
+        else:
+            body = self.gen4_body
+            details = body.get("details") or {}
+            val = details.get("charge", body.get("battery_level", body.get("charge")))
+        if val is None or isinstance(val, bool):
+            return None
+        try:
+            return round(float(val))
+        except TypeError, ValueError:
+            return None
 
     @property
     def is_docked(self) -> bool:
         """Return True if robot is docked."""
+        if not self.state:
+            return False
         if self.robot_type == ROBOT_TYPE_GEN3:
             return bool((self.state.get("details") or {}).get("isDocked"))
-        body = self.state.get("body", self.state)
+        body = self.gen4_body
+        details = body.get("details") or {}
         return bool(
-            isinstance(body, dict) and (body.get("is_docked") or body.get("docked"))
+            details.get("is_docked")
+            or details.get("isDocked")
+            or body.get("is_docked")
+            or body.get("docked")
         )
 
     @property
     def is_charging(self) -> bool:
         """Return True if robot is charging."""
+        if not self.state:
+            return False
         if self.robot_type == ROBOT_TYPE_GEN3:
             return bool((self.state.get("details") or {}).get("isCharging"))
-        body = self.state.get("body", self.state)
+        body = self.gen4_body
+        details = body.get("details") or {}
         return bool(
-            isinstance(body, dict) and (body.get("is_charging") or body.get("charging"))
+            details.get("is_charging")
+            or details.get("isCharging")
+            or body.get("is_charging")
+            or body.get("charging")
         )
+
+    @property
+    def dock_has_been_seen(self) -> bool | None:
+        """Return True if a Gen3 robot has seen its charging base."""
+        if not self.state:
+            return None
+        return bool((self.state.get("details") or {}).get("dockHasBeenSeen"))
+
+    @property
+    def is_schedule_enabled(self) -> bool | None:
+        """Return True if the robot's internal schedule is enabled."""
+        if not self.state:
+            return None
+        return bool((self.state.get("details") or {}).get("isScheduleEnabled", False))
 
     @property
     def current_action_name(self) -> str:
         """Return human-readable action code name."""
+        if not self.state:
+            return "idle"
         if self.robot_type == ROBOT_TYPE_GEN3:
             act = int(self.state.get("action", 0) or 0)
-            return GEN3_ACTION_NAMES.get(act, f"action_{act}")
-        body = self.state.get("body", self.state)
-        if isinstance(body, dict) and body.get("action"):
-            return str(body["action"])
-        return "idle"
+            return GEN3_ACTION_NAMES.get(act, f"unknown_{act}")
+        body = self.gen4_body
+        return str(body.get("action") or "idle").lower()
+
+    @property
+    def alert_or_error(self) -> str:
+        """Return active error/alert code or 'none'."""
+        if not self.state:
+            return "none"
+        if self.robot_type == ROBOT_TYPE_GEN3:
+            err = self.state.get("error")
+            alert = self.state.get("alert")
+            return str(err or alert or "none")
+        errors = self.gen4_body.get("errors")
+        if isinstance(errors, list) and errors:
+            first = errors[0]
+            if isinstance(first, dict) and first.get("code"):
+                return str(first["code"])
+        return "none"
+
+    @property
+    def is_bin_full(self) -> bool | None:
+        """Return True if the dust bin is full or missing."""
+        if not self.state:
+            return None
+        if self.robot_type == ROBOT_TYPE_GEN3:
+            alert = str(self.state.get("alert") or "").lower()
+            error = str(self.state.get("error") or "").lower()
+            return "dustbin" in alert or "dustbin" in error
+        errors = self.gen4_body.get("errors") or []
+        if isinstance(errors, list):
+            for err in errors:
+                if isinstance(err, dict):
+                    code = str(err.get("code") or "").lower()
+                    if "dustbin" in code or "bin_full" in code:
+                        return True
+        return False
+
+    @property
+    def last_clean_area_m2(self) -> float | None:
+        """Return area cleaned during the most recent run in square meters."""
+        if not self.last_run:
+            return None
+        area = self.last_run.get("area") or self.last_run.get("cleaned_area")
+        if isinstance(area, (int, float)):
+            val = float(area)
+            if val > 500:
+                val = val / 10000.0
+            return round(val, 2)
+        return None
+
+    @property
+    def last_clean_duration_min(self) -> float | None:
+        """Return duration of the most recent cleaning run in minutes."""
+        if not self.last_run:
+            return None
+        dur = self.last_run.get("duration")
+        if isinstance(dur, (int, float)):
+            return round(float(dur) / 60.0, 1)
+        start_str = self.last_run.get("start_at") or self.last_run.get("started_at")
+        end_str = self.last_run.get("end_at") or self.last_run.get("ended_at")
+        if isinstance(start_str, str) and isinstance(end_str, str):
+            try:
+                t0 = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                t1 = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                return round(max(0.0, (t1 - t0).total_seconds() / 60.0), 1)
+            except ValueError:
+                return None
+        return None
 
     def to_snapshot(
         self, min_installer_version: str | None = "1.1.0-b3"
     ) -> dict[str, Any]:
         """Return a JSON-serializable state snapshot suitable for the standalone web sandbox or CLI."""
-        cropped_zones = compute_cropped_zones(self.floormap, self.boundaries)
         clean_cat = (
             CLEAN_CATEGORY_HOUSE
             if self.preferred_category == GEN3_CATEGORY_HOUSE
@@ -252,16 +416,14 @@ class VacuulaRobotData:
                 for m in self.maps
                 if m.get("id")
             ],
-            "zones": cropped_zones,
+            "zones": self.cropped_zones,
             "raw_zones": self.zones,
             "boundaries": self.boundaries,
             "total_runs": self.total_runs,
             "last_run": self.last_run,
             "error": self.state.get("error") if self.state else None,
             "alert": self.state.get("alert") if self.state else None,
-            "schedule_enabled": bool(
-                (self.state.get("details") or {}).get("isScheduleEnabled")
-            )
+            "schedule_enabled": bool(self.is_schedule_enabled)
             if self.robot_type == ROBOT_TYPE_GEN3
             else False,
             "installed_with": self.installed_with,

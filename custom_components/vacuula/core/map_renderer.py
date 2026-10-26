@@ -164,13 +164,52 @@ def _encode_png(rgba: bytearray, width: int, height: int) -> bytes:
         return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
 
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
-    idat = zlib.compress(bytes(raw_rows), level=6)
+    idat = zlib.compress(bytes(raw_rows), level=1)
     return (
         b"\x89PNG\r\n\x1a\n"
         + _chunk(b"IHDR", ihdr)
         + _chunk(b"IDAT", idat)
         + _chunk(b"IEND", b"")
     )
+
+
+def _update_bbox_from_rle(
+    rle: list[list[int]],
+    width: int,
+    total: int,
+    ignore_val: int,
+    min_x: int,
+    min_y: int,
+    max_x: int,
+    max_y: int,
+) -> tuple[int, int, int, int]:
+    """Update (min_x, min_y, max_x, max_y) in O(runs) directly from RLE pairs."""
+    idx = 0
+    for pair in rle:
+        if idx >= total:
+            break
+        if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+            val = int(pair[0]) & 0xFF
+            count = min(max(0, int(pair[1])), total - idx)
+            if count <= 0:
+                continue
+            if val != ignore_val:
+                y0, x0 = divmod(idx, width)
+                y1, x1 = divmod(idx + count - 1, width)
+                if y0 < min_y:
+                    min_y = y0
+                if y1 > max_y:
+                    max_y = y1
+                if y0 == y1:
+                    if x0 < min_x:
+                        min_x = x0
+                    if x1 > max_x:
+                        max_x = x1
+                else:
+                    min_x = 0
+                    max_x = width - 1
+            idx += count
+    return min_x, min_y, max_x, max_y
 
 
 def get_crop_box(
@@ -192,37 +231,17 @@ def get_crop_box(
     max_x, max_y = 0, 0
 
     if floormap and isinstance(floormap.get("rle"), list):
-        floor_grid = _decode_rle(floormap["rle"], total, 0)
-        for idx_cell, val in enumerate(floor_grid):
-            if val == 0:
-                continue
-            y, x = divmod(idx_cell, width)
-            if x < min_x:
-                min_x = x
-            if x > max_x:
-                max_x = x
-            if y < min_y:
-                min_y = y
-            if y > max_y:
-                max_y = y
+        min_x, min_y, max_x, max_y = _update_bbox_from_rle(
+            floormap["rle"], width, total, 0, min_x, min_y, max_x, max_y
+        )
 
     if runmap and isinstance(runmap.get("rle"), list):
         r_width = int(runmap.get("width", width))
         r_height = int(runmap.get("height", height))
         if r_width == width and r_height == height:
-            run_grid = _decode_rle(runmap["rle"], total, 128)
-            for idx_cell, val in enumerate(run_grid):
-                if val == 128:
-                    continue
-                y, x = divmod(idx_cell, width)
-                if x < min_x:
-                    min_x = x
-                if x > max_x:
-                    max_x = x
-                if y < min_y:
-                    min_y = y
-                if y > max_y:
-                    max_y = y
+            min_x, min_y, max_x, max_y = _update_bbox_from_rle(
+                runmap["rle"], width, total, 128, min_x, min_y, max_x, max_y
+            )
 
     if min_x <= max_x and min_y <= max_y:
         c_x0 = max(0, min_x - pad)
@@ -296,39 +315,46 @@ def render_map_png(
         return None
 
     total = width * height
-    rgba = bytearray(total * 4)
-
-    # Dark slate background (#181c24)
-    bg_r, bg_g, bg_b, bg_a = (24, 28, 36, 255)
-    for i in range(0, total * 4, 4):
-        rgba[i] = bg_r
-        rgba[i + 1] = bg_g
-        rgba[i + 2] = bg_b
-        rgba[i + 3] = bg_a
+    # Dark slate background (#181c24) initialized at C speed
+    rgba = bytearray(b"\x18\x1c\x24\xff" * total)
 
     floor_grid: bytearray | None = None
     min_x, min_y = width, height
     max_x, max_y = 0, 0
 
     if floormap and isinstance(floormap.get("rle"), list):
-        floor_grid = _decode_rle(floormap["rle"], total, 0)
-        for idx_cell, val in enumerate(floor_grid):
-            if val == 0:
-                continue
-            y, x = divmod(idx_cell, width)
-            if x < min_x:
-                min_x = x
-            if x > max_x:
-                max_x = x
-            if y < min_y:
-                min_y = y
-            if y > max_y:
-                max_y = y
-            p = idx_cell * 4
-            if val == 1:  # Free floor
-                rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (212, 220, 232, 255)
-            elif val == 2:  # Wall
-                rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (45, 55, 72, 255)
+        rle = floormap["rle"]
+        if boundaries:
+            floor_grid = _decode_rle(rle, total, 0)
+        idx = 0
+        for pair in rle:
+            if idx >= total:
+                break
+            if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                val = int(pair[0]) & 0xFF
+                count = min(max(0, int(pair[1])), total - idx)
+                if count <= 0:
+                    continue
+                if val != 0:
+                    y0, x0 = divmod(idx, width)
+                    y1, x1 = divmod(idx + count - 1, width)
+                    if y0 < min_y:
+                        min_y = y0
+                    if y1 > max_y:
+                        max_y = y1
+                    if y0 == y1:
+                        if x0 < min_x:
+                            min_x = x0
+                        if x1 > max_x:
+                            max_x = x1
+                    else:
+                        min_x = 0
+                        max_x = width - 1
+                    if val == 1:  # Free floor (#d4dce8)
+                        rgba[idx * 4 : (idx + count) * 4] = b"\xd4\xdc\xe8\xff" * count
+                    elif val == 2:  # Wall (#2d3748)
+                        rgba[idx * 4 : (idx + count) * 4] = b"\x2d\x37\x48\xff" * count
+                idx += count
 
     # Fill zone polygons on base floor grid
     parsed_boundaries: list[
@@ -360,35 +386,46 @@ def render_map_png(
         r_width = int(runmap.get("width", width))
         r_height = int(runmap.get("height", height))
         if r_width == width and r_height == height:
-            run_grid = _decode_rle(runmap["rle"], total, 128)
-            for idx_cell, val in enumerate(run_grid):
-                if val == 128:
-                    continue
-                y, x = divmod(idx_cell, width)
-                if x < min_x:
-                    min_x = x
-                if x > max_x:
-                    max_x = x
-                if y < min_y:
-                    min_y = y
-                if y > max_y:
-                    max_y = y
-                p = idx_cell * 4
-                if val == 3:  # Cleaned area (semi-transparent cyan overlay)
-                    alpha = 0.55
-                    rgba[p] = int(rgba[p] * (1.0 - alpha) + 56 * alpha)
-                    rgba[p + 1] = int(rgba[p + 1] * (1.0 - alpha) + 189 * alpha)
-                    rgba[p + 2] = int(rgba[p + 2] * (1.0 - alpha) + 248 * alpha)
-                    rgba[p + 3] = 255
-                elif val == 150:  # Robot path
-                    rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (
-                        14,
-                        165,
-                        233,
-                        255,
-                    )
-                elif val in (100, 200):  # Dock marker
-                    rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3] = (34, 197, 94, 255)
+            idx = 0
+            for pair in runmap["rle"]:
+                if idx >= total:
+                    break
+                if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                    val = int(pair[0]) & 0xFF
+                    count = min(max(0, int(pair[1])), total - idx)
+                    if count <= 0:
+                        continue
+                    if val != 128:
+                        y0, x0 = divmod(idx, width)
+                        y1, x1 = divmod(idx + count - 1, width)
+                        if y0 < min_y:
+                            min_y = y0
+                        if y1 > max_y:
+                            max_y = y1
+                        if y0 == y1:
+                            if x0 < min_x:
+                                min_x = x0
+                            if x1 > max_x:
+                                max_x = x1
+                        else:
+                            min_x = 0
+                            max_x = width - 1
+                        if val == 3:  # Cleaned area (semi-transparent cyan overlay)
+                            for c_idx in range(idx, idx + count):
+                                p = c_idx * 4
+                                rgba[p] = int(rgba[p] * 0.45 + 30.8)
+                                rgba[p + 1] = int(rgba[p + 1] * 0.45 + 103.95)
+                                rgba[p + 2] = int(rgba[p + 2] * 0.45 + 136.4)
+                                rgba[p + 3] = 255
+                        elif val == 150:  # Robot path (#0ea5e9)
+                            rgba[idx * 4 : (idx + count) * 4] = (
+                                b"\x0e\xa5\xe9\xff" * count
+                            )
+                        elif val in (100, 200):  # Dock marker (#22c55e)
+                            rgba[idx * 4 : (idx + count) * 4] = (
+                                b"\x22\xc5\x5e\xff" * count
+                            )
+                    idx += count
 
     # Draw zone outlines and no-go lines on top of run overlay so borders stay sharp
     for btype, rgb, pts in parsed_boundaries:

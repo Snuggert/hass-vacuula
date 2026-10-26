@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,7 @@ from .coordinator import VacuulaCoordinator, VacuulaRobotData
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.7.0"
+FRONTEND_VERSION = "0.7.1"
 
 type VacuulaConfigEntry = ConfigEntry[VacuulaCoordinator]
 
@@ -72,19 +73,13 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     versioned_url = f"{FRONTEND_URL}?v={FRONTEND_VERSION}"
     try:
         if not hass.data.get(flag_key):
-            if StaticPathConfig is not None and hasattr(
-                hass.http, "async_register_static_paths"
-            ):
+            if hasattr(hass.http, "async_register_static_paths"):
                 await hass.http.async_register_static_paths(
                     [
                         StaticPathConfig(
                             FRONTEND_URL, str(card_path), cache_headers=False
                         )
                     ]
-                )
-            elif hasattr(hass.http, "register_static_path"):
-                hass.http.register_static_path(
-                    FRONTEND_URL, str(card_path), cache_headers=False
                 )
             hass.data[flag_key] = True
         await _async_register_lovelace_resource(hass, versioned_url)
@@ -93,7 +88,7 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
 
 
 def _async_get_loaded_entries(hass: HomeAssistant) -> list[VacuulaConfigEntry]:
-    """Return loaded config entries for Vacuula, compatible across HA versions."""
+    """Return loaded config entries for Vacuula."""
     if hasattr(hass.config_entries, "async_loaded_entries"):
         return hass.config_entries.async_loaded_entries(DOMAIN)
     return [
@@ -218,11 +213,14 @@ def _async_register_services(hass: HomeAssistant) -> None:
             coord, robot = _resolve_target_robot(hass, serial, entity_id)
             await coord.async_refresh_maps_and_runs(robot.serial)
             return
-        for entry in _async_get_loaded_entries(hass):
-            coord = entry.runtime_data
-            if coord.data:
-                for rob_serial in list(coord.data.keys()):
-                    await coord.async_refresh_maps_and_runs(rob_serial)
+        tasks = [
+            entry.runtime_data.async_refresh_maps_and_runs(rob_serial)
+            for entry in _async_get_loaded_entries(hass)
+            if entry.runtime_data and entry.runtime_data.data
+            for rob_serial in list(entry.runtime_data.data)
+        ]
+        if tasks:
+            await asyncio.gather(*tasks)
 
     hass.services.async_register(
         DOMAIN,
@@ -291,9 +289,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
 
 async def async_unload_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
     """Unload a config entry."""
-    coordinator = getattr(entry, "runtime_data", None) or hass.data.get(DOMAIN, {}).get(
-        entry.entry_id
-    )
+    coordinator = getattr(entry, "runtime_data", None)
     if coordinator is not None and hasattr(coordinator, "async_stop_sse"):
         await coordinator.async_stop_sse()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

@@ -14,13 +14,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import (
-    ALL_ZONES_OPTION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    FAN_SPEED_TURBO,
-    GEN3_CATEGORY_MAP,
-    NAV_MODE_NORMAL,
-    ROBOT_TYPE_GEN3,
+)
+from .core.controller import (
+    apply_direct_command_response,
+    async_load_robot_maps_and_runs,
+    async_poll_robots,
 )
 from .core.models import (
     VacuulaRobotData,
@@ -130,86 +130,10 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
         if not self.data or serial not in self.data:
             return
         robot = self.data[serial]
-
-        try:
-            maps_res: Any
-            runs_res: Any
-            maps_res, runs_res = await asyncio.gather(
-                self.client.async_get_maps(serial),
-                self.client.async_get_runs(serial),
-                return_exceptions=True,
-            )
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("Error fetching maps/runs for %s: %s", serial, err)
-            return
-
-        if isinstance(maps_res, list):
-            robot.maps = maps_res
-            active_map = next(
-                (
-                    m
-                    for m in maps_res
-                    if m.get("enabled") or m.get("promoted") or m.get("in_maps_list")
-                ),
-                maps_res[0] if maps_res else None,
-            )
-            if active_map and active_map.get("id"):
-                map_id = str(active_map["id"])
-                map_changed = map_id != robot.active_map_id
-                robot.active_map_id = map_id
-                robot.active_map_name = str(active_map.get("name") or map_id)
-                if map_changed or robot.floormap is None:
-                    try:
-                        robot.floormap = await self.client.async_get_map_detail(
-                            serial, map_id
-                        )
-                    except VacuulaApiError as err:
-                        _LOGGER.debug("Could not fetch floormap %s: %s", map_id, err)
-
-                if robot.connected:
-                    try:
-                        boundaries = await self.client.async_get_map_boundaries(
-                            serial, robot.robot_type, map_id
-                        )
-                        robot.boundaries = boundaries
-                        robot.zones = [
-                            b
-                            for b in boundaries
-                            if b.get("type") == "polygon" and b.get("name")
-                        ]
-                        self._notify_new_zones(serial, robot.zones)
-                    except VacuulaApiError as err:
-                        _LOGGER.debug(
-                            "Could not fetch map boundaries for %s: %s", serial, err
-                        )
-
-        if isinstance(runs_res, list):
-            robot.total_runs = len(runs_res)
-            if runs_res:
-                # Sort runs by id / start_at ascending and pick the last one
-                sorted_runs = sorted(
-                    runs_res,
-                    key=lambda r: str(
-                        r.get("run", {}).get("start_at") or r.get("id") or ""
-                    ),
-                )
-                latest_entry = sorted_runs[-1]
-                run_id = str(latest_entry.get("id") or "")
-                run_obj = latest_entry.get("run")
-                robot.last_run = run_obj if isinstance(run_obj, dict) else latest_entry
-                if run_id and (
-                    run_id != robot.last_run_id or robot.last_runmap is None
-                ):
-                    robot.last_run_id = run_id
-                    try:
-                        robot.last_runmap = await self.client.async_get_run_detail(
-                            serial, run_id
-                        )
-                    except VacuulaApiError as err:
-                        _LOGGER.debug("Could not fetch runmap %s: %s", run_id, err)
-
-        robot.maps_loaded = True
-        self.async_set_updated_data(dict(self.data))
+        if await async_load_robot_maps_and_runs(self.client, robot):
+            if robot.zones:
+                self._notify_new_zones(serial, robot.zones)
+            self.async_set_updated_data(dict(self.data))
 
     def _async_create_background_task(
         self, target: Any, name: str
@@ -363,19 +287,9 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
         """Update robot state directly from a command response or refresh that robot."""
         if not self.data or serial not in self.data:
             return
-        robot = self.data[serial]
-        # Gen3 commands return the full updated state payload directly
-        if (
-            isinstance(response, dict)
-            and robot.robot_type == ROBOT_TYPE_GEN3
-            and "state" in response
-            and "details" in response
-        ):
-            robot.state = response
-            robot.sync_preferences_from_state()
+        if apply_direct_command_response(self.data[serial], response):
             self.async_set_updated_data(dict(self.data))
             return
-
         await self.async_refresh_robot(serial)
 
     async def async_refresh_robot(self, serial: str) -> None:
@@ -410,75 +324,9 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
             raise UpdateFailed(f"Failed to fetch robots from Vacuula: {err}") from err
 
         previous: dict[str, VacuulaRobotData] = getattr(self, "data", None) or {}
-        need_maps_refresh: list[str] = []
-
-        async def _poll_one(
-            serial: str, meta: dict[str, Any]
-        ) -> tuple[str, VacuulaRobotData]:
-            connected = bool(meta.get("connected", False))
-            robot_type = str(meta.get("type", ""))
-            name = str(meta.get("name", serial))
-            prev = previous.get(serial)
-            installed_with = meta.get("installed_with") or (
-                prev.installed_with if prev else None
-            )
-
-            robot_data = VacuulaRobotData(
-                serial=serial,
-                name=name,
-                robot_type=robot_type,
-                connected=connected,
-                state=prev.state if prev else {},
-                preferred_fan_speed=(
-                    prev.preferred_fan_speed if prev else FAN_SPEED_TURBO
-                ),
-                preferred_navigation_mode=(
-                    prev.preferred_navigation_mode if prev else NAV_MODE_NORMAL
-                ),
-                preferred_category=(
-                    prev.preferred_category if prev else GEN3_CATEGORY_MAP
-                ),
-                selected_zone=prev.selected_zone if prev else ALL_ZONES_OPTION,
-                maps=prev.maps if prev else [],
-                active_map_id=prev.active_map_id if prev else None,
-                active_map_name=prev.active_map_name if prev else None,
-                floormap=prev.floormap if prev else None,
-                boundaries=prev.boundaries if prev else [],
-                zones=prev.zones if prev else [],
-                last_run=prev.last_run if prev else None,
-                last_run_id=prev.last_run_id if prev else None,
-                last_runmap=prev.last_runmap if prev else None,
-                total_runs=prev.total_runs if prev else 0,
-                maps_loaded=prev.maps_loaded if prev else False,
-                installed_with=installed_with,
-            )
-
-            if connected:
-                try:
-                    new_state = await self.client.async_get_robot_state(
-                        serial, robot_type
-                    )
-                    if prev and self._did_finish_cleaning(
-                        robot_type, prev.state, new_state
-                    ):
-                        need_maps_refresh.append(serial)
-                    robot_data.state = new_state
-                    if prev is None:
-                        robot_data.sync_preferences_from_state()
-                except VacuulaApiError as err:
-                    _LOGGER.warning(
-                        "Could not query state for %s (%s): %s", name, serial, err
-                    )
-
-            if not robot_data.maps_loaded:
-                need_maps_refresh.append(serial)
-
-            return serial, robot_data
-
-        pairs = await asyncio.gather(
-            *(_poll_one(serial, meta) for serial, meta in robots_raw.items())
+        results, need_maps_refresh = await async_poll_robots(
+            self.client, robots_raw, previous
         )
-        results = dict(pairs)
         self.data = results
 
         for serial in set(need_maps_refresh):
