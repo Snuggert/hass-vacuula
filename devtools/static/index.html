@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vacuula Full-Stack Developer Environment (Lovelace + Mock Entities)</title>
+  <link rel="stylesheet" href="/static/sandbox.css" />
+  <script type="module" src="/vacuula_frontend/vacuula-map-card.js"></script>
+  <script type="module" src="/static/sandbox.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>
+      <span>🤖 Vacuula Full-Stack Developer Environment</span>
+      <span class="pill">Lovelace Frontend</span>
+      <span class="pill green" id="entity-count-pill">Loading Entities...</span>
+    </h1>
+    <div id="server-meta" class="server-meta">Connecting to Vacuula Server...</div>
+  </header>
+
+  <nav class="robot-tabs" id="robot-tabs"></nav>
+
+  <main class="workspace">
+    <!-- Column 1: Live Lovelace Frontend Card & Visual Config Editor -->
+    <section>
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Lovelace Dashboard (<code class="accent">vacuula-map-card</code>)</h2>
+          <button class="ent-btn" id="toggle-editor-btn" type="button">⚙️ Toggle Card Editor</button>
+        </div>
+        <vacuula-map-card id="map-card"></vacuula-map-card>
+      </div>
+
+      <div class="panel hidden" id="editor-panel">
+        <div class="panel-header">
+          <h2>Lovelace Card Config Editor (<code class="accent">vacuula-map-card-editor</code>)</h2>
+        </div>
+        <vacuula-map-card-editor id="map-card-editor"></vacuula-map-card-editor>
+      </div>
+    </section>
+
+    <!-- Column 2: Live Integration Device & Mock Entities Inspector -->
+    <section>
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Integration Device &amp; Entities (<code class="accent">custom_components/vacuula</code>)</h2>
+          <button class="ent-btn" id="refresh-btn" type="button">↻ Refresh</button>
+        </div>
+        <div id="device-info-container"></div>
+        <div id="entities-container"></div>
+      </div>
+    </section>
+
+    <!-- Column 3: Developer Event & Scenario Studio -->
+    <section>
+      <div class="panel" id="sim-studio">
+        <div class="panel-header">
+          <h2>⚡ Developer Event &amp; Scenario Studio</h2>
+          <button class="ent-btn btn-clear" type="button" data-sim="clear">✅ Clear Alerts/Errors</button>
+        </div>
+
+        <div class="entity-group-title first">1. Cleaning &amp; Lifecycle States</div>
+        <div class="btn-grid">
+          <button class="sim-btn" type="button" data-sim="clean" data-category="4">🗺️ Map/Zone Clean</button>
+          <button class="sim-btn" type="button" data-sim="house_clean">▶️ House Clean</button>
+          <button class="sim-btn" type="button" data-sim="spot">🎯 Spot Clean</button>
+          <button class="sim-btn" type="button" data-sim="explore">🧭 Explore Map</button>
+          <button class="sim-btn" type="button" data-sim="pause">⏸️ Pause Clean</button>
+          <button class="sim-btn" type="button" data-sim="stop">⏹️ Stop (Idle)</button>
+          <button class="sim-btn" type="button" data-sim="dock" data-val-bool="true">🏠 Dock Robot</button>
+          <button class="sim-btn" type="button" data-sim="finish_run">🏁 Complete Run</button>
+        </div>
+
+        <div class="entity-group-title">2. Trigger Hardware Alerts (Yellow Banner)</div>
+        <div class="btn-grid">
+          <button class="sim-btn" type="button" data-sim="alert" data-val="dustbin_full">🗑️ Dustbin Full</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="dustbin_missing">📥 Bin Missing</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="maint_brush_change">🧹 Change Brush</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="maint_filter_change">🌬️ Change Filter</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="clear_path">🚧 Clear Path</button>
+          <button class="sim-btn" type="button" data-sim="alert" data-val="nav_floorplan_not_created">🗺️ No Floorplan</button>
+        </div>
+
+        <div class="entity-group-title">3. Trigger Hardware Errors (Red Error State)</div>
+        <div class="btn-grid">
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_brush_stuck">⚠️ Brush Stuck</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_Brush_overload">⚡ Brush Overload</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_navigation_stuck">🛑 Robot Stuck</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_bumper_stuck">🧱 Bumper Stuck</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_picked_up">🙋 Picked Up</button>
+          <button class="sim-btn" type="button" data-sim="error" data-val="ui_error_undock_failed">🚪 Undock Failed</button>
+        </div>
+
+        <div class="custom-code-bar">
+          <input id="custom-code-input" type="text" placeholder="Custom alert/error code..." />
+          <button class="ent-btn" type="button" id="custom-alert-btn">Alert</button>
+          <button class="ent-btn" type="button" id="custom-error-btn">Error</button>
+        </div>
+
+        <div class="entity-group-title">4. Battery, Sensors &amp; Connectivity</div>
+        <div class="battery-box">
+          <div class="battery-header">
+            <span>🔋 Battery Level: <strong id="batt-label">95%</strong></span>
+            <label class="chg-label"><input type="checkbox" id="chg-toggle" /> ⚡ Charging</label>
+          </div>
+          <input type="range" id="batt-slider" min="0" max="100" value="95" />
+          <div class="preset-row">
+            <button class="ent-btn" type="button" data-batt-pct="12" data-batt-chg="false">12% Low</button>
+            <button class="ent-btn" type="button" data-batt-pct="45" data-batt-chg="true">45% Chg</button>
+            <button class="ent-btn" type="button" data-batt-pct="100" data-batt-chg="false">100% Full</button>
+          </div>
+        </div>
+
+        <div class="btn-grid">
+          <button class="sim-btn" type="button" data-sim="dock_seen" data-val-bool="true">👀 Dock Seen: ON</button>
+          <button class="sim-btn" type="button" data-sim="dock_seen" data-val-bool="false">🙈 Dock Seen: OFF</button>
+          <button class="sim-btn" type="button" data-sim="installer_version" data-val="1.0.0-b28">⚠️ Outdated Installer</button>
+          <button class="sim-btn" type="button" data-sim="installer_version" data-val="1.1.0-b3">✅ Latest Installer</button>
+          <button class="sim-btn" type="button" data-sim="disconnect">📡 Drop WiFi (Away)</button>
+          <button class="sim-btn" type="button" data-sim="reconnect">📶 Reconnect WiFi</button>
+        </div>
+        <button class="sim-btn full-width" type="button" data-sim="add_robot" data-val="Upstairs D7">
+          ➕ Spawn &amp; Connect 2nd Mock Neato Robot
+        </button>
+
+        <div class="panel-header log-header">
+          <h2>Live Action &amp; SSE Stream Log</h2>
+        </div>
+        <pre id="service-log">Waiting for events...</pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

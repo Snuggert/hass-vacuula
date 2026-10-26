@@ -26,8 +26,8 @@ from custom_components.vacuula.coordinator import (
     VacuulaCoordinator,
     is_installer_outdated,
 )
-from tests.dev_server.sandbox import VacuulaDevSandbox
-from tests.dev_server.server_manager import VacuulaServerManager
+from devtools.sandbox import VacuulaDevSandbox
+from devtools.server_manager import VacuulaServerManager
 
 
 @pytest.fixture(scope="module")
@@ -407,11 +407,15 @@ async def test_live_standalone_sandbox_end_to_end(
     await sandbox.async_start()
     try:
         async with aiohttp.ClientSession() as session:
-            # 1. Verify HTML & JS card serving
+            # 1. Verify HTML, static assets & JS card serving
             async with session.get(f"{sandbox.sandbox_url}/") as resp:
                 assert resp.status == 200
                 text = await resp.text()
                 assert "<vacuula-map-card" in text
+
+            for static_asset in ("/static/sandbox.css", "/static/sandbox.js"):
+                async with session.get(f"{sandbox.sandbox_url}{static_asset}") as resp:
+                    assert resp.status == 200
 
             async with session.get(
                 f"{sandbox.sandbox_url}/vacuula_frontend/vacuula-map-card.js"

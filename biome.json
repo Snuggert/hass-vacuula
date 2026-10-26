@@ -9,6 +9,8 @@
     "ignoreUnknown": false,
     "include": [
       "custom_components/vacuula/frontend/**/*.js",
+      "devtools/static/**/*.js",
+      "devtools/static/**/*.css",
       "tests/frontend/**/*.js"
     ]
   },

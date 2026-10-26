@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint": "biome check custom_components/vacuula/frontend tests/frontend",
-    "lint:fix": "biome check --write custom_components/vacuula/frontend tests/frontend",
-    "format": "biome format --write custom_components/vacuula/frontend tests/frontend",
+    "lint": "biome check custom_components/vacuula/frontend devtools/static tests/frontend",
+    "lint:fix": "biome check --write custom_components/vacuula/frontend devtools/static tests/frontend",
+    "format": "biome format --write custom_components/vacuula/frontend devtools/static tests/frontend",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

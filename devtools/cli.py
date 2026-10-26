@@ -26,9 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tests.dev_server.mock_neato import MockNeatoRobot  # noqa: E402
-from tests.dev_server.sandbox import VacuulaDevSandbox  # noqa: E402
-from tests.dev_server.server_manager import VacuulaServerManager  # noqa: E402
+from devtools.mock_neato import MockNeatoRobot  # noqa: E402
+from devtools.sandbox import VacuulaDevSandbox  # noqa: E402
+from devtools.server_manager import VacuulaServerManager  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

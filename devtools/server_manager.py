@@ -32,7 +32,7 @@ from .mock_neato import (
 logger = logging.getLogger(__name__)
 
 # Repository root of hass-vacuula
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Default upstream git repository for auto-cloning
 DEFAULT_UPSTREAM_GIT_URL = (

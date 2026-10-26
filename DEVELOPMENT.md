@@ -3,9 +3,9 @@
 This guide explains how to set up and use the **Vacuula Developer Testing Environment** and **Decoupled Core Architecture** for `hass-vacuula` on **Python 3.14**.
 
 Rather than mocking HTTP endpoints with static fixtures or requiring a full Home Assistant Core instance just to iterate on robot logic or the Lovelace map card, this repository provides:
-1. **Zero-HA Pure Python Core (`custom_components/vacuula/core/` & `packages/aiovacuula`)**: The protocol constants, REST + SSE client (`VacuulaApiClient`), pure-Python RLE PNG map renderer (`render_map_png`), and domain state controller (`VacuulaController`) have **zero Home Assistant dependencies** while keeping `custom_components/vacuula` 100% self-contained (`"requirements": []` in `manifest.json`) for HACS.
-2. **Live Vacuula Server & Mock Neato Robot (`tests/dev_server/`)**: Spawns an actual upstream `vacuula_server` process in an isolated sandbox with SQLite Alembic migrations, pre-seeded RLE floorplans/runs, and a simulated Neato Botvac (`MockNeatoRobot`) speaking the chunked HTTP Nucleo/Beehive protocol.
-3. **Full-Stack Integration + Lovelace + Entity Sandbox (Default in `run_vacuula_dev_server.py`)**: Boots the actual `custom_components/vacuula` integration in-process (`VacuulaCoordinator` + all 7 Home Assistant entity platforms: `vacuum`, `image`, `sensor`, `binary_sensor`, `select`, `switch`, `button`), connects it via live SSE to the Vacuula Server, and serves a 3-column browser workbench on `http://127.0.0.1:8124` hosting `<vacuula-map-card>`, `<vacuula-map-card-editor>`, the live Integration Entity & Device Registry Inspector, and the Mock Neato Hardware Simulator—**requiring zero external Home Assistant daemon**.
+1. **Zero-HA Pure Python Core (`custom_components/vacuula/core/` & `devtools.core`)**: The protocol constants, REST + SSE client (`VacuulaApiClient`), pure-Python RLE PNG map renderer (`render_map_png`), and domain state controller (`VacuulaController`) have **zero Home Assistant dependencies** while keeping `custom_components/vacuula` 100% self-contained (`"requirements": []` in `manifest.json`) for HACS.
+2. **Live Vacuula Server & Mock Neato Robot (`devtools/`)**: Spawns an actual upstream `vacuula_server` process in an isolated sandbox with SQLite Alembic migrations, pre-seeded RLE floorplans/runs, and a simulated Neato Botvac (`MockNeatoRobot`) speaking the chunked HTTP Nucleo/Beehive protocol.
+3. **Full-Stack Integration + Lovelace + Entity Sandbox (`python -m devtools`)**: Boots the actual `custom_components/vacuula` integration in-process (`VacuulaCoordinator` + all 7 Home Assistant entity platforms: `vacuum`, `image`, `sensor`, `binary_sensor`, `select`, `switch`, `button`), connects it via live SSE to the Vacuula Server, and serves a 3-column browser workbench on `http://127.0.0.1:8124` hosting `<vacuula-map-card>`, `<vacuula-map-card-editor>`, the live Integration Entity & Device Registry Inspector, and the Mock Neato Hardware Simulator—**requiring zero external Home Assistant daemon**.
 
 ---
 
@@ -66,7 +66,6 @@ flowchart LR
 ```bash
 uv venv --python 3.14 .venv
 uv pip install --python .venv/bin/python -r requirements_test.txt
-uv pip install --python .venv/bin/python -e packages/aiovacuula
 ```
 
 ---
@@ -76,7 +75,7 @@ uv pip install --python .venv/bin/python -e packages/aiovacuula
 Launch the entire stack—Mock Neato Robot(s), real Vacuula Server (`:8050`), the in-process `custom_components/vacuula` integration (with all 22+ real entity instances), and the Lovelace Frontend & Entity Inspector (`:8124`)—with a single command:
 
 ```bash
-.venv/bin/python scripts/run_vacuula_dev_server.py
+.venv/bin/python -m devtools
 ```
 
 Output:
@@ -109,7 +108,7 @@ Open `http://127.0.0.1:8124` in your browser to:
 
 ## Interactive CLI Controls
 
-While `scripts/run_vacuula_dev_server.py` is running, you can also control the simulated robot(s) from the terminal:
+While `python -m devtools` is running, you can also control the simulated robot(s) from the terminal:
 
 | Command | Description | Example |
 |---|---|---|
@@ -154,7 +153,7 @@ npm run lint && npm run typecheck && npm test
 ## CLI Options Reference
 
 ```bash
-.venv/bin/python scripts/run_vacuula_dev_server.py [OPTIONS]
+.venv/bin/python -m devtools [OPTIONS]
 ```
 
 | Flag | Default | Description |

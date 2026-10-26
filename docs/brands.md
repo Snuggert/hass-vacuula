@@ -51,7 +51,7 @@ These assets are mirrored in:
 If the master artwork is updated, run the automated brand generation script to regenerate all 8 compliant PNGs:
 
 ```bash
-python3 scripts/generate_brands.py
+python3 -m devtools.generate_brands
 ```
 
 Automated test verification:

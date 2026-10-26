@@ -7,11 +7,8 @@ requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Snuggert" }]
 
-[tool.uv.workspace]
-members = ["packages/*"]
-
 [tool.pytest.ini_options]
-pythonpath = [".", "packages/aiovacuula/src"]
+pythonpath = ["."]
 testpaths = ["tests"]
 norecursedirs = [".git", ".cache", ".venv"]
 asyncio_mode = "auto"
@@ -39,7 +36,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["custom_components.vacuula", "aiovacuula"]
+known-first-party = ["custom_components.vacuula", "devtools"]
 
 [tool.mypy]
 python_version = "3.14"

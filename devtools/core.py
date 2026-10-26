@@ -10,10 +10,10 @@ import importlib.util
 import sys
 from pathlib import Path
 
-# Locate custom_components/vacuula/core directly on disk so importing `aiovacuula`
+# Locate custom_components/vacuula/core directly on disk so importing `devtools.core`
 # never triggers `custom_components/vacuula/__init__.py` (which imports homeassistant).
 _CORE_DIR = (
-    Path(__file__).resolve().parents[4] / "custom_components" / "vacuula" / "core"
+    Path(__file__).resolve().parents[1] / "custom_components" / "vacuula" / "core"
 )
 if _CORE_DIR.is_dir() and "custom_components.vacuula.core" not in sys.modules:
     for _mod_name, _file_name in (

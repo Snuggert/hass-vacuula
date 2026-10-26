@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import aiovacuula
-from aiovacuula import (
+import devtools.core as vacuula_core
+from devtools.core import (
     FAN_SPEED_ECO,
     FAN_SPEED_TURBO,
     GEN3_CATEGORY_HOUSE,
@@ -33,19 +33,19 @@ from aiovacuula import (
 )
 
 
-def test_aiovacuula_imports_without_homeassistant() -> None:
-    """Verify aiovacuula can be imported in a subprocess where homeassistant is blocked."""
+def test_devtools_core_imports_without_homeassistant() -> None:
+    """Verify devtools.core can be imported in a subprocess where homeassistant is blocked."""
     repo_root = Path(__file__).resolve().parents[2]
     code = (
         "import sys; "
         "sys.modules['homeassistant'] = None; "
         "sys.modules['homeassistant.exceptions'] = None; "
         "sys.modules['homeassistant.const'] = None; "
-        f"sys.path.insert(0, {str(repo_root / 'packages' / 'aiovacuula' / 'src')!r}); "
-        "import aiovacuula; "
-        "assert hasattr(aiovacuula, 'VacuulaApiClient'); "
-        "assert hasattr(aiovacuula, 'VacuulaController'); "
-        "assert issubclass(aiovacuula.VacuulaApiError, Exception)"
+        f"sys.path.insert(0, {str(repo_root)!r}); "
+        "import devtools.core as vacuula_core; "
+        "assert hasattr(vacuula_core, 'VacuulaApiClient'); "
+        "assert hasattr(vacuula_core, 'VacuulaController'); "
+        "assert issubclass(vacuula_core.VacuulaApiError, Exception)"
     )
     res = subprocess.run(
         [sys.executable, "-c", code],
@@ -212,7 +212,7 @@ async def test_vacuula_controller_lifecycle() -> None:
 
 
 def test_version_and_map_helpers() -> None:
-    """Verify version comparison and map rendering helpers via aiovacuula."""
+    """Verify version comparison and map rendering helpers via devtools.core."""
     assert parse_installer_version("1.1.0") > parse_installer_version("1.1.0-b9")
     assert is_installer_outdated("1.1.0-b2", "1.1.0-b3") is True
     assert is_installer_outdated("1.1.0-b3", "1.1.0-b3") is False
@@ -236,5 +236,5 @@ def test_version_and_map_helpers() -> None:
     png = render_map_png(floormap, boundaries)
     assert png is not None
     assert png.startswith(b"\x89PNG\r\n\x1a\n")
-    assert aiovacuula.FAN_SPEED_TURBO == FAN_SPEED_TURBO
+    assert vacuula_core.FAN_SPEED_TURBO == FAN_SPEED_TURBO
     assert issubclass(VacuulaApiError, Exception)
