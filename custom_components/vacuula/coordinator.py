@@ -85,7 +85,7 @@ class VacuulaRobotData:
     def sync_preferences_from_state(self) -> None:
         """Seed cleaning preferences from robot state when available."""
         if self.robot_type == ROBOT_TYPE_GEN3 and self.state:
-            cleaning = self.state.get("cleaning", {})
+            cleaning = self.state.get("cleaning") or {}
             mode = cleaning.get("mode")
             if mode is not None:
                 self.preferred_fan_speed = (

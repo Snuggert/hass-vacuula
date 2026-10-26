@@ -90,8 +90,8 @@ class VacuulaDockedBinarySensor(VacuulaEntity, BinarySensorEntity):
         if not robot or not robot.state:
             return None
         if robot.robot_type == ROBOT_TYPE_GEN3:
-            return bool(robot.state.get("details", {}).get("isDocked"))
-        details = self._gen4_body.get("details", {})
+            return bool((robot.state.get("details") or {}).get("isDocked"))
+        details = self._gen4_body.get("details") or {}
         return bool(details.get("is_docked") or details.get("isDocked"))
 
 
@@ -112,8 +112,8 @@ class VacuulaChargingBinarySensor(VacuulaEntity, BinarySensorEntity):
         if not robot or not robot.state:
             return None
         if robot.robot_type == ROBOT_TYPE_GEN3:
-            return bool(robot.state.get("details", {}).get("isCharging"))
-        details = self._gen4_body.get("details", {})
+            return bool((robot.state.get("details") or {}).get("isCharging"))
+        details = self._gen4_body.get("details") or {}
         return bool(details.get("is_charging") or details.get("isCharging"))
 
 
@@ -134,7 +134,7 @@ class VacuulaDockSeenBinarySensor(VacuulaEntity, BinarySensorEntity):
         robot = self._robot
         if not robot or not robot.state:
             return None
-        return bool(robot.state.get("details", {}).get("dockHasBeenSeen"))
+        return bool((robot.state.get("details") or {}).get("dockHasBeenSeen"))
 
 
 class VacuulaBinFullBinarySensor(VacuulaEntity, BinarySensorEntity):

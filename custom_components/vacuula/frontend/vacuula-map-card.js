@@ -387,6 +387,7 @@ class VacuulaMapCard extends HTMLElement {
       vac?.attributes?.action,
       vac?.attributes?.alert,
       vac?.attributes?.error,
+      vac?.attributes?.errors,
       vac?.attributes?.active_map_name,
       floor?.state,
       floor?.attributes?.entity_picture,

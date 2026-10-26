@@ -103,7 +103,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         if robot.robot_type == ROBOT_TYPE_GEN3:
             state_code = robot.state.get("state")
             action_code = robot.state.get("action", 0)
-            details = robot.state.get("details", {})
+            details = robot.state.get("details") or {}
 
             if state_code == GEN3_STATE_ERROR or robot.state.get("error"):
                 return VacuumActivity.ERROR
@@ -134,7 +134,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
         body = self._gen4_body
         state_str = str(body.get("state", "")).lower()
         action_str = str(body.get("action", "")).lower()
-        details = body.get("details", {})
+        details = body.get("details") or {}
         errors = body.get("errors")
 
         if state_str == "error" or (isinstance(errors, list) and len(errors) > 0):

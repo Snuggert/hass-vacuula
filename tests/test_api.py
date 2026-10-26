@@ -415,3 +415,82 @@ async def test_sse_event_streaming() -> None:
 
     robot_events = [item async for item in client.async_iter_robot_events("s1")]
     assert robot_events == [{"state": 1}]
+
+
+async def test_get_map_boundaries_and_runs_edge_cases() -> None:
+    """Test boundary and runs retrieval with corrupt, malformed, and non-list payloads."""
+    client = VacuulaApiClient("http://localhost:8085", AsyncMock())
+
+    # 1. Gen3 get_map_boundaries: data is None or missing boundaries
+    client.async_send_command = AsyncMock(return_value={"data": None})  # type: ignore[method-assign]
+    assert await client.async_get_map_boundaries("s1", ROBOT_TYPE_GEN3, "m1") == []
+
+    client.async_send_command = AsyncMock(
+        return_value={"data": {"boundaries": "not_a_list"}}
+    )  # type: ignore[method-assign]
+    assert await client.async_get_map_boundaries("s1", ROBOT_TYPE_GEN3, "m1") == []
+
+    client.async_send_command = AsyncMock(
+        return_value={"data": {"boundaries": [{"id": "b1", "name": "Kitchen"}]}}
+    )  # type: ignore[method-assign]
+    assert await client.async_get_map_boundaries("s1", ROBOT_TYPE_GEN3, "m1") == [
+        {"id": "b1", "name": "Kitchen"}
+    ]
+
+    # 2. Gen4 get_map_boundaries: server returns error dict or None
+    client._request = AsyncMock(return_value={"error": "Map not found"})  # type: ignore[method-assign]
+    assert await client.async_get_map_boundaries("s1", ROBOT_TYPE_GEN4, "m1") == []
+
+    client._request = AsyncMock(return_value=[{"id": "b2", "name": "Bedroom"}])  # type: ignore[method-assign]
+    assert await client.async_get_map_boundaries("s1", ROBOT_TYPE_GEN4, "m1") == [
+        {"id": "b2", "name": "Bedroom"}
+    ]
+
+    # 3. async_get_runs: returns [] when server returns non-list
+    client._request = AsyncMock(return_value={"error": "no runs"})  # type: ignore[method-assign]
+    assert await client.async_get_runs("s1") == []
+
+    # 4. async_get_map_detail & async_get_run_detail: returns {} when server returns non-dict
+    client._request = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    assert await client.async_get_map_detail("s1", "m1") == {}
+    assert await client.async_get_run_detail("s1", "r1") == {}
+
+
+async def test_async_send_command_locking_and_concurrency() -> None:
+    """Test that commands to the same robot are serialized by the robot lock."""
+    import asyncio
+
+    session = MagicMock()
+    client = VacuulaApiClient("http://localhost:8085", session)
+
+    execution_order: list[str] = []
+
+    async def fake_request(method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+        tag = kwargs.get("json", {}).get("tag", "unknown")
+        execution_order.append(f"start_{tag}")
+        await asyncio.sleep(0.05)
+        execution_order.append(f"end_{tag}")
+        return {"status": "ok", "tag": tag}
+
+    client._request = AsyncMock(side_effect=fake_request)  # type: ignore[method-assign]
+
+    # Concurrent commands to the SAME robot serial -> must be strictly serialized
+    task1 = asyncio.create_task(
+        client.async_send_command("robot-1", {"cmd": "c1", "tag": "c1"})
+    )
+    task2 = asyncio.create_task(
+        client.async_send_command("robot-1", {"cmd": "c2", "tag": "c2"})
+    )
+    await asyncio.gather(task1, task2)
+
+    assert execution_order == [
+        "start_c1",
+        "end_c1",
+        "start_c2",
+        "end_c2",
+    ] or execution_order == [
+        "start_c2",
+        "end_c2",
+        "start_c1",
+        "end_c1",
+    ]
