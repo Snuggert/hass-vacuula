@@ -33,8 +33,8 @@ DEFAULT_UPSTREAM_GIT_URL = (
     os.environ.get("VACUULA_GIT_URL") or "https://github.com/vacuula/vacuula.git"
 )
 
-# Default cache directory for auto-cloned Vacuula repo
-DEFAULT_CACHE_DIR = Path.home() / ".cache" / "hass-vacuula" / "vacuula"
+# Default cache directory for auto-cloned Vacuula repo (kept inside project directory, git-ignored)
+DEFAULT_CACHE_DIR = REPO_ROOT / ".cache" / "vacuula"
 
 
 def ensure_uv_available() -> str:
@@ -75,9 +75,9 @@ def resolve_or_clone_vacuula_repo(
       1. Explicit custom_path argument
       2. VACUULA_REPO_PATH or VACUULA_DIR environment variables
       3. Sibling directory '../vacuula'
-      4. Local dev directory '.dev_env/vacuula'
-      5. User cache directory '~/.cache/hass-vacuula/vacuula'
-      6. Automatic git clone to cache directory (if auto_clone=True)
+      4. Project cache directory '.cache/vacuula'
+      5. Local dev directory '.dev_env/vacuula'
+      6. Automatic git clone to project cache directory (if auto_clone=True)
     """
     candidates: list[Path] = []
 

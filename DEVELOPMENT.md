@@ -38,7 +38,7 @@ flowchart LR
 1. **Authentic Server Logic**: Uses the real upstream Vacuula server codebase (`vacuula_server`) with SQLite database migrations (`alembic upgrade head`), dynamic routing, and SSE event dispatch.
 2. **Hardware Simulator**: `MockNeatoRobot` simulates a physical Neato Botvac (Gen3 protocol). It pairs via `POST /links`, establishes the persistent command channel on `POST /vendors/neato/login`, parses incoming command chunks, updates its internal state machine, and replies with standard Neato payloads.
 3. **Complete Isolation**: Every test run or dev session operates inside an ephemeral temporary sandbox with its own SQLite database, log file, and TLS certificate—ensuring zero side effects on production or local files.
-4. **Zero-Configuration Discovery**: Automatically detects local Vacuula repositories (sibling directory `../vacuula`, `VACUULA_REPO_PATH`, or local `.dev_env/vacuula`) and can automatically clone upstream Vacuula into `~/.cache/hass-vacuula/vacuula` if not present.
+4. **Zero-Configuration Discovery**: Automatically detects local Vacuula repositories (sibling directory `../vacuula`, `VACUULA_REPO_PATH`, or local `.dev_env/vacuula`) and can automatically clone upstream Vacuula into `.cache/vacuula` if not present.
 5. **Cross-Version Targeting**: Easily test compatibility against Vacuula v1.1.0, v1.0.0, or specific git release tags.
 
 ---
@@ -239,9 +239,9 @@ The server manager resolves the Vacuula repository automatically in the followin
 
 1. Path supplied via `--repo` or constructor argument.
 2. `VACUULA_REPO_PATH` or `VACUULA_DIR` environment variables.
-3. Sibling directory `../vacuula` (standard for developers cloning both repositories).
-4. Project-local `.dev_env/vacuula`.
-5. User cache directory `~/.cache/hass-vacuula/vacuula`.
-6. If no repository is found, it automatically shallow-clones the upstream repository into `~/.cache/hass-vacuula/vacuula`.
+3. Sibling directory `../vacuula` (standard for developers cloning both repositories side by side).
+4. Project cache directory `.cache/vacuula` (kept inside repository, git-ignored).
+5. Project-local `.dev_env/vacuula`.
+6. If no repository is found, it automatically shallow-clones the upstream repository into `.cache/vacuula`.
 
 Contributors do not need to manually clone or configure paths to begin testing.
