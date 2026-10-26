@@ -9,8 +9,6 @@ if [ -n "$VIRTUAL_ENV" ] && [ -x "$VIRTUAL_ENV/bin/pytest" ]; then
     PY="$VIRTUAL_ENV/bin"
 elif [ -d ".venv/bin" ] && [ -x ".venv/bin/pytest" ]; then
     PY=".venv/bin"
-elif [ -x "/home/abewi/.gemini/antigravity-cli/brain/d06bb93a-f9dd-4e1a-aa7e-fcba1e2bd5ed/scratch/venv312/bin/pytest" ]; then
-    PY="/home/abewi/.gemini/antigravity-cli/brain/d06bb93a-f9dd-4e1a-aa7e-fcba1e2bd5ed/scratch/venv312/bin"
 elif command -v pytest >/dev/null 2>&1; then
     PY=""
 else

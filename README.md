@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
-  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.6.2-0ea5e9.svg?style=flat-square" alt="Version 0.6.2" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.7.0-0ea5e9.svg?style=flat-square" alt="Version 0.7.0" /></a>
   <a href="https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md"><img src="https://img.shields.io/badge/Vacuula_Compatibility-v1.0_%7C_v1.1+-success.svg?style=flat-square" alt="Vacuula Compatibility: v1.0 | v1.1+" /></a>
   <a href="https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/"><img src="https://img.shields.io/badge/IoT_Class-Local_Push-10b981.svg?style=flat-square" alt="IoT Class: Local Push" /></a>
   <a href="#-architecture--design-highlights"><img src="https://img.shields.io/badge/dependencies-zero_external_packages-8b5cf6.svg?style=flat-square" alt="Zero External Dependencies" /></a>
@@ -291,11 +291,12 @@ action:
 
 ---
 
-## 🏗️ Architecture & Design Highlights
+## 🏗️ Architecture & Developer Guide
 
-For a deep dive into the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and the integration's [security & robustness safeguards](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md#6-security--robustness), see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
-
-Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snuggert/hass-vacuula/blob/main/CHANGELOG.md).
+- **Architecture Deep Dive**: For details on the coordinator data pipeline, SSE event multiplexing, Gen3/Gen4 protocol normalization, pure-Python RLE PNG rendering, and security safeguards, see [**ARCHITECTURE.md**](https://github.com/Snuggert/hass-vacuula/blob/main/ARCHITECTURE.md).
+- **Developer Testing Environment**: For setting up a local dev environment, launching the Vacuula dev server with simulated Neato robots, and running live integration tests, see [**DEVELOPMENT.md**](https://github.com/Snuggert/hass-vacuula/blob/main/DEVELOPMENT.md).
+- **Cross-Version Compatibility Matrix**: For compatibility across Vacuula server releases (v1.0.0, v1.0.1, v1.1.0+), see [**COMPATIBILITY.md**](https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md).
+- **Release History**: Release notes for each version are in [**CHANGELOG.md**](https://github.com/Snuggert/hass-vacuula/blob/main/CHANGELOG.md).
 
 ---
 

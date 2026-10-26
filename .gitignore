@@ -11,3 +11,5 @@ venv/
 htmlcov/
 node_modules/
 .biome/
+.cache/
+.dev_env/

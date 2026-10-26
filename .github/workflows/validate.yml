@@ -52,11 +52,11 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.14"
           activate-environment: true
 
       - name: Install dependencies
-        run: uv pip install -r requirements_test.txt
+        run: uv pip install -r requirements_test.txt -e packages/aiovacuula
 
       - name: Run Mypy
         run: mypy custom_components/vacuula
@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.14"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -134,7 +134,7 @@ jobs:
           activate-environment: true
 
       - name: Install dependencies
-        run: uv pip install -r requirements_test.txt
+        run: uv pip install -r requirements_test.txt -e packages/aiovacuula
 
       - name: Run Pytest with Coverage
         shell: bash
