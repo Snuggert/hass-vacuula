@@ -79,34 +79,43 @@ jobs:
                   out.write(extracted + "\n")
           ' "$TAG"
 
-          NOTES_ARG="--generate-notes"
+          # Always fetch auto-generated notes from GitHub API
+          AUTO_NOTES=$(gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="$TAG" -q .body 2>/dev/null || true)
+
           if [ -s "RELEASE_NOTES.md" ]; then
-            # Extract auto-generated contributors from GitHub generate-notes API
-            AUTO_NOTES=$(gh api "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="$TAG" -q .body 2>/dev/null || true)
+            # Extract auto-generated contributors / changelog link to append to curated notes
             if [ -n "$AUTO_NOTES" ]; then
               python3 -c '
-import sys, re
-auto = sys.stdin.read()
-if not auto.strip():
-    sys.exit(0)
-match_new = re.search(r"(## (?:New )?Contributors.*)", auto, re.DOTALL)
-if match_new:
-    section = match_new.group(1).strip()
-    with open("RELEASE_NOTES.md", "a") as f:
-        f.write("\n\n" + section + "\n")
-else:
-    contributors = sorted(set(re.findall(r"@([a-zA-Z0-9_-]+)", auto)))
-    if contributors:
-        contributor_lines = [f"* @{c}" for c in contributors]
-        with open("RELEASE_NOTES.md", "a") as f:
-            f.write("\n\n## Contributors\n" + "\n".join(contributor_lines) + "\n")
-    match_changelog = re.search(r"(\*\*Full Changelog\*\*:.*)", auto)
-    if match_changelog:
-        with open("RELEASE_NOTES.md", "a") as f:
-            f.write("\n" + match_changelog.group(1).strip() + "\n")
-' <<< "$AUTO_NOTES"
+              import sys, re
+              auto = sys.stdin.read()
+              if not auto.strip():
+                  sys.exit(0)
+              match_new = re.search(r"(## (?:New )?Contributors.*)", auto, re.DOTALL)
+              if match_new:
+                  section = match_new.group(1).strip()
+                  with open("RELEASE_NOTES.md", "a") as f:
+                      f.write("\n\n" + section + "\n")
+              else:
+                  contributors = sorted(set(re.findall(r"@([a-zA-Z0-9_-]+)", auto)))
+                  if contributors:
+                      contributor_lines = [f"* @{c}" for c in contributors]
+                      with open("RELEASE_NOTES.md", "a") as f:
+                          f.write("\n\n## Contributors\n" + "\n".join(contributor_lines) + "\n")
+                  match_changelog = re.search(r"(\*\*Full Changelog\*\*:.*)", auto)
+                  if match_changelog:
+                      with open("RELEASE_NOTES.md", "a") as f:
+                          f.write("\n" + match_changelog.group(1).strip() + "\n")
+              ' <<< "$AUTO_NOTES"
             fi
+          elif [ -n "$AUTO_NOTES" ]; then
+            printf "%s\n" "$AUTO_NOTES" > RELEASE_NOTES.md
+          fi
+
+          NOTES_ARG=""
+          if [ -s "RELEASE_NOTES.md" ]; then
             NOTES_ARG="--notes-file RELEASE_NOTES.md"
+          else
+            NOTES_ARG="--generate-notes"
           fi
 
           # Check if a release for this tag already exists
@@ -119,7 +128,11 @@ else:
             echo "🚀 Promoting $TAG to full public release after manual approval..."
             if [ "$EXISTS" = "true" ]; then
               gh release upload "$TAG" vacuula.zip --clobber
-              gh release edit "$TAG" --draft=false $NOTES_ARG
+              if [ -s "RELEASE_NOTES.md" ]; then
+                gh release edit "$TAG" --draft=false --notes-file RELEASE_NOTES.md
+              else
+                gh release edit "$TAG" --draft=false
+              fi
             else
               gh release create "$TAG" vacuula.zip --title "$TAG" --draft=false $NOTES_ARG
             fi
@@ -128,7 +141,11 @@ else:
             echo "📝 Preparing draft release for $TAG (awaiting manual testing & promotion)..."
             if [ "$EXISTS" = "true" ]; then
               gh release upload "$TAG" vacuula.zip --clobber
-              gh release edit "$TAG" --draft=true $NOTES_ARG
+              if [ -s "RELEASE_NOTES.md" ]; then
+                gh release edit "$TAG" --draft=true --notes-file RELEASE_NOTES.md
+              else
+                gh release edit "$TAG" --draft=true
+              fi
             else
               gh release create "$TAG" vacuula.zip --title "$TAG" --draft=true $NOTES_ARG
             fi
