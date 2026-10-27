@@ -81,6 +81,31 @@ jobs:
 
           NOTES_ARG="--generate-notes"
           if [ -s "RELEASE_NOTES.md" ]; then
+            # Extract auto-generated contributors from GitHub generate-notes API
+            AUTO_NOTES=$(gh api "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="$TAG" -q .body 2>/dev/null || true)
+            if [ -n "$AUTO_NOTES" ]; then
+              python3 -c '
+import sys, re
+auto = sys.stdin.read()
+if not auto.strip():
+    sys.exit(0)
+match_new = re.search(r"(## (?:New )?Contributors.*)", auto, re.DOTALL)
+if match_new:
+    section = match_new.group(1).strip()
+    with open("RELEASE_NOTES.md", "a") as f:
+        f.write("\n\n" + section + "\n")
+else:
+    contributors = sorted(set(re.findall(r"@([a-zA-Z0-9_-]+)", auto)))
+    if contributors:
+        contributor_lines = [f"* @{c}" for c in contributors]
+        with open("RELEASE_NOTES.md", "a") as f:
+            f.write("\n\n## Contributors\n" + "\n".join(contributor_lines) + "\n")
+    match_changelog = re.search(r"(\*\*Full Changelog\*\*:.*)", auto)
+    if match_changelog:
+        with open("RELEASE_NOTES.md", "a") as f:
+            f.write("\n" + match_changelog.group(1).strip() + "\n")
+' <<< "$AUTO_NOTES"
+            fi
             NOTES_ARG="--notes-file RELEASE_NOTES.md"
           fi
 
