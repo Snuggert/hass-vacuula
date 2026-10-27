@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-10-27
+
+> **Special Thanks:** A huge thank you to **[@veronoicc](https://github.com/veronoicc)** ([#3](https://github.com/Snuggert/hass-vacuula/pull/3)) for this incredible and comprehensive contribution! This release introduces modern room/segment cleaning, new custom actions, server hub diagnostic entities, dynamic options flow, and frontend card polish.
+
+### Added
+- **New Custom Actions / Services (`custom_components/vacuula/`):**
+  - `vacuula.clean_zone`: Start cleaning a single persistent map zone or room by name with optional `map_name`, `mode`/`fan_speed`, and `navigation_mode`.
+  - `vacuula.dismiss_alert`: Clear the active alert/notification on a Gen3 robot.
+  - `vacuula.send_raw_command`: Dispatch raw Gen3 commands (`cmd`) or Gen4 abilities (`ability`) directly to a robot with optional parameters dictionary.
+  - Added `async_send_raw_command` to `VacuulaApiClient` (`core/client.py`).
+  - Added action schemas, selector definitions, and translations in `services.yaml`, `icons.json`, `strings.json`, and `translations/en.json`.
+- **Modern Segment & Spot Cleaning on Vacuum Entity (`custom_components/vacuula/vacuum.py`):**
+  - Implemented `async_clean_spot` for Gen3 localized spot cleaning.
+  - Implemented Home Assistant's modern area cleaning contract via `Segment` dataclass, `async_get_segments()`, and `async_clean_segments()`.
+  - Dynamically flags `VacuumEntityFeature.CLEAN_SPOT` and `FEATURE_CLEAN_AREA`.
+- **Clean Selected Zone Button (`custom_components/vacuula/button.py`):**
+  - Added `VacuulaCleanSelectedZoneButton` (`button.<robot>_clean_selected_zone`) to clean whichever zone is currently selected by `select.<robot>_target_zone` (or full house if set to `all`).
+- **Server Hub Device & Diagnostic Entities (`custom_components/vacuula/`):**
+  - Registered Vacuula Server hub device in Device Registry with `DeviceEntryType.SERVICE`, parenting robot vacuums via `via_device`.
+  - Added `binary_sensor.server_<id>_status` (`BinarySensorDeviceClass.CONNECTIVITY`).
+  - Added `sensor.server_<id>_version` (`EntityCategory.DIAGNOSTIC`).
+  - Added `sensor.server_<id>_connected_robots` (measurement sensor tracking count of connected robots).
+  - Extracted shared `VacuulaServerEntity` base class in `entity.py` to keep server hub platform definitions concise and DRY.
+- **Config Entry Options Flow (`custom_components/vacuula/config_flow.py`):**
+  - Added `VacuulaOptionsFlowHandler` to configure polling `scan_interval` (5–300s slider) via Home Assistant UI.
+  - Added reload listener in `__init__.py` and dynamic update interval handling in `VacuulaCoordinator`.
+- **Lovelace Map Card Polish (`custom_components/vacuula/frontend/vacuula-map-card.js`):**
+  - Added SVG alert icons and dustbin indicators in alert banners.
+  - Added dynamic button label support (`Start`, `Pause`, `Resume`) reflecting robot activity state.
+  - Updated card preview visual asset in `docs/assets/card_preview.svg`.
+
 ## [0.7.2] - 2026-10-26
 
 ### Changed
@@ -114,6 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.8.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.2...v0.8.0
+[0.7.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.6.1...v0.6.2
