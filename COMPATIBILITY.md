@@ -8,7 +8,9 @@ This document details cross-version compatibility between **Neato Botvac for Hom
 
 | Integration Version | Home Assistant | Python | Vacuula Server v1.0.0 | Vacuula Server v1.1.0+ | Gen3 Botvac (D3–D7) | Gen4 Botvac (D8–D10) | Gen2 Botvac (OG) | Outdated Installer Alert | Gen4 Flipped Dock Align | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **v0.7.1** | `2026.3.0+` | `3.14+` | ✅ Full | ✅ Full | ✅ Full | ✅ Full | 🚧 Roadmap | ✅ Supported | ✅ Supported | **Current / Recommended** |
+| **v0.8.0** | `2026.3.0+` | `3.14+` | ✅ Full | ✅ Full | ✅ Full | ✅ Full | 🚧 Roadmap | ✅ Supported | ✅ Supported | **Current / Recommended** |
+| **v0.7.2** | `2026.3.0+` | `3.14+` | ✅ Full | ✅ Full | ✅ Full | ✅ Full | 🚧 Roadmap | ✅ Supported | ✅ Supported | Previous Stable |
+| **v0.7.1** | `2026.3.0+` | `3.14+` | ✅ Full | ✅ Full | ✅ Full | ✅ Full | 🚧 Roadmap | ✅ Supported | ✅ Supported | Previous Stable |
 | **v0.7.0** | `2026.3.0+` | `3.14+` | ✅ Full | ✅ Full | ✅ Full | ✅ Full | 🚧 Roadmap | ✅ Supported | ✅ Supported | Previous Stable |
 | **v0.6.2** | `2025.1.0+` | `3.12+` | ✅ Full | ✅ Full | ✅ Full | ✅ Full | 🚧 Roadmap | ✅ Supported | ✅ Supported | Previous Stable |
 | **v0.6.1** | `2025.1.0+` | `3.12+` | ✅ Full | ⚠️ Compatible | ✅ Full | ⚠️ Partial | 🚧 Roadmap | ❌ No | ❌ No | Legacy |

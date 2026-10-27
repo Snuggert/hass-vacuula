@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml"><img src="https://github.com/Snuggert/hass-vacuula/actions/workflows/validate.yml/badge.svg" alt="Validate" /></a>
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square" alt="HACS Default" /></a>
-  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/badge/version-0.7.1-0ea5e9.svg?style=flat-square" alt="Version 0.7.1" /></a>
+  <a href="https://github.com/Snuggert/hass-vacuula/releases"><img src="https://img.shields.io/github/v/release/Snuggert/hass-vacuula?style=flat-square&color=0ea5e9&label=version" alt="Latest Release" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14+-3776AB.svg?style=flat-square" alt="Python 3.14+" /></a>
   <a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/Home_Assistant-2026.3+-41BDF5.svg?style=flat-square" alt="Home Assistant 2026.3+" /></a>
   <a href="https://github.com/Snuggert/hass-vacuula/blob/main/COMPATIBILITY.md"><img src="https://img.shields.io/badge/Vacuula_Compatibility-v1.0_%7C_v1.1+-success.svg?style=flat-square" alt="Vacuula Compatibility: v1.0 | v1.1+" /></a>
