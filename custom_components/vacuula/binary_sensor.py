@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import VacuulaConfigEntry
 from .const import ROBOT_TYPE_GEN3
 from .coordinator import VacuulaCoordinator, is_installer_outdated
-from .entity import VacuulaEntity
+from .entity import VacuulaEntity, VacuulaServerEntity
 
 PARALLEL_UPDATES = 0
 
@@ -27,6 +27,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up Vacuula binary sensor entities."""
     coordinator: VacuulaCoordinator = entry.runtime_data
+
+    # Add server binary sensor
+    async_add_entities([VacuulaServerStatusBinarySensor(coordinator, entry)])
 
     @callback
     def _async_add_new_robots(serials: list[str]) -> None:
@@ -203,3 +206,25 @@ class VacuulaOutdatedInstallerBinarySensor(VacuulaEntity, BinarySensorEntity):
         if min_ver:
             attrs["minimum_installer_version"] = min_ver
         return attrs
+
+
+class VacuulaServerStatusBinarySensor(VacuulaServerEntity, BinarySensorEntity):
+    """Diagnostic binary sensor indicating whether the Vacuula server is reachable."""
+
+    _attr_translation_key = "server_status"
+    _attr_name = "Server status"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: VacuulaCoordinator,
+        entry: VacuulaConfigEntry,
+    ) -> None:
+        """Initialize the server status binary sensor."""
+        super().__init__(coordinator, entry, "server_status")
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if the coordinator last refresh was successful."""
+        return bool(self.coordinator.last_update_success)

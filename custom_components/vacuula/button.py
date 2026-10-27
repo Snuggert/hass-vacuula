@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from . import VacuulaConfigEntry
-from .const import ROBOT_TYPE_GEN3
+from .const import ALL_ZONES_OPTION, ROBOT_TYPE_GEN3
 from .coordinator import VacuulaCoordinator
 from .entity import VacuulaEntity
 
@@ -35,6 +35,7 @@ async def async_setup_entry(
                     VacuulaLocateButton(coordinator, serial),
                     VacuulaRefreshMapsButton(coordinator, serial),
                     VacuulaExploreMapButton(coordinator, serial),
+                    VacuulaCleanSelectedZoneButton(coordinator, serial),
                 ]
             )
             robot = coordinator.data.get(serial)
@@ -179,4 +180,46 @@ class VacuulaCleanZoneButton(VacuulaEntity, ButtonEntity):
             fan_speed=robot.preferred_fan_speed,
             navigation_mode=robot.preferred_navigation_mode,
         )
+        await self.coordinator.async_apply_command_response(self._serial, resp)
+
+
+class VacuulaCleanSelectedZoneButton(VacuulaEntity, ButtonEntity):
+    """Button to trigger cleaning for whatever zone is currently selected by the zone select."""
+
+    _attr_name = "Clean selected zone"
+    _attr_icon = "mdi:broom"
+
+    def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
+        """Initialize clean selected zone button."""
+        super().__init__(coordinator, serial, "clean_selected_zone")
+
+    async def async_press(self) -> None:
+        """Start cleaning for selected zone, or full house cleaning if 'all'."""
+        robot = self._robot
+        if not robot:
+            return
+
+        if (
+            robot.selected_zone
+            and robot.selected_zone != ALL_ZONES_OPTION
+            and robot.active_map_id
+        ):
+            zone_ids = robot.resolve_zone_ids([robot.selected_zone])
+            resp = await self.coordinator.client.async_start_zone_cleaning(
+                self._serial,
+                robot.robot_type,
+                robot.active_map_id,
+                zone_ids,
+                fan_speed=robot.preferred_fan_speed,
+                navigation_mode=robot.preferred_navigation_mode,
+            )
+        else:
+            resp = await self.coordinator.client.async_start_cleaning(
+                self._serial,
+                robot.robot_type,
+                fan_speed=robot.preferred_fan_speed,
+                navigation_mode=robot.preferred_navigation_mode,
+                category=robot.preferred_category,
+                map_id=robot.active_map_id,
+            )
         await self.coordinator.async_apply_command_response(self._serial, resp)

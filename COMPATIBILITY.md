@@ -4,7 +4,7 @@ This document details cross-version compatibility between **Neato Botvac for Hom
 
 ---
 
-## 📊 Compatibility Matrix
+## Compatibility Matrix
 
 | Integration Version | Home Assistant | Python | Vacuula Server v1.0.0 | Vacuula Server v1.1.0+ | Gen3 Botvac (D3–D7) | Gen4 Botvac (D8–D10) | Gen2 Botvac (OG) | Outdated Installer Alert | Gen4 Flipped Dock Align | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
@@ -23,7 +23,7 @@ This document details cross-version compatibility between **Neato Botvac for Hom
 
 ---
 
-## ⚡ Vacuula Server Releases
+## Vacuula Server Releases
 
 ### Vacuula Server v1.1.0+ (Latest Upstream Release)
 
@@ -48,13 +48,13 @@ This document details cross-version compatibility between **Neato Botvac for Hom
 
 * **Compatibility Status**: **Fully Supported (Backward-Compatible)** in `v0.7.0`.
 * **Behavior in v0.7.0**:
-  * Default port 80 and custom ports (e.g. `8085`) are supported seamlessly.
+  * Default port 80 and custom ports (e.g. `8085`) are supported.
   * When `min_installer_version` or `installed_with` is not returned by the server, the integration gracefully falls back and keeps `binary_sensor.<robot>_installer_outdated` in an inactive state (`off`).
   * Dock rendering on Gen3 continues to draw from floormap pixel metadata.
 
 ---
 
-## 🤖 Robot Generation & Installer Firmware Compatibility
+## Robot Generation & Installer Firmware Compatibility
 
 ### Gen3: Neato Botvac Connected (D3, D4, D5, D6, D7)
 
@@ -90,7 +90,7 @@ All Gen4 models are fully supported by `hass-vacuula`.
 
 ---
 
-## 🔌 Network Ports & Topology Reference
+## Network Ports & Topology Reference
 
 The integration and Vacuula communicate over your local area network (LAN):
 
@@ -128,7 +128,7 @@ The integration and Vacuula communicate over your local area network (LAN):
 
 ---
 
-## ❓ Frequently Asked Compatibility Questions
+## Frequently Asked Compatibility Questions
 
 ### What does the `Installer Outdated` problem sensor mean?
 If `binary_sensor.<robot>_installer_outdated` turns **ON**, your Gen3 robot was set up with a Vacuula installer older than `1.1.0-b3` (for example, version `1.0.0`). While the robot may continue to clean, upstream Vacuula introduced improvements in `v1.1.0` (such as configurable robot socket ports and refined schedule handling) that require updating the robot using the latest [Vacuula Installer](https://github.com/vacuula/installer).

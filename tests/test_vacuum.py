@@ -5,9 +5,12 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 try:
-    from homeassistant.components.vacuum import VacuumActivity
+    from homeassistant.components.vacuum import VacuumActivity, VacuumEntityFeature
 except ImportError:
-    from custom_components.vacuula.vacuum import VacuumActivity  # type: ignore[assignment]
+    from custom_components.vacuula.vacuum import (  # type: ignore[assignment]
+        VacuumActivity,
+        VacuumEntityFeature,
+    )
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -34,7 +37,12 @@ from custom_components.vacuula.coordinator import (
     VacuulaCoordinator,
     VacuulaRobotData,
 )
-from custom_components.vacuula.vacuum import VacuulaVacuumEntity, async_setup_entry
+from custom_components.vacuula.vacuum import (
+    FEATURE_CLEAN_AREA,
+    Segment,
+    VacuulaVacuumEntity,
+    async_setup_entry,
+)
 
 
 def create_mock_coordinator(
@@ -344,3 +352,151 @@ async def test_vacuum_additional_states_and_edge_cases(hass: HomeAssistant) -> N
     entity_missing = VacuulaVacuumEntity(coord_gen4, "MISSING")
     await entity_missing.async_start()
     client.async_start_cleaning.assert_not_called()
+
+
+async def test_vacuum_supported_features(hass: HomeAssistant) -> None:
+    """Test dynamic supported features based on robot generation and zones."""
+    robot_gen3_no_zones = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        state={"state": GEN3_STATE_IDLE},
+        zones=[],
+    )
+    coord, _ = create_mock_coordinator(hass, robot_gen3_no_zones)
+    entity = VacuulaVacuumEntity(coord, "OPS123")
+
+    assert entity.supported_features & VacuumEntityFeature.CLEAN_SPOT
+    assert not (entity.supported_features & FEATURE_CLEAN_AREA)
+
+    # Add zones
+    robot_gen3_no_zones.zones = [{"id": "z1", "name": "Kitchen"}]
+    assert entity.supported_features & VacuumEntityFeature.CLEAN_SPOT
+    assert entity.supported_features & FEATURE_CLEAN_AREA
+
+    # Gen4 with zones
+    robot_gen4 = VacuulaRobotData(
+        serial="G4-123",
+        name="Neato D8",
+        robot_type=ROBOT_TYPE_GEN4,
+        connected=True,
+        state={"body": {"state": "idle"}},
+        zones=[{"id": "z2", "name": "Living Room"}],
+    )
+    coord_g4, _ = create_mock_coordinator(hass, robot_gen4)
+    entity_g4 = VacuulaVacuumEntity(coord_g4, "G4-123")
+    assert not (entity_g4.supported_features & VacuumEntityFeature.CLEAN_SPOT)
+    assert entity_g4.supported_features & FEATURE_CLEAN_AREA
+
+
+async def test_vacuum_spot_cleaning(hass: HomeAssistant) -> None:
+    """Test async_clean_spot executes API call and updates state."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        state={"state": GEN3_STATE_IDLE},
+        preferred_fan_speed=FAN_SPEED_TURBO,
+        preferred_navigation_mode="standard",
+    )
+    coord, client = create_mock_coordinator(hass, robot)
+    client.async_start_spot_cleaning.return_value = {"result": "ok"}
+    entity = VacuulaVacuumEntity(coord, "OPS123")
+
+    await entity.async_clean_spot(width=150, height=250)
+    client.async_start_spot_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        width=150,
+        height=250,
+        fan_speed=FAN_SPEED_TURBO,
+        navigation_mode="standard",
+    )
+
+    # Spot clean with missing robot
+    entity_missing = VacuulaVacuumEntity(coord, "MISSING")
+    await entity_missing.async_clean_spot()
+
+
+async def test_vacuum_segments(hass: HomeAssistant) -> None:
+    """Test async_get_segments and async_clean_segments."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        state={"state": GEN3_STATE_IDLE},
+        active_map_id="map-1",
+        active_map_name="Ground Floor",
+        zones=[
+            {"id": "zone-1", "name": "Kitchen"},
+            {"id": "zone-2", "name": "Living Room"},
+            {"id": "zone-invalid"},  # missing name
+        ],
+        maps=[{"id": "map-1", "name": "Ground Floor"}],
+    )
+    coord, client = create_mock_coordinator(hass, robot)
+    client.async_start_zone_cleaning.return_value = {"result": "ok"}
+    entity = VacuulaVacuumEntity(coord, "OPS123")
+
+    # Check segments
+    segments = await entity.async_get_segments()
+    assert segments == [
+        Segment(id="zone-1", name="Kitchen", group="Ground Floor"),
+        Segment(id="zone-2", name="Living Room", group="Ground Floor"),
+    ]
+
+    # Check extra state attributes have zones and maps
+    attrs = entity.extra_state_attributes
+    assert attrs["cleanable_zones"] == [
+        {"id": "zone-1", "name": "Kitchen", "map_name": "Ground Floor"},
+        {"id": "zone-2", "name": "Living Room", "map_name": "Ground Floor"},
+    ]
+    assert attrs["maps"] == ["Ground Floor"]
+
+    # Clean segments by ID
+    await entity.async_clean_segments(["zone-1"])
+    client.async_start_zone_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        "map-1",
+        ["zone-1"],
+        fan_speed=FAN_SPEED_TURBO,
+        navigation_mode="normal",
+    )
+
+    # Clean segments by name
+    client.async_start_zone_cleaning.reset_mock()
+    await entity.async_clean_segments(["Living Room"])
+    client.async_start_zone_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        "map-1",
+        ["zone-2"],
+        fan_speed=FAN_SPEED_TURBO,
+        navigation_mode="normal",
+    )
+
+    # Clean segments with empty list or missing robot
+    client.async_start_zone_cleaning.reset_mock()
+    await entity.async_clean_segments([])
+    client.async_start_zone_cleaning.assert_not_called()
+
+    entity_missing = VacuulaVacuumEntity(coord, "MISSING")
+    assert await entity_missing.async_get_segments() == []
+    await entity_missing.async_clean_segments(["zone-1"])
+    client.async_start_zone_cleaning.assert_not_called()
+
+    # Clean segments when no active_map_id on robot
+    robot.active_map_id = None
+    await entity.async_clean_segments(["zone-1"])
+    client.async_start_zone_cleaning.assert_not_called()
+    robot.active_map_id = "map-1"
+
+    # Clean segments when no zones on robot
+    robot.zones = []
+    assert await entity.async_get_segments() == []
+    await entity.async_clean_segments(["zone-1"])
+    client.async_start_zone_cleaning.assert_not_called()

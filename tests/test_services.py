@@ -17,8 +17,11 @@ from custom_components.vacuula.const import (
     DOMAIN,
     ROBOT_TYPE_GEN3,
     SERVICE_CLEAN_SPOT,
+    SERVICE_CLEAN_ZONE,
     SERVICE_CLEAN_ZONES,
+    SERVICE_DISMISS_ALERT,
     SERVICE_REFRESH_MAPS,
+    SERVICE_SEND_RAW_COMMAND,
 )
 from custom_components.vacuula.coordinator import (
     VacuulaCoordinator,
@@ -365,3 +368,148 @@ async def test_service_clean_zones_scalar_and_unmatched_registry(
         entry = hass.config_entries.async_entries(DOMAIN)[0]
         entry.runtime_data.data = mock_robot_dict
         _resolve_target_robot(hass, entity_id="vacuum.orphan_vacuum")
+
+
+async def test_service_clean_zone(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test clean_zone finds zone by name and triggers cleaning."""
+    _, client, coordinator = await setup_mock_environment(hass, mock_robot)
+    client.async_start_zone_cleaning.return_value = {"status": "ok"}
+    coordinator.async_apply_command_response = AsyncMock()
+
+    # Successful clean_zone with zone_name and optional mode
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CLEAN_ZONE,
+        {
+            "serial": "OPS123",
+            "zone_name": "Kitchen",
+            "mode": "eco",
+            "navigation_mode": "extra_care",
+        },
+        blocking=True,
+    )
+    client.async_start_zone_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        "map-1",
+        ["zone-kitchen"],
+        fan_speed="eco",
+        navigation_mode="extra_care",
+    )
+    coordinator.async_apply_command_response.assert_awaited_once_with(
+        "OPS123", {"status": "ok"}
+    )
+
+    # Zone not found error
+    with pytest.raises(HomeAssistantError, match="Zone 'NonExistent' not found"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CLEAN_ZONE,
+            {
+                "serial": "OPS123",
+                "zone_name": "NonExistent",
+            },
+            blocking=True,
+        )
+
+    # Map name filtering: mismatch raises error, match succeeds
+    with pytest.raises(HomeAssistantError, match="Zone 'Kitchen' not found"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CLEAN_ZONE,
+            {
+                "serial": "OPS123",
+                "zone_name": "Kitchen",
+                "map_name": "Second Floor",
+            },
+            blocking=True,
+        )
+
+    # No active map error
+    mock_robot.active_map_id = None
+    with pytest.raises(HomeAssistantError, match="No active floor map available"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CLEAN_ZONE,
+            {
+                "serial": "OPS123",
+                "zone_name": "Kitchen",
+            },
+            blocking=True,
+        )
+
+
+async def test_service_dismiss_alert(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test dismiss_alert calls client.async_dismiss_alert."""
+    _, client, coordinator = await setup_mock_environment(hass, mock_robot)
+    client.async_dismiss_alert.return_value = {"status": "ok"}
+    coordinator.async_apply_command_response = AsyncMock()
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_DISMISS_ALERT,
+        {"serial": "OPS123"},
+        blocking=True,
+    )
+    client.async_dismiss_alert.assert_awaited_once_with("OPS123")
+    coordinator.async_apply_command_response.assert_awaited_once_with(
+        "OPS123", {"status": "ok"}
+    )
+
+
+async def test_service_send_raw_command(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test send_raw_command calls client.async_send_raw_command."""
+    _, client, coordinator = await setup_mock_environment(hass, mock_robot)
+    client.async_send_raw_command.return_value = {"result": "success"}
+    coordinator.async_apply_command_response = AsyncMock()
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SEND_RAW_COMMAND,
+        {
+            "serial": "OPS123",
+            "command": "getRobotState",
+            "params": {"foo": "bar"},
+        },
+        blocking=True,
+    )
+    client.async_send_raw_command.assert_awaited_once_with(
+        "OPS123", "getRobotState", {"foo": "bar"}
+    )
+    coordinator.async_apply_command_response.assert_awaited_once_with(
+        "OPS123", {"result": "success"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_client_async_send_raw_command() -> None:
+    """Test VacuulaApiClient.async_send_raw_command payload formatting."""
+    from custom_components.vacuula.core.client import VacuulaApiClient
+
+    client = VacuulaApiClient("http://test-server", AsyncMock())
+    client.async_send_command = AsyncMock(return_value={"ok": True})
+
+    # 1. With params
+    await client.async_send_raw_command("SER123", "getRobotState", {"key": "val"})
+    client.async_send_command.assert_awaited_with(
+        "SER123", {"cmd": "getRobotState", "params": {"key": "val"}}
+    )
+
+    # 2. Ability with dot in command (without and with params)
+    await client.async_send_raw_command("SER123", "cleaning.start")
+    client.async_send_command.assert_awaited_with(
+        "SER123", {"ability": "cleaning.start"}
+    )
+    await client.async_send_raw_command("SER123", "cleaning.start", {"mode": "turbo"})
+    client.async_send_command.assert_awaited_with(
+        "SER123", {"ability": "cleaning.start", "mode": "turbo"}
+    )
+    # 3. Simple cmd
+    await client.async_send_raw_command("SER123", "pauseCleaning")
+    client.async_send_command.assert_awaited_with("SER123", {"cmd": "pauseCleaning"})

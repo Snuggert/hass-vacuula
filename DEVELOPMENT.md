@@ -5,7 +5,7 @@ This guide explains how to set up and use the **Vacuula Developer Testing Enviro
 Rather than mocking HTTP endpoints with static fixtures or requiring a full Home Assistant Core instance just to iterate on robot logic or the Lovelace map card, this repository provides:
 1. **Zero-HA Pure Python Core (`custom_components/vacuula/core/` & `devtools.core`)**: The protocol constants, REST + SSE client (`VacuulaApiClient`), pure-Python RLE PNG map renderer (`render_map_png`), and domain state controller (`VacuulaController`) have **zero Home Assistant dependencies** while keeping `custom_components/vacuula` 100% self-contained (`"requirements": []` in `manifest.json`) for HACS.
 2. **Live Vacuula Server & Mock Neato Robot (`devtools/`)**: Spawns an actual upstream `vacuula_server` process in an isolated sandbox with SQLite Alembic migrations, pre-seeded RLE floorplans/runs, and a simulated Neato Botvac (`MockNeatoRobot`) speaking the chunked HTTP Nucleo/Beehive protocol.
-3. **Full-Stack Integration + Lovelace + Entity Sandbox (`python -m devtools`)**: Boots the actual `custom_components/vacuula` integration in-process (`VacuulaCoordinator` + all 7 Home Assistant entity platforms: `vacuum`, `image`, `sensor`, `binary_sensor`, `select`, `switch`, `button`), connects it via live SSE to the Vacuula Server, and serves a 3-column browser workbench on `http://127.0.0.1:8124` hosting `<vacuula-map-card>`, `<vacuula-map-card-editor>`, the live Integration Entity & Device Registry Inspector, and the Mock Neato Hardware Simulator—**requiring zero external Home Assistant daemon**.
+3. **Full-Stack Integration + Lovelace + Entity Sandbox (`python -m devtools`)**: Boots the actual `custom_components/vacuula` integration in-process (`VacuulaCoordinator` + all 7 Home Assistant entity platforms: `vacuum`, `image`, `sensor`, `binary_sensor`, `select`, `switch`, `button`), connects it via live SSE to the Vacuula Server, and serves a 3-column browser workbench on `http://127.0.0.1:8124` hosting `<vacuula-map-card>`, `<vacuula-map-card-editor>`, the live Integration Entity & Device Registry Inspector, and the Mock Neato Hardware Simulator without requiring an external Home Assistant daemon.
 
 ---
 
@@ -72,7 +72,7 @@ uv pip install --python .venv/bin/python -r requirements_test.txt
 
 ## Quickstart: Running the Full-Stack Developer Environment
 
-Launch the entire stack—Mock Neato Robot(s), real Vacuula Server (`:8050`), the in-process `custom_components/vacuula` integration (with all 22+ real entity instances), and the Lovelace Frontend & Entity Inspector (`:8124`)—with a single command:
+Launch the full stack (Mock Neato robots, real Vacuula Server on port 8050, the in-process integration with all 22+ entity instances, and the Lovelace frontend inspector on port 8124) with a single command:
 
 ```bash
 .venv/bin/python -m devtools
@@ -100,9 +100,9 @@ Starting Vacuula Dev Server on http://127.0.0.1:8050...
 ```
 
 Open `http://127.0.0.1:8124` in your browser to:
-- **Column 1 — Lovelace Dashboard**: Interact with `<vacuula-map-card>` and `<vacuula-map-card-editor>`, view the rendered RLE floor map and cleaning run map (`render_map_png`), select room zones (`Kitchen`, `Living Room`), and trigger zone cleaning.
-- **Column 2 — Integration Entities & Device Registry**: Inspect the Device Registry metadata (`VacuulaEntity.device_info`) and all 22 real `custom_components/vacuula` entities (`VacuulaVacuumEntity`, `VacuulaFloorMapImage`, `VacuulaLastRunMapImage`, `VacuulaBatterySensor`, `VacuulaScheduleSwitch`, `VacuulaNavigationModeSelect`, `VacuulaCleanZoneButton`, etc.) with live interactive `Press`, `Toggle`, and `Select` controls.
-- **Column 3 — Mock Neato Hardware Simulator**: Trigger hardware states, battery drain, and alerts (`dustbin_full`, `ui_error_brush_stuck`, `ui_error_navigation_stuck`) and watch them push in real time via SSE from `MockNeatoRobot` → `VacuulaServer` → `VacuulaCoordinator` → Integration Entities → Lovelace Card.
+- **Column 1 (Lovelace Dashboard)**: Interact with `<vacuula-map-card>` and `<vacuula-map-card-editor>`, view the rendered RLE floor map and cleaning run map (`render_map_png`), select room zones (`Kitchen`, `Living Room`), and trigger zone cleaning.
+- **Column 2 (Integration Entities & Device Registry)**: Inspect the Device Registry metadata (`VacuulaEntity.device_info`) and all 22 real `custom_components/vacuula` entities (`VacuulaVacuumEntity`, `VacuulaFloorMapImage`, `VacuulaLastRunMapImage`, `VacuulaBatterySensor`, `VacuulaScheduleSwitch`, `VacuulaNavigationModeSelect`, `VacuulaCleanZoneButton`, etc.) with live interactive `Press`, `Toggle`, and `Select` controls.
+- **Column 3 (Mock Neato Hardware Simulator)**: Trigger hardware states, battery drain, and alerts (`dustbin_full`, `ui_error_brush_stuck`, `ui_error_navigation_stuck`) and watch them push in real time via SSE from `MockNeatoRobot` → `VacuulaServer` → `VacuulaCoordinator` → Integration Entities → Lovelace Card.
 
 ---
 

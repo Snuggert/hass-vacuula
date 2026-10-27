@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula import (
@@ -60,6 +61,16 @@ async def test_init_setup_and_unload_entry(hass: HomeAssistant) -> None:
         assert hass.services.has_service(DOMAIN, SERVICE_CLEAN_SPOT)
         assert hass.services.has_service(DOMAIN, SERVICE_REFRESH_MAPS)
 
+        # Verify server hub device registration
+        device_registry = dr.async_get(hass)
+        hub_device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, f"server_{entry.entry_id}"),
+            entry.entry_id,
+        )
+        assert hub_device is not None
+        assert hub_device.manufacturer == "Vacuula"
+        assert hub_device.model == "Vacuula Server"
+        assert hub_device.entry_type == dr.DeviceEntryType.SERVICE
         # 2. Unload entry
         entry.mock_state(hass, ConfigEntryState.NOT_LOADED)
         assert await async_unload_entry(hass, entry) is True

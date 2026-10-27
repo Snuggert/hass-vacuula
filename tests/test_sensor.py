@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+from homeassistant.components.sensor import SensorStateClass
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfArea, UnitOfTime
 from homeassistant.core import HomeAssistant
@@ -22,8 +23,10 @@ from custom_components.vacuula.sensor import (
     VacuulaActionSensor,
     VacuulaAlertSensor,
     VacuulaBatterySensor,
+    VacuulaConnectedRobotsSensor,
     VacuulaLastCleanAreaSensor,
     VacuulaLastCleanDurationSensor,
+    VacuulaServerVersionSensor,
     VacuulaTotalCleansSensor,
     async_setup_entry,
 )
@@ -237,3 +240,70 @@ async def test_sensors_gen4_and_edge_cases(hass: HomeAssistant) -> None:
     total_missing = VacuulaTotalCleansSensor(coord_empty, "NONE")
     assert total_missing.available is False
     assert total_missing.native_value == 0
+
+
+async def test_server_sensors(hass: HomeAssistant) -> None:
+    """Test VacuulaServerVersionSensor and VacuulaConnectedRobotsSensor."""
+    robot1 = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    robot2 = VacuulaRobotData(
+        serial="G4-123",
+        name="Neato D10",
+        robot_type=ROBOT_TYPE_GEN4,
+        connected=False,
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot1)
+    coordinator.data[robot2.serial] = robot2
+    coordinator._known_serials.add(robot2.serial)
+    coordinator.server_info = {"version": "2.4.0"}
+    entry = coordinator.config_entry
+
+    # Test VacuulaServerVersionSensor
+    ver_sensor = VacuulaServerVersionSensor(coordinator, entry)
+    assert ver_sensor.unique_id == f"server_{entry.entry_id}_server_version"
+    assert ver_sensor.entity_category == EntityCategory.DIAGNOSTIC
+    assert ver_sensor.native_value == "2.4.0"
+    assert ver_sensor.device_info["identifiers"] == {
+        (DOMAIN, f"server_{entry.entry_id}")
+    }
+    assert ver_sensor.device_info["model"] == "Vacuula Server"
+    assert ver_sensor.device_info["manufacturer"] == "Vacuula"
+    assert ver_sensor.device_info["sw_version"] == "2.4.0"
+
+    # Test VacuulaConnectedRobotsSensor
+    conn_sensor = VacuulaConnectedRobotsSensor(coordinator, entry)
+    assert conn_sensor.unique_id == f"server_{entry.entry_id}_connected_robots"
+    assert conn_sensor.state_class == SensorStateClass.MEASUREMENT
+    assert conn_sensor.native_value == 1
+    assert conn_sensor.device_info["identifiers"] == {
+        (DOMAIN, f"server_{entry.entry_id}")
+    }
+
+    # When robot2 connects
+    robot2.connected = True
+    assert conn_sensor.native_value == 2
+
+    # When no data
+    coordinator.data = {}
+    assert conn_sensor.native_value == 0
+
+
+async def test_sensor_setup_entry_includes_server_sensors(hass: HomeAssistant) -> None:
+    """Test async_setup_entry registers VacuulaServerVersionSensor and VacuulaConnectedRobotsSensor."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot)
+    entry = coordinator.config_entry
+
+    entities_added = []
+    await async_setup_entry(hass, entry, entities_added.extend)
+    assert any(isinstance(e, VacuulaServerVersionSensor) for e in entities_added)
+    assert any(isinstance(e, VacuulaConnectedRobotsSensor) for e in entities_added)

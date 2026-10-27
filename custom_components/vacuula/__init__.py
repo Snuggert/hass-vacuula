@@ -14,16 +14,21 @@ from homeassistant.const import ATTR_ENTITY_ID, CONF_URL
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VacuulaApiClient
 from .const import (
+    DEFAULT_URL,
     DOMAIN,
     PLATFORMS,
     SERVICE_CLEAN_SPOT,
+    SERVICE_CLEAN_ZONE,
     SERVICE_CLEAN_ZONES,
+    SERVICE_DISMISS_ALERT,
     SERVICE_REFRESH_MAPS,
+    SERVICE_SEND_RAW_COMMAND,
 )
 from .coordinator import VacuulaCoordinator, VacuulaRobotData
 
@@ -222,6 +227,94 @@ def _async_register_services(hass: HomeAssistant) -> None:
         if tasks:
             await asyncio.gather(*tasks)
 
+    async def _handle_clean_zone(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        entity_id = call.data.get(ATTR_ENTITY_ID)
+        zone_name = str(call.data["zone_name"]).strip()
+        map_name_filter = call.data.get("map_name")
+        if map_name_filter is not None:
+            map_name_filter = str(map_name_filter).strip().lower()
+
+        coord, robot = _resolve_target_robot(hass, serial, entity_id)
+
+        target_zone = None
+        for zone in robot.zones:
+            if not isinstance(zone, dict):
+                continue
+            name = str(zone.get("name", "")).strip()
+            if name.lower() == zone_name.lower():
+                z_map_name = zone.get("map_name") or robot.active_map_name
+                if map_name_filter is None or (
+                    z_map_name and str(z_map_name).strip().lower() == map_name_filter
+                ):
+                    target_zone = zone
+                    break
+
+        if not target_zone:
+            raise HomeAssistantError(
+                f"Zone '{call.data['zone_name']}' not found for robot {robot.serial}"
+            )
+
+        map_id = (
+            target_zone.get("map_id") or call.data.get("map_id") or robot.active_map_id
+        )
+        if not map_id:
+            raise HomeAssistantError(
+                f"No active floor map available for robot {robot.name} ({robot.serial})"
+            )
+
+        fan_speed = (
+            call.data.get("fan_speed")
+            or call.data.get("mode")
+            or robot.preferred_fan_speed
+        )
+        nav_mode = call.data.get("navigation_mode") or robot.preferred_navigation_mode
+
+        resp = await coord.client.async_start_zone_cleaning(
+            robot.serial,
+            robot.robot_type,
+            map_id,
+            [str(target_zone["id"])],
+            fan_speed=fan_speed,
+            navigation_mode=nav_mode,
+        )
+        await coord.async_apply_command_response(robot.serial, resp)
+
+    async def _handle_dismiss_alert(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        entity_id = call.data.get(ATTR_ENTITY_ID)
+        coord, robot = _resolve_target_robot(hass, serial, entity_id)
+        resp = await coord.client.async_dismiss_alert(robot.serial)
+        if resp:
+            await coord.async_apply_command_response(robot.serial, resp)
+
+    async def _handle_send_raw_command(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        entity_id = call.data.get(ATTR_ENTITY_ID)
+        command = str(call.data["command"])
+        params = call.data.get("params")
+        coord, robot = _resolve_target_robot(hass, serial, entity_id)
+        resp = await coord.client.async_send_raw_command(robot.serial, command, params)
+        if resp:
+            await coord.async_apply_command_response(robot.serial, resp)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CLEAN_ZONE,
+        _handle_clean_zone,
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
+                vol.Optional("serial"): cv.string,
+                vol.Required("zone_name"): cv.string,
+                vol.Optional("map_name"): cv.string,
+                vol.Optional("fan_speed"): cv.string,
+                vol.Optional("mode"): cv.string,
+                vol.Optional("navigation_mode"): cv.string,
+            }
+        ),
+    )
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_CLEAN_ZONES,
@@ -267,6 +360,30 @@ def _async_register_services(hass: HomeAssistant) -> None:
             }
         ),
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DISMISS_ALERT,
+        _handle_dismiss_alert,
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
+                vol.Optional("serial"): cv.string,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SEND_RAW_COMMAND,
+        _handle_send_raw_command,
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
+                vol.Optional("serial"): cv.string,
+                vol.Required("command"): cv.string,
+                vol.Optional("params"): vol.Any(dict, None),
+            }
+        ),
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
@@ -274,7 +391,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
     await _async_register_frontend(hass)
 
     session = async_get_clientsession(hass)
-    client = VacuulaApiClient(entry.data[CONF_URL], session)
+    server_url = entry.data.get(CONF_URL, DEFAULT_URL)
+    client = VacuulaApiClient(server_url, session)
     coordinator = VacuulaCoordinator(hass, entry, client)
 
     await coordinator.async_config_entry_first_refresh()
@@ -282,9 +400,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
     entry.runtime_data = coordinator
     _async_register_services(hass)
 
+    # Register Hub device in Device Registry
+    device_registry = dr.async_get(hass)
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, f"server_{entry.entry_id}")},
+        name=entry.title,
+        manufacturer="Vacuula",
+        model="Vacuula Server",
+        sw_version=coordinator.server_info.get("version")
+        if coordinator.server_info
+        else None,
+        entry_type=dr.DeviceEntryType.SERVICE,
+        configuration_url=coordinator.client.base_url,
+    )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await coordinator.async_start_sse()
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> None:
+    """Reload config entry when options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:

@@ -366,6 +366,18 @@ class VacuulaApiClient:
         cmd = "enableSchedule" if enabled else "disableSchedule"
         return await self.async_send_command(serial, {"cmd": cmd})
 
+    async def async_send_raw_command(
+        self, serial: str, command: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Send raw command or ability to robot."""
+        if "." in command:
+            payload: dict[str, Any] = {"ability": command, **(params or {})}
+        elif params is not None:
+            payload = {"cmd": command, "params": params}
+        else:
+            payload = {"cmd": command}
+        return await self.async_send_command(serial, payload)
+
     async def async_iter_server_events(self) -> AsyncGenerator[tuple[str, Any]]:
         """Subscribe to GET /api/events SSE stream yielding (event_name, parsed_data)."""
         url = f"{self.base_url}/api/events"

@@ -1,18 +1,18 @@
 :root {
   color-scheme: dark;
-  --bg-main: #0b1120;
-  --bg-panel: #161b26;
-  --bg-inset: #0f172a;
-  --bg-control: #1e293b;
-  --bg-control-hover: #334155;
+  --bg-main: #111827;
+  --bg-panel: #1f2937;
+  --bg-inset: #111827;
+  --bg-control: #374151;
+  --bg-control-hover: #4b5563;
   --accent: #38bdf8;
   --accent-bg: rgba(56, 189, 248, 0.16);
   --accent-border: rgba(56, 189, 248, 0.35);
   --border-subtle: rgba(148, 163, 184, 0.14);
   --border-control: rgba(148, 163, 184, 0.24);
   --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
   --primary-background-color: var(--bg-main);
   --card-background-color: #1e222b;
   --ha-card-background: #1e222b;
@@ -22,6 +22,10 @@
 
 * {
   box-sizing: border-box;
+}
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 body {
@@ -51,12 +55,15 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.topbar h1 {
-  margin: 0;
-  font-size: 1.25rem;
+.topbar-title {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.25rem;
 }
 
 .server-meta {
@@ -280,8 +287,8 @@ button.ent-btn:hover {
 }
 
 button.btn-clear {
-  background: #065f46;
-  border-color: #10b981;
+  background: #1e3a5f;
+  border-color: #38bdf8;
 }
 
 button.full-width {

@@ -31,142 +31,158 @@ function sanitizeImgUrl(val) {
   return "";
 }
 
+function renderAlertIcon(iconType) {
+  if (iconType === "bin") {
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+  }
+  if (iconType === "error" || iconType === "sensor") {
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  }
+  if (iconType === "battery") {
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg>';
+  }
+  if (iconType === "picked_up") {
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
+  }
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+}
+
 const ALERT_INFO_MAP = {
   dustbin_full: {
-    icon: "🗑️",
+    icon: "bin",
     title: "Dust Bin Full",
     message: "Empty the robot's dust bin and clean filter.",
     severity: "warning",
     isBin: true,
   },
   ui_alert_dust_bin_full: {
-    icon: "🗑️",
+    icon: "bin",
     title: "Dust Bin Full",
     message: "Empty the robot's dust bin and clean filter.",
     severity: "warning",
     isBin: true,
   },
   ui_error_dust_bin_full: {
-    icon: "🗑️",
+    icon: "bin",
     title: "Dust Bin Full",
     message: "Empty the robot's dust bin and clean filter.",
     severity: "warning",
     isBin: true,
   },
   dustbin_missing: {
-    icon: "🗑️",
+    icon: "bin",
     title: "Dust Bin Missing",
     message: "Insert the dust bin firmly back into the robot.",
     severity: "warning",
     isBin: true,
   },
   ui_alert_dust_bin_missing: {
-    icon: "🗑️",
+    icon: "bin",
     title: "Dust Bin Missing",
     message: "Insert the dust bin firmly back into the robot.",
     severity: "warning",
     isBin: true,
   },
   brush_stuck: {
-    icon: "⚠️",
+    icon: "warning",
     title: "Brush Stuck",
     message: "Remove hair or debris from the main brush roller.",
     severity: "error",
     isBin: false,
   },
   ui_error_brush_stuck: {
-    icon: "⚠️",
+    icon: "warning",
     title: "Brush Stuck",
     message: "Remove hair or debris from the main brush roller.",
     severity: "error",
     isBin: false,
   },
   brush_overload: {
-    icon: "⚠️",
+    icon: "warning",
     title: "Brush Overloaded",
     message: "Main brush roller is overloaded; please check for tangled debris.",
     severity: "error",
     isBin: false,
   },
   navigation_stuck: {
-    icon: "🛑",
+    icon: "error",
     title: "Robot Stuck",
     message: "Clear obstacles around the robot and move to open floor.",
     severity: "error",
     isBin: false,
   },
   ui_error_navigation_stuck: {
-    icon: "🛑",
+    icon: "error",
     title: "Robot Stuck",
     message: "Clear obstacles around the robot and move to open floor.",
     severity: "error",
     isBin: false,
   },
   stuck: {
-    icon: "🛑",
+    icon: "error",
     title: "Robot Stuck",
     message: "Clear obstacles around the robot and move to open floor.",
     severity: "error",
     isBin: false,
   },
   clear_path: {
-    icon: "⚠️",
+    icon: "warning",
     title: "Clear Path",
     message: "Robot path is blocked; please clear surrounding floor space.",
     severity: "warning",
     isBin: false,
   },
   ui_alert_clear_path: {
-    icon: "⚠️",
+    icon: "warning",
     title: "Clear Path",
     message: "Robot path is blocked; please clear surrounding floor space.",
     severity: "warning",
     isBin: false,
   },
   robot_picked_up: {
-    icon: "⬆️",
+    icon: "picked_up",
     title: "Robot Picked Up",
     message: "Place the robot back down onto the floor.",
     severity: "warning",
     isBin: false,
   },
   ui_error_picked_up: {
-    icon: "⬆️",
+    icon: "picked_up",
     title: "Robot Picked Up",
     message: "Place the robot back down onto the floor.",
     severity: "warning",
     isBin: false,
   },
   cliff_sensor: {
-    icon: "🚨",
+    icon: "sensor",
     title: "Drop Sensor Error",
     message: "Clean the optical drop sensors on the underside of the robot.",
     severity: "error",
     isBin: false,
   },
   ui_error_drop_sensor: {
-    icon: "🚨",
+    icon: "sensor",
     title: "Drop Sensor Error",
     message: "Clean the optical drop sensors on the underside of the robot.",
     severity: "error",
     isBin: false,
   },
   lid_open: {
-    icon: "⚠️",
+    icon: "warning",
     title: "Top Cover Open",
     message: "Close the robot's top dust bin cover.",
     severity: "warning",
     isBin: true,
   },
   battery_low: {
-    icon: "🪫",
+    icon: "battery",
     title: "Low Battery",
     message: "Battery level is low; returning to charge base.",
     severity: "info",
     isBin: false,
   },
   ui_alert_battery_low: {
-    icon: "🪫",
+    icon: "battery",
     title: "Low Battery",
     message: "Battery level is low; returning to charge base.",
     severity: "info",
@@ -354,7 +370,7 @@ class VacuulaMapCard extends HTMLElement {
       title: formatAlertCode(rawCode),
       message: `Active condition: ${formatAlertCode(rawCode)}.`,
       severity: "warning",
-      icon: isBinFull ? "🗑️" : "⚠️",
+      icon: isBinFull ? "bin" : "warning",
       isBin: isBinFull,
       canDismiss: Boolean(dismissButton),
     };
@@ -814,8 +830,7 @@ class VacuulaMapCard extends HTMLElement {
           pointer-events: auto;
           cursor: pointer;
           border: 1px solid rgba(255, 255, 255, 0.35);
-          background: rgba(15, 23, 42, 0.82);
-          backdrop-filter: blur(4px);
+          background: #0f172a;
           color: #f8fafc;
           font-size: 0.72rem;
           font-weight: 600;
@@ -850,8 +865,7 @@ class VacuulaMapCard extends HTMLElement {
           right: 10px;
           display: flex;
           gap: 4px;
-          background: rgba(15, 23, 42, 0.82);
-          backdrop-filter: blur(6px);
+          background: #0f172a;
           padding: 3px;
           border-radius: 10px;
           border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1115,7 +1129,7 @@ class VacuulaMapCard extends HTMLElement {
         ? `
           <div class="alert-banner ${escapeHtml(activeAlert.severity)}">
             <div class="alert-left">
-              <span class="alert-icon">${escapeHtml(activeAlert.icon)}</span>
+              <span class="alert-icon">${renderAlertIcon(activeAlert.icon || activeAlert.severity)}</span>
               <div class="alert-text-group">
                 <span class="alert-title">${escapeHtml(activeAlert.title)}</span>
                 <span class="alert-desc" title="${escapeHtml(activeAlert.message)}">${escapeHtml(activeAlert.message)}</span>
@@ -1148,17 +1162,17 @@ class VacuulaMapCard extends HTMLElement {
           <div class="telemetry">
             ${
               activeAlert?.isBin && this._config.show_bin_alert !== false
-                ? `<span class="pill active" style="background:rgba(245,158,11,0.22);color:#fbbf24;" title="${escapeHtml(activeAlert.message)}">🗑️ Bin Full</span>`
+                ? `<span class="pill active" style="background:rgba(245,158,11,0.22);color:#fbbf24;" title="${escapeHtml(activeAlert.message)}">Bin Full</span>`
                 : ""
             }
             ${
               schedState && this._config.show_schedule !== false
-                ? `<button class="pill clickable ${isScheduleOn ? "active" : ""}" id="btn-schedule" title="Toggle Robot Schedule">📅 ${isScheduleOn ? "Sched On" : "Sched Off"}</button>`
+                ? `<button class="pill clickable ${isScheduleOn ? "active" : ""}" id="btn-schedule" title="Toggle Robot Schedule">${isScheduleOn ? "Schedule On" : "Schedule Off"}</button>`
                 : ""
             }
             ${
               batteryVal && this._config.show_battery !== false
-                ? `<span class="pill" title="Battery">${isCharging ? "⚡" : "🔋"} ${escapeHtml(batteryVal)}</span>`
+                ? `<span class="pill" title="Battery">${escapeHtml(batteryVal)}${isCharging ? " (Charging)" : ""}</span>`
                 : ""
             }
           </div>
@@ -1209,11 +1223,11 @@ class VacuulaMapCard extends HTMLElement {
                 this._config.show_controls !== false
                   ? `
                   <div class="action-row">
-                    <button class="btn primary" id="btn-start">▶ ${escapeHtml(startLabel)}</button>
-                    <button class="btn" id="btn-pause" title="Pause">⏸</button>
-                    <button class="btn" id="btn-stop" title="Stop">⏹</button>
-                    <button class="btn" id="btn-dock" title="Return to Base">⌂ Dock</button>
-                    <button class="btn" id="btn-locate" title="Locate Robot">🔊</button>
+                    <button class="btn primary" id="btn-start">${escapeHtml(startLabel)}</button>
+                    <button class="btn" id="btn-pause" title="Pause">Pause</button>
+                    <button class="btn" id="btn-stop" title="Stop">Stop</button>
+                    <button class="btn" id="btn-dock" title="Return to Base">Dock</button>
+                    <button class="btn" id="btn-locate" title="Locate Robot">Locate</button>
                   </div>
                   `
                   : ""

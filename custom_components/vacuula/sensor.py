@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import VacuulaConfigEntry
 from .coordinator import VacuulaCoordinator
-from .entity import VacuulaEntity
+from .entity import VacuulaEntity, VacuulaServerEntity
 
 PARALLEL_UPDATES = 0
 
@@ -27,6 +27,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up Vacuula sensor entities."""
     coordinator: VacuulaCoordinator = entry.runtime_data
+
+    # Add server sensors
+    async_add_entities(
+        [
+            VacuulaServerVersionSensor(coordinator, entry),
+            VacuulaConnectedRobotsSensor(coordinator, entry),
+        ]
+    )
 
     @callback
     def _async_add_new_robots(serials: list[str]) -> None:
@@ -200,3 +208,51 @@ class VacuulaTotalCleansSensor(VacuulaEntity, SensorEntity):
         """Return total number of recorded cleaning runs."""
         robot = self._robot
         return robot.total_runs if robot else 0
+
+
+class VacuulaServerVersionSensor(VacuulaServerEntity, SensorEntity):
+    """Diagnostic sensor reporting the Vacuula server version."""
+
+    _attr_translation_key = "server_version"
+    _attr_name = "Server version"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: VacuulaCoordinator,
+        entry: VacuulaConfigEntry,
+    ) -> None:
+        """Initialize the server version sensor."""
+        super().__init__(coordinator, entry, "server_version")
+
+    @property
+    def native_value(self) -> str | None:
+        """Return server version."""
+        return (
+            self.coordinator.server_info.get("version")
+            if self.coordinator.server_info
+            else None
+        )
+
+
+class VacuulaConnectedRobotsSensor(VacuulaServerEntity, SensorEntity):
+    """Sensor reporting the number of connected robots on the Vacuula server."""
+
+    _attr_translation_key = "connected_robots"
+    _attr_name = "Connected robots"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        coordinator: VacuulaCoordinator,
+        entry: VacuulaConfigEntry,
+    ) -> None:
+        """Initialize the connected robots sensor."""
+        super().__init__(coordinator, entry, "connected_robots")
+
+    @property
+    def native_value(self) -> int:
+        """Return number of robots with connected=True."""
+        if not self.coordinator.data:
+            return 0
+        return sum(1 for robot in self.coordinator.data.values() if robot.connected)

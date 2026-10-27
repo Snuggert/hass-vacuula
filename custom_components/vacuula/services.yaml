@@ -1,3 +1,69 @@
+clean_zone:
+  name: Clean zone
+  description: Commands a Vacuula robot to clean a specific persistent map zone or room.
+  fields:
+    entity_id:
+      name: Robot vacuum entity
+      description: Vacuum entity to target (optional if only one robot is paired).
+      required: false
+      example: "vacuum.mappa"
+      selector:
+        entity:
+          integration: vacuula
+          domain: vacuum
+    serial:
+      name: Robot serial
+      description: Robot serial number (optional alternative to entity_id).
+      required: false
+      example: "OPS01234-001122334455"
+      selector:
+        text:
+    zone_name:
+      name: Zone name
+      description: Name of the room or zone defined on the robot's map.
+      required: true
+      example: "Living Room"
+      selector:
+        text:
+    map_name:
+      name: Map name
+      description: Name of the floor map containing the zone (optional if zone name is unique).
+      required: false
+      example: "Ground Floor"
+      selector:
+        text:
+    mode:
+      name: Cleaning mode
+      description: Cleaning mode (turbo or eco).
+      required: false
+      default: "turbo"
+      selector:
+        select:
+          options:
+            - "turbo"
+            - "eco"
+    fan_speed:
+      name: Fan speed
+      description: Optional cleaning power mode (eco or turbo).
+      required: false
+      selector:
+        select:
+          options:
+            - "eco"
+            - "turbo"
+    navigation_mode:
+      name: Navigation mode
+      description: Navigation mode (normal, extra_care, deep, or gentle).
+      required: false
+      default: "normal"
+      selector:
+        select:
+          options:
+            - "normal"
+            - "extra_care"
+            - "deep"
+            - "gentle"
+
 clean_zones:
   name: Clean zones
   description: Start cleaning one or more named room zones (or boundary UUIDs) on a Neato robot managed by Vacuula.
@@ -135,3 +201,58 @@ refresh_maps:
       example: "OPS01234-001122334455"
       selector:
         text:
+
+dismiss_alert:
+  name: Dismiss alert
+  description: Dismisses the active notification alert on a Gen3 robot vacuum.
+  fields:
+    entity_id:
+      name: Robot vacuum entity
+      description: Vacuum entity to target (optional if only one robot is paired).
+      required: false
+      example: "vacuum.mappa"
+      selector:
+        entity:
+          integration: vacuula
+          domain: vacuum
+    serial:
+      name: Robot serial
+      description: Robot serial number (optional alternative to entity_id).
+      required: false
+      example: "OPS01234-001122334455"
+      selector:
+        text:
+
+send_raw_command:
+  name: Send raw command
+  description: Sends an arbitrary JSON command or ability to a Vacuula-connected robot.
+  fields:
+    entity_id:
+      name: Robot vacuum entity
+      description: Vacuum entity to target (optional if only one robot is paired).
+      required: false
+      example: "vacuum.mappa"
+      selector:
+        entity:
+          integration: vacuula
+          domain: vacuum
+    serial:
+      name: Robot serial
+      description: Robot serial number (optional alternative to entity_id).
+      required: false
+      example: "OPS01234-001122334455"
+      selector:
+        text:
+    command:
+      name: Command or ability
+      description: Gen3 command name (e.g. getRobotState) or Gen4 ability name (e.g. state.show).
+      required: true
+      example: "getRobotState"
+      selector:
+        text:
+    params:
+      name: Parameters
+      description: Optional JSON parameters dictionary.
+      required: false
+      selector:
+        object:

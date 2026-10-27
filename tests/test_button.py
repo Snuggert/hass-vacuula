@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula.button import (
+    VacuulaCleanSelectedZoneButton,
     VacuulaCleanZoneButton,
     VacuulaDismissAlertButton,
     VacuulaExploreMapButton,
@@ -184,6 +185,75 @@ async def test_clean_zone_button(hass: HomeAssistant) -> None:
     client.async_start_zone_cleaning.assert_not_called()
 
 
+async def test_clean_selected_zone_button(hass: HomeAssistant) -> None:
+    """Test VacuulaCleanSelectedZoneButton initialization and press behaviors."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Mappa",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        active_map_id="map_1",
+        selected_zone="all",
+        zones=[{"id": "z1", "name": "Kitchen"}, {"id": "z2", "name": "Living Room"}],
+        preferred_fan_speed="turbo",
+        preferred_navigation_mode="deep",
+    )
+    coordinator, client, _ = create_mock_coordinator(hass, robot)
+    coordinator.async_apply_command_response = AsyncMock()
+    client.async_start_cleaning.return_value = {"ok": True}
+    client.async_start_zone_cleaning.return_value = {"ok": True}
+    btn = VacuulaCleanSelectedZoneButton(coordinator, "OPS123")
+    assert btn.name == "Clean selected zone"
+    assert btn.unique_id == "OPS123_clean_selected_zone"
+
+    # 1. Press with selected_zone="all" -> triggers async_start_cleaning
+    await btn.async_press()
+    client.async_start_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        fan_speed="turbo",
+        navigation_mode="deep",
+        category=robot.preferred_category,
+        map_id="map_1",
+    )
+    client.async_start_zone_cleaning.assert_not_called()
+
+    # 2. Press with a specific selected zone -> triggers async_start_zone_cleaning
+    client.async_start_cleaning.reset_mock()
+    robot.selected_zone = "Kitchen"
+    await btn.async_press()
+    client.async_start_zone_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        "map_1",
+        ["z1"],
+        fan_speed="turbo",
+        navigation_mode="deep",
+    )
+    client.async_start_cleaning.assert_not_called()
+
+    # 3. Press when selected_zone is set but active_map_id is None -> falls back to async_start_cleaning
+    client.async_start_zone_cleaning.reset_mock()
+    robot.active_map_id = None
+    await btn.async_press()
+    client.async_start_cleaning.assert_awaited_once_with(
+        "OPS123",
+        ROBOT_TYPE_GEN3,
+        fan_speed="turbo",
+        navigation_mode="deep",
+        category=robot.preferred_category,
+        map_id=None,
+    )
+    client.async_start_zone_cleaning.assert_not_called()
+
+    # 4. Press when robot not in coordinator
+    coordinator.data = {}
+    client.async_start_cleaning.reset_mock()
+    await btn.async_press()
+    client.async_start_cleaning.assert_not_called()
+    client.async_start_zone_cleaning.assert_not_called()
+
+
 async def test_button_setup_entry(hass: HomeAssistant) -> None:
     """Test async_setup_entry dynamically adding robot and zone buttons."""
     robot = VacuulaRobotData(
@@ -202,15 +272,15 @@ async def test_button_setup_entry(hass: HomeAssistant) -> None:
     await async_setup_entry(hass, entry, mock_add_entities)
 
     # register_new_robot_callback immediately fires with existing known serials
-    assert len(added_entities) == 4
+    assert len(added_entities) == 5
     entity_types = [type(e).__name__ for e in added_entities]
     assert "VacuulaLocateButton" in entity_types
     assert "VacuulaRefreshMapsButton" in entity_types
     assert "VacuulaExploreMapButton" in entity_types
+    assert "VacuulaCleanSelectedZoneButton" in entity_types
     assert "VacuulaDismissAlertButton" in entity_types
 
     # Trigger zone callback
     coordinator._new_zones_callbacks[0]("OPS123", [{"id": "z1", "name": "Living Room"}])
-    assert len(added_entities) == 5
-    assert isinstance(added_entities[-1], VacuulaCleanZoneButton)
+    assert len(added_entities) == 6
     assert added_entities[-1].name == "Clean Living Room"
