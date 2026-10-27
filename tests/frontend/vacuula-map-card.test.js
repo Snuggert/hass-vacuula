@@ -478,6 +478,35 @@ describe("VacuulaMapCard DOM Rendering and Interaction", () => {
       entity_id: "vacuum.neato_d7",
     });
   });
+
+  it("renders map select dropdown and triggers select_option when changed", () => {
+    mockHass.states["select.neato_d7_selected_map"] = {
+      state: "old",
+      attributes: {
+        options: ["old", "Ground Floor"],
+      },
+    };
+    mockHass.callService = callServiceMock;
+    card.setConfig({ entity: "vacuum.neato_d7" });
+    card.hass = mockHass;
+    document.body.appendChild(card);
+
+    const root = card.shadowRoot;
+    expect(root).not.toBeNull();
+
+    const mapSelect = /** @type {HTMLSelectElement} */ (root.querySelector("#sel-active-map"));
+    expect(mapSelect).not.toBeNull();
+    expect(mapSelect.value).toBe("old");
+    expect(mapSelect.options.length).toBe(2);
+
+    mapSelect.value = "Ground Floor";
+    mapSelect.dispatchEvent(new Event("change"));
+
+    expect(callServiceMock).toHaveBeenCalledWith("select", "select_option", {
+      entity_id: "select.neato_d7_selected_map",
+      option: "Ground Floor",
+    });
+  });
 });
 
 describe("VacuulaMapCardEditor Custom Element", () => {

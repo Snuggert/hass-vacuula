@@ -737,3 +737,125 @@ async def test_coordinator_listen_robot_events_gen4_and_disconnect(
     robot_gen4.connected = False
     coordinator._stopping = False
     await coordinator._listen_robot_events("g4")
+
+
+async def test_coordinator_multi_map_selection_issue_4(
+    hass: HomeAssistant,
+) -> None:
+    """Test multi-map resolution: new floor plan preferred over old map (Issue #4)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator.data = {"OPS123": robot}
+
+    # Simulate issue #4: User created "old" map first, then new floorplan "Ground Floor"
+    maps_payload = [
+        {"id": "map-old", "name": "old", "enabled": True, "in_maps_list": True},
+        {
+            "id": "map-new",
+            "name": "Ground Floor",
+            "enabled": True,
+            "in_maps_list": True,
+        },
+    ]
+    client.async_get_maps.return_value = maps_payload
+    client.async_get_runs.return_value = []
+    client.async_get_map_detail.return_value = {"width": 64, "height": 64}
+    client.async_get_map_boundaries.return_value = [
+        {"id": "b1", "name": "Living Room", "type": "polygon"}
+    ]
+
+    # 1. Fallback to newest map: "Ground Floor" is chosen over "old"
+    await coordinator.async_refresh_maps_and_runs("OPS123")
+    assert robot.active_map_id == "map-new"
+    assert robot.active_map_name == "Ground Floor"
+
+    # 2. Latest run map selection: if recent run was on "map-old", pick "map-old"
+    client.async_get_runs.return_value = [
+        {
+            "id": "run-1",
+            "persistent_map": "map-old",
+            "run": {"start_at": "2026-10-27T10:00:00Z"},
+        }
+    ]
+    robot.active_map_id = None
+    robot.active_map_name = None
+    await coordinator.async_refresh_maps_and_runs("OPS123")
+    assert robot.active_map_id == "map-old"
+    assert robot.active_map_name == "old"
+
+    # 3. User preferred map takes highest precedence
+    robot.preferred_map_id = "map-new"
+    await coordinator.async_refresh_maps_and_runs("OPS123")
+    assert robot.active_map_id == "map-new"
+    assert robot.active_map_name == "Ground Floor"
+
+
+async def test_coordinator_async_set_active_map(
+    hass: HomeAssistant,
+) -> None:
+    """Test coordinator.async_set_active_map updates map, boundaries, and listeners."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        maps=[
+            {"id": "map-old", "name": "old"},
+            {"id": "map-new", "name": "Ground Floor"},
+        ],
+        active_map_id="map-old",
+        active_map_name="old",
+        selected_zone="Old Room",
+    )
+    coordinator.data = {"OPS123": robot}
+
+    client.async_get_map_detail.return_value = {"width": 128, "height": 128}
+    client.async_get_map_boundaries.return_value = [
+        {"id": "b-new", "name": "Kitchen", "type": "polygon"}
+    ]
+
+    listener_called = False
+
+    def listener() -> None:
+        nonlocal listener_called
+        listener_called = True
+
+    coordinator.async_add_listener(listener)
+
+    # Valid map switch
+    success = await coordinator.async_set_active_map("OPS123", "map-new")
+    assert success is True
+    assert robot.active_map_id == "map-new"
+    assert robot.active_map_name == "Ground Floor"
+    assert robot.preferred_map_id == "map-new"
+    assert robot.selected_zone == "all"
+    assert len(robot.zones) == 1
+    assert robot.zones[0]["name"] == "Kitchen"
+    assert listener_called is True
+
+    # Invalid map ID returns False
+    assert await coordinator.async_set_active_map("OPS123", "nonexistent") is False
+    # Unknown serial returns False
+    assert await coordinator.async_set_active_map("UNKNOWN", "map-new") is False

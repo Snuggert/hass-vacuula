@@ -21,6 +21,7 @@ from custom_components.vacuula.const import (
     SERVICE_CLEAN_ZONES,
     SERVICE_DISMISS_ALERT,
     SERVICE_REFRESH_MAPS,
+    SERVICE_SELECT_MAP,
     SERVICE_SEND_RAW_COMMAND,
 )
 from custom_components.vacuula.coordinator import (
@@ -485,6 +486,46 @@ async def test_service_send_raw_command(
     coordinator.async_apply_command_response.assert_awaited_once_with(
         "OPS123", {"result": "success"}
     )
+
+
+async def test_service_select_map(
+    hass: HomeAssistant, mock_robot: VacuulaRobotData
+) -> None:
+    """Test select_map service switches active map by name or ID."""
+    mock_robot.maps = [
+        {"id": "map-1", "name": "Ground Floor"},
+        {"id": "map-2", "name": "Second Floor"},
+    ]
+    _, _, coordinator = await setup_mock_environment(hass, mock_robot)
+    coordinator.async_set_active_map = AsyncMock(return_value=True)  # type: ignore[method-assign]
+
+    # Select by name
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SELECT_MAP,
+        {"serial": "OPS123", "map_name": "Second Floor"},
+        blocking=True,
+    )
+    coordinator.async_set_active_map.assert_awaited_once_with("OPS123", "map-2")
+    coordinator.async_set_active_map.reset_mock()
+
+    # Select by ID
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SELECT_MAP,
+        {"serial": "OPS123", "map_name": "map-1"},
+        blocking=True,
+    )
+    coordinator.async_set_active_map.assert_awaited_once_with("OPS123", "map-1")
+
+    # Unknown map name raises HomeAssistantError
+    with pytest.raises(HomeAssistantError, match="Floor map 'Attic' not found"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SELECT_MAP,
+            {"serial": "OPS123", "map_name": "Attic"},
+            blocking=True,
+        )
 
 
 @pytest.mark.asyncio

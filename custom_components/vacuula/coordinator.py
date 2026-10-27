@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import (
+    ALL_ZONES_OPTION,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -136,6 +137,50 @@ class VacuulaCoordinator(DataUpdateCoordinator[dict[str, VacuulaRobotData]]):
             if robot.zones:
                 self._notify_new_zones(serial, robot.zones)
             self.async_set_updated_data(dict(self.data))
+
+    async def async_set_active_map(self, serial: str, map_id: str) -> bool:
+        """Explicitly set the active floor map for a robot and reload its floorplan and boundaries."""
+        if not self.data or serial not in self.data:
+            return False
+        robot = self.data[serial]
+        target_map = next(
+            (m for m in robot.maps if str(m.get("id")) == str(map_id)), None
+        )
+        if not target_map:
+            return False
+
+        robot.preferred_map_id = str(map_id)
+        robot.active_map_id = str(map_id)
+        robot.active_map_name = str(target_map.get("name") or map_id)
+        robot.selected_zone = ALL_ZONES_OPTION
+
+        tasks: dict[str, Any] = {
+            "floormap": self.client.async_get_map_detail(serial, map_id)
+        }
+        if robot.connected:
+            tasks["boundaries"] = self.client.async_get_map_boundaries(
+                serial, robot.robot_type, map_id
+            )
+
+        keys = list(tasks.keys())
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        fetched = dict(zip(keys, results, strict=False))
+
+        if "floormap" in fetched and isinstance(fetched["floormap"], dict):
+            robot.floormap = fetched["floormap"]
+        if "boundaries" in fetched and isinstance(fetched["boundaries"], list):
+            robot.boundaries = fetched["boundaries"]
+            robot.zones = [
+                b
+                for b in fetched["boundaries"]
+                if b.get("type") == "polygon" and b.get("name")
+            ]
+            if robot.zones:
+                self._notify_new_zones(serial, robot.zones)
+
+        _ = robot.cropped_zones
+        self.async_set_updated_data(dict(self.data))
+        return True
 
     def _async_create_background_task(
         self, target: Any, name: str

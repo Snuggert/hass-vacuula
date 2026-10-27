@@ -139,6 +139,24 @@
         }
       }
     },
+    "select_map": {
+      "name": "Select map",
+      "description": "Sets the active floor map for a Vacuula robot vacuum.",
+      "fields": {
+        "entity_id": {
+          "name": "Robot vacuum entity",
+          "description": "Vacuum entity to target (optional if only one robot is paired)."
+        },
+        "serial": {
+          "name": "Robot serial",
+          "description": "Robot serial number (optional alternative to entity_id)."
+        },
+        "map_name": {
+          "name": "Map name or ID",
+          "description": "Name or ID of the floor map to activate."
+        }
+      }
+    },
     "refresh_maps": {
       "name": "Refresh maps and runs",
       "description": "Reload floor maps, room boundaries, and historical cleaning runs from the Vacuula server.",

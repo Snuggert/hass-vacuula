@@ -41,6 +41,7 @@ async def async_setup_entry(
         for serial in serials:
             entities.append(VacuulaNavigationModeSelect(coordinator, serial))
             entities.append(VacuulaTargetZoneSelect(coordinator, serial))
+            entities.append(VacuulaSelectedMapSelect(coordinator, serial))
             robot = coordinator.data.get(serial)
             if robot and robot.robot_type == ROBOT_TYPE_GEN3:
                 entities.append(VacuulaCleaningCategorySelect(coordinator, serial))
@@ -159,3 +160,57 @@ class VacuulaTargetZoneSelect(VacuulaEntity, SelectEntity):
             return
         self.robot.selected_zone = option
         self.coordinator.async_update_listeners()
+
+
+class VacuulaSelectedMapSelect(VacuulaEntity, SelectEntity):
+    """Select entity for choosing the robot's active floor map."""
+
+    _attr_name = "Selected map"
+    _attr_icon = "mdi:map"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
+        """Initialize the selected map select entity."""
+        super().__init__(coordinator, serial, "selected_map")
+
+    @property
+    def options(self) -> list[str]:
+        """Return available floor map names."""
+        if not self.robot or not self.robot.maps:
+            if self.robot and self.robot.active_map_name:
+                return [self.robot.active_map_name]
+            return []
+        names: list[str] = []
+        seen: set[str] = set()
+        for m in self.robot.maps:
+            name = str(m.get("name") or m.get("id") or "").strip()
+            if name and name not in seen:
+                seen.add(name)
+                names.append(name)
+        return names
+
+    @property
+    def current_option(self) -> str | None:
+        """Return currently active map name."""
+        if not self.robot:
+            return None
+        if self.robot.active_map_name and self.robot.active_map_name in self.options:
+            return self.robot.active_map_name
+        return self.options[0] if self.options else None
+
+    async def async_select_option(self, option: str) -> None:
+        """Switch the active map to the chosen floor map."""
+        if not self.robot:
+            return
+        target_map = next(
+            (
+                m
+                for m in self.robot.maps
+                if str(m.get("name") or m.get("id") or "").strip() == option
+            ),
+            None,
+        )
+        if target_map and target_map.get("id"):
+            await self.coordinator.async_set_active_map(
+                self._serial, str(target_map["id"])
+            )

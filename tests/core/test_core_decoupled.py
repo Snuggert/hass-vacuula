@@ -208,6 +208,27 @@ async def test_vacuula_controller_lifecycle() -> None:
     assert bot.activity_state == "cleaning"
     assert len(updates) == 2
 
+    # Test explicit map selection
+    bot.maps = [
+        {"id": "map-1", "name": "First Floor"},
+        {"id": "map-2", "name": "Second Floor"},
+    ]
+    mock_client.async_get_map_detail.return_value = {
+        "width": 32,
+        "height": 32,
+        "rle": [[1, 1024]],
+    }
+    mock_client.async_get_map_boundaries.return_value = [
+        {"id": "z-2", "name": "Bedroom", "type": "polygon"}
+    ]
+    assert await controller.async_set_active_map("OPS111-222", "map-2") is True
+    assert bot.active_map_id == "map-2"
+    assert bot.active_map_name == "Second Floor"
+    assert bot.preferred_map_id == "map-2"
+    assert len(bot.zones) == 1
+    assert bot.zones[0]["name"] == "Bedroom"
+    assert len(updates) == 3
+
     unsub()
 
 

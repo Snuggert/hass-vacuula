@@ -28,6 +28,7 @@ from .const import (
     SERVICE_CLEAN_ZONES,
     SERVICE_DISMISS_ALERT,
     SERVICE_REFRESH_MAPS,
+    SERVICE_SELECT_MAP,
     SERVICE_SEND_RAW_COMMAND,
 )
 from .coordinator import VacuulaCoordinator, VacuulaRobotData
@@ -288,6 +289,31 @@ def _async_register_services(hass: HomeAssistant) -> None:
         if resp:
             await coord.async_apply_command_response(robot.serial, resp)
 
+    async def _handle_select_map(call: ServiceCall) -> None:
+        serial = call.data.get("serial")
+        entity_id = call.data.get(ATTR_ENTITY_ID)
+        map_name_or_id = str(call.data["map_name"]).strip()
+
+        coord, robot = _resolve_target_robot(hass, serial, entity_id)
+
+        target_map = next(
+            (
+                m
+                for m in robot.maps
+                if str(m.get("id")) == map_name_or_id
+                or str(m.get("name", "")).strip().lower() == map_name_or_id.lower()
+            ),
+            None,
+        )
+        if not target_map or not target_map.get("id"):
+            available = [m.get("name") or m.get("id") for m in robot.maps]
+            raise HomeAssistantError(
+                f"Floor map '{map_name_or_id}' not found for robot {robot.name}. "
+                f"Available maps: {available}"
+            )
+
+        await coord.async_set_active_map(robot.serial, str(target_map["id"]))
+
     async def _handle_send_raw_command(call: ServiceCall) -> None:
         serial = call.data.get("serial")
         entity_id = call.data.get(ATTR_ENTITY_ID)
@@ -346,6 +372,18 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 ),
                 vol.Optional("fan_speed"): cv.string,
                 vol.Optional("navigation_mode"): cv.string,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SELECT_MAP,
+        _handle_select_map,
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_ENTITY_ID): cv.comp_entity_ids,
+                vol.Optional("serial"): cv.string,
+                vol.Required("map_name"): cv.string,
             }
         ),
     )

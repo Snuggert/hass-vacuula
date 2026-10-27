@@ -32,6 +32,7 @@ from custom_components.vacuula.coordinator import (
 from custom_components.vacuula.select import (
     VacuulaCleaningCategorySelect,
     VacuulaNavigationModeSelect,
+    VacuulaSelectedMapSelect,
     VacuulaTargetZoneSelect,
     async_setup_entry,
 )
@@ -171,6 +172,39 @@ async def test_target_zone_select(hass: HomeAssistant) -> None:
     await sel.async_select_option(ALL_ZONES_OPTION)
 
 
+async def test_selected_map_select(hass: HomeAssistant) -> None:
+    """Test VacuulaSelectedMapSelect options, active map display, and map switching."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Mappa",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        maps=[
+            {"id": "map-old", "name": "old"},
+            {"id": "map-new", "name": "Ground Floor"},
+        ],
+        active_map_id="map-old",
+        active_map_name="old",
+    )
+    coordinator, _, _ = create_mock_coordinator(hass, robot)
+    coordinator.async_set_active_map = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    sel = VacuulaSelectedMapSelect(coordinator, "OPS123")
+
+    assert sel.name == "Selected map"
+    assert sel.options == ["old", "Ground Floor"]
+    assert sel.current_option == "old"
+
+    # Selecting new map invokes coordinator.async_set_active_map
+    await sel.async_select_option("Ground Floor")
+    coordinator.async_set_active_map.assert_awaited_once_with("OPS123", "map-new")
+
+    # Missing robot
+    coordinator.data = {}
+    assert sel.options == []
+    assert sel.current_option is None
+    await sel.async_select_option("old")  # should not crash
+
+
 async def test_select_setup_entry(hass: HomeAssistant) -> None:
     """Test async_setup_entry creates proper entities for Gen3 and Gen4."""
     robot_gen3 = VacuulaRobotData(
@@ -188,9 +222,28 @@ async def test_select_setup_entry(hass: HomeAssistant) -> None:
 
     await async_setup_entry(hass, entry, mock_add_entities)
 
-    # Gen3 gets NavigationMode, TargetZone, and CleaningCategory
-    assert len(added_entities) == 3
+    # Gen3 gets NavigationMode, TargetZone, SelectedMap, and CleaningCategory
+    assert len(added_entities) == 4
     types = [type(e).__name__ for e in added_entities]
     assert "VacuulaNavigationModeSelect" in types
     assert "VacuulaTargetZoneSelect" in types
+    assert "VacuulaSelectedMapSelect" in types
     assert "VacuulaCleaningCategorySelect" in types
+
+    # Gen4 gets NavigationMode, TargetZone, SelectedMap
+    robot_gen4 = VacuulaRobotData(
+        serial="OPS456",
+        name="Gen4Bot",
+        robot_type=ROBOT_TYPE_GEN4,
+        connected=True,
+    )
+    coordinator.data = {"OPS456": robot_gen4}
+    coordinator._known_serials = {"OPS456"}
+    added_gen4: list[Any] = []
+    await async_setup_entry(hass, entry, lambda ents: added_gen4.extend(ents))
+    types_gen4 = [type(e).__name__ for e in added_gen4]
+    assert len(added_gen4) == 3
+    assert "VacuulaNavigationModeSelect" in types_gen4
+    assert "VacuulaTargetZoneSelect" in types_gen4
+    assert "VacuulaSelectedMapSelect" in types_gen4
+    assert "VacuulaCleaningCategorySelect" not in types_gen4

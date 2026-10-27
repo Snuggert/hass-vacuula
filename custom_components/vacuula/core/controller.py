@@ -44,6 +44,7 @@ def build_robot_data(
         preferred_category=prev.preferred_category if prev else GEN3_CATEGORY_MAP,
         selected_zone=prev.selected_zone if prev else ALL_ZONES_OPTION,
         maps=prev.maps if prev else [],
+        preferred_map_id=prev.preferred_map_id if prev else None,
         active_map_id=prev.active_map_id if prev else None,
         active_map_name=prev.active_map_name if prev else None,
         floormap=prev.floormap if prev else None,
@@ -139,26 +140,7 @@ async def async_load_robot_maps_and_runs(
     need_floormap_id: str | None = None
     need_boundaries_id: str | None = None
     need_runmap_id: str | None = None
-
-    if isinstance(maps_res, list):
-        robot.maps = maps_res
-        active_map = next(
-            (
-                m
-                for m in maps_res
-                if m.get("enabled") or m.get("promoted") or m.get("in_maps_list")
-            ),
-            maps_res[0] if maps_res else None,
-        )
-        if active_map and active_map.get("id"):
-            map_id = str(active_map["id"])
-            map_changed = map_id != robot.active_map_id
-            robot.active_map_id = map_id
-            robot.active_map_name = str(active_map.get("name") or map_id)
-            if map_changed or robot.floormap is None:
-                need_floormap_id = map_id
-            if robot.connected:
-                need_boundaries_id = map_id
+    latest_run_map_id: str | None = None
 
     if isinstance(runs_res, list):
         robot.total_runs = len(runs_res)
@@ -176,6 +158,78 @@ async def async_load_robot_maps_and_runs(
             if run_id and (run_id != robot.last_run_id or robot.last_runmap is None):
                 robot.last_run_id = run_id
                 need_runmap_id = run_id
+
+            run_dict = run_obj if isinstance(run_obj, dict) else {}
+            latest_run_map_val = (
+                latest_entry.get("persistent_map")
+                or latest_entry.get("floorplan")
+                or latest_entry.get("map_id")
+                or run_dict.get("persistent_map")
+                or run_dict.get("floorplan_id")
+                or run_dict.get("map_id")
+            )
+            if latest_run_map_val is not None:
+                latest_run_map_id = str(latest_run_map_val)
+
+    if isinstance(maps_res, list):
+        robot.maps = maps_res
+        enabled_candidates = [
+            m
+            for m in maps_res
+            if m.get("enabled") or m.get("promoted") or m.get("in_maps_list")
+        ] or maps_res
+
+        active_map: dict[str, Any] | None = None
+
+        # 1. User-preferred map selection
+        if robot.preferred_map_id:
+            active_map = next(
+                (m for m in maps_res if str(m.get("id")) == robot.preferred_map_id),
+                None,
+            )
+
+        # 2. Promoted map (Gen4 or server-promoted)
+        if not active_map:
+            active_map = next(
+                (m for m in enabled_candidates if m.get("promoted") is True),
+                None,
+            )
+
+        # 3. Map from latest cleaning run
+        if not active_map and latest_run_map_id:
+            active_map = next(
+                (m for m in maps_res if str(m.get("id")) == latest_run_map_id),
+                None,
+            )
+
+        # 4. Previously active map if still valid
+        if not active_map and robot.active_map_id:
+            active_map = next(
+                (m for m in maps_res if str(m.get("id")) == robot.active_map_id),
+                None,
+            )
+
+        # 5. Fallback: newest enabled map instead of oldest
+        if not active_map and enabled_candidates:
+            if any(m.get("created_at") for m in enabled_candidates):
+                active_map = max(
+                    enabled_candidates,
+                    key=lambda m: str(m.get("created_at") or ""),
+                )
+            else:
+                active_map = enabled_candidates[-1]
+
+        if active_map and active_map.get("id"):
+            map_id = str(active_map["id"])
+            map_changed = map_id != robot.active_map_id
+            robot.active_map_id = map_id
+            robot.active_map_name = str(active_map.get("name") or map_id)
+            if map_changed:
+                robot.selected_zone = ALL_ZONES_OPTION
+            if map_changed or robot.floormap is None:
+                need_floormap_id = map_id
+            if robot.connected and (map_changed or not robot.boundaries):
+                need_boundaries_id = map_id
 
     # Fetch floorplan detail, boundaries, and runmap concurrently in a single RTT
     tasks: dict[str, Any] = {}
@@ -307,3 +361,45 @@ class VacuulaController:
             return
         if await async_load_robot_maps_and_runs(self.client, robot) and notify:
             self._notify_listeners()
+
+    async def async_set_active_map(self, serial: str, map_id: str) -> bool:
+        """Explicitly select the active floor map for a robot."""
+        robot = self.robots.get(serial)
+        if not robot:
+            return False
+        target_map = next(
+            (m for m in robot.maps if str(m.get("id")) == str(map_id)), None
+        )
+        if not target_map:
+            return False
+
+        robot.preferred_map_id = str(map_id)
+        robot.active_map_id = str(map_id)
+        robot.active_map_name = str(target_map.get("name") or map_id)
+        robot.selected_zone = ALL_ZONES_OPTION
+
+        tasks: dict[str, Any] = {
+            "floormap": self.client.async_get_map_detail(serial, map_id)
+        }
+        if robot.connected:
+            tasks["boundaries"] = self.client.async_get_map_boundaries(
+                serial, robot.robot_type, map_id
+            )
+
+        keys = list(tasks.keys())
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        fetched = dict(zip(keys, results, strict=False))
+
+        if "floormap" in fetched and isinstance(fetched["floormap"], dict):
+            robot.floormap = fetched["floormap"]
+        if "boundaries" in fetched and isinstance(fetched["boundaries"], list):
+            robot.boundaries = fetched["boundaries"]
+            robot.zones = [
+                b
+                for b in fetched["boundaries"]
+                if b.get("type") == "polygon" and b.get("name")
+            ]
+
+        _ = robot.cropped_zones
+        self._notify_listeners()
+        return True

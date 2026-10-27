@@ -391,6 +391,7 @@ class VacuulaMapCard extends HTMLElement {
     const area = this._getState(`sensor.${slug}_last_clean_area`);
     const dur = this._getState(`sensor.${slug}_last_clean_duration`);
     const nav = this._getState(`select.${slug}_navigation_mode`);
+    const selMap = this._getState(`select.${slug}_selected_map`);
     const sched = this._getState(`switch.${slug}_schedule`);
 
     return JSON.stringify([
@@ -405,6 +406,9 @@ class VacuulaMapCard extends HTMLElement {
       vac?.attributes?.error,
       vac?.attributes?.errors,
       vac?.attributes?.active_map_name,
+      vac?.attributes?.maps,
+      selMap?.state,
+      selMap?.attributes?.options,
       floor?.state,
       floor?.attributes?.entity_picture,
       floor?.attributes?.map_name,
@@ -499,6 +503,22 @@ class VacuulaMapCard extends HTMLElement {
       this._hass.callService("select", "select_option", {
         entity_id: navEntity,
         option,
+      });
+    }
+  }
+
+  _setSelectedMap(option) {
+    if (!this._hass) return;
+    const mapEntity = `select.${this._slug()}_selected_map`;
+    if (this._getState(mapEntity)) {
+      this._hass.callService("select", "select_option", {
+        entity_id: mapEntity,
+        option,
+      });
+    } else {
+      this._hass.callService("vacuula", "select_map", {
+        entity_id: this._config.entity,
+        map_name: option,
       });
     }
   }
@@ -885,6 +905,25 @@ class VacuulaMapCard extends HTMLElement {
           background: #38bdf8;
           color: #0f172a;
         }
+        .map-select {
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          background: rgba(15, 23, 42, 0.85);
+          color: #cbd5e1;
+          font-size: 0.74rem;
+          font-weight: 600;
+          padding: 3px 6px;
+          border-radius: 7px;
+          cursor: pointer;
+          outline: none;
+        }
+        .map-select:hover {
+          border-color: rgba(255, 255, 255, 0.3);
+          color: #ffffff;
+        }
+        .map-select option {
+          background: #0f172a;
+          color: #f1f5f9;
+        }
         .zones-bar {
           display: flex;
           flex-wrap: wrap;
@@ -1028,8 +1067,18 @@ class VacuulaMapCard extends HTMLElement {
     const name = this._config.title || vacState.attributes?.friendly_name || slug;
     const stateStr = vacState.state || "unknown";
     const actionStr = vacState.attributes?.action || "";
+    const selMapEntity = this._getState(`select.${slug}_selected_map`);
+    const availableMaps =
+      Array.isArray(selMapEntity?.attributes?.options) && selMapEntity.attributes.options.length > 0
+        ? selMapEntity.attributes.options
+        : Array.isArray(vacState?.attributes?.maps)
+          ? vacState.attributes.maps
+          : [];
     const mapName =
-      floorState?.attributes?.map_name || vacState.attributes?.active_map_name || "Floor Plan";
+      selMapEntity?.state ||
+      floorState?.attributes?.map_name ||
+      vacState.attributes?.active_map_name ||
+      "Floor Plan";
 
     const batteryVal =
       battState?.state && !["unknown", "unavailable"].includes(battState.state)
@@ -1191,6 +1240,20 @@ class VacuulaMapCard extends HTMLElement {
             <div class="map-toolbar">
               <button class="tab-btn ${this._viewMode === "floor" ? "active" : ""}" id="tab-floor">Floor Plan</button>
               <button class="tab-btn ${this._viewMode === "run" ? "active" : ""}" id="tab-run">Last Run</button>
+              ${
+                availableMaps.length > 1 && this._viewMode === "floor"
+                  ? `
+                  <select class="map-select" id="sel-active-map" title="Select Map">
+                    ${availableMaps
+                      .map(
+                        (m) =>
+                          `<option value="${escapeHtml(m)}" ${m === mapName ? "selected" : ""}>${escapeHtml(m)}</option>`
+                      )
+                      .join("")}
+                  </select>
+                  `
+                  : ""
+              }
               <button class="tab-btn" id="btn-refresh-map" title="Refresh Maps">↻</button>
             </div>
             `
@@ -1276,6 +1339,10 @@ class VacuulaMapCard extends HTMLElement {
     });
     root.querySelector("#btn-refresh-map")?.addEventListener("click", () => {
       this._refreshMaps();
+    });
+    root.querySelector("#sel-active-map")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLSelectElement} */ (e.target);
+      this._setSelectedMap(target.value);
     });
     root.querySelector("#btn-schedule")?.addEventListener("click", () => {
       this._toggleSchedule();

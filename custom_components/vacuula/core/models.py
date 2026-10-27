@@ -88,6 +88,7 @@ class VacuulaRobotData:
     preferred_category: int = GEN3_CATEGORY_MAP
     selected_zone: str = ALL_ZONES_OPTION
     maps: list[dict[str, Any]] = field(default_factory=list)
+    preferred_map_id: str | None = None
     active_map_id: str | None = None
     active_map_name: str | None = None
     floormap: dict[str, Any] | None = None
