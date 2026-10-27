@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to promote to public GitHub Release (e.g. v0.8.0)"
+        description: "Tag to promote to public GitHub Release (e.g. v0.8.1)"
         required: true
-        default: "v0.8.0"
+        default: "v0.8.1"
       promote:
         description: "Promote to public release (true = publish publicly, false = draft only)"
         type: boolean

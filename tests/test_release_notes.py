@@ -14,10 +14,15 @@ from devtools.release_notes import (
 def test_extract_changelog_notes() -> None:
     """Verify extracting curated release notes from CHANGELOG.md for a given tag."""
     root = Path(__file__).resolve().parent.parent
-    notes = extract_changelog_notes(root / "CHANGELOG.md", "v0.8.0")
-    assert "@veronoicc" in notes
-    assert "### Added" in notes
-    assert "## [0.8.0]" not in notes
+    notes_080 = extract_changelog_notes(root / "CHANGELOG.md", "v0.8.0")
+    assert "@veronoicc" in notes_080
+    assert "### Added" in notes_080
+    assert "## [0.8.0]" not in notes_080
+
+    notes_081 = extract_changelog_notes(root / "CHANGELOG.md", "v0.8.1")
+    assert "Multi-Map Selection Entity" in notes_081
+    assert "### Fixed" in notes_081
+    assert "## [0.8.1]" not in notes_081
 
 
 def test_extract_contributors_section_with_new_contributors() -> None:

@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] - 2026-10-27
+
+### Added
+- **Multi-Map Selection Entity (`custom_components/vacuula/select.py`):** Added `select.<robot>_selected_map` (`VacuulaSelectedMapSelect`) to easily inspect and switch the robot's active floor plan via standard Home Assistant select entity dropdowns in Lovelace, automations, and scripts.
+- **Dedicated Map Selection Action (`custom_components/vacuula/__init__.py`):** Added `vacuula.select_map` service allowing programmatic floor plan selection by map name or map ID.
+- **Interactive Map Switcher in Card (`custom_components/vacuula/frontend/vacuula-map-card.js`):** Displayed an interactive map switcher in the Lovelace card toolbar when multiple floor plans are available on the robot.
+
+### Fixed
+- **Multi-Map Resolution & New Floor Plan Latching (Fixes [#4](https://github.com/Snuggert/hass-vacuula/issues/4)):** Resolved an issue where Home Assistant permanently latched onto the oldest created map (`maps_res[0]`, e.g. "old") because SQLite returns all maps with `enabled=1`. Implemented a smart map resolution priority hierarchy:
+  1. User-preferred map selection (`preferred_map_id`).
+  2. Server-promoted active map (`promoted: True`).
+  3. Map from latest cleaning run (`persistent_map` / `floorplan`).
+  4. Previously active map if still present.
+  5. Fallback to newest created map (`enabled_candidates[-1]`) instead of the oldest.
+
 ## [0.8.0] - 2026-10-27
 
 > **Special Thanks:** A huge thank you to **@veronoicc** ([#3](https://github.com/Snuggert/hass-vacuula/pull/3)) for this contribution! This release introduces Hass native room/segment cleaning, new custom actions, server hub diagnostic entities, dynamic options flow, and frontend card polish.
@@ -145,6 +160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.8.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.0...v0.7.1
