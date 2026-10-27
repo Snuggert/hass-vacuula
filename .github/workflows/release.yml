@@ -49,67 +49,9 @@ jobs:
           IS_DISPATCH="${{ github.event_name == 'workflow_dispatch' }}"
           SHOULD_PROMOTE="${{ github.event.inputs.promote || 'false' }}"
 
-          # Extract release notes for this tag from CHANGELOG.md if present
-          python3 -c '
-          import sys, re
-          tag = sys.argv[1]
-          version = tag.lstrip("v")
-          try:
-              with open("CHANGELOG.md") as f:
-                  lines = f.read().splitlines()
-          except FileNotFoundError:
-              sys.exit(0)
-          in_version = False
-          version_lines = []
-          for line in lines:
-              header_match = re.match(r"^##\s+\[?v?([0-9]+\.[0-9]+\.[0-9]+[^\]\s]*)\]?", line)
-              if header_match:
-                  if header_match.group(1) == version:
-                      in_version = True
-                      continue
-                  elif in_version:
-                      break
-              elif in_version:
-                  if re.match(r"^\[[^\]]+\]:\s*http", line):
-                      break
-                  version_lines.append(line)
-          extracted = "\n".join(version_lines).strip()
-          if extracted:
-              with open("RELEASE_NOTES.md", "w") as out:
-                  out.write(extracted + "\n")
-          ' "$TAG"
-
-          # Always fetch auto-generated notes from GitHub API
+          # Extract notes from CHANGELOG.md and append contributors from GitHub generate-notes API
           AUTO_NOTES=$(gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="$TAG" -q .body 2>/dev/null || true)
-
-          if [ -s "RELEASE_NOTES.md" ]; then
-            # Extract auto-generated contributors / changelog link to append to curated notes
-            if [ -n "$AUTO_NOTES" ]; then
-              python3 -c '
-              import sys, re
-              auto = sys.stdin.read()
-              if not auto.strip():
-                  sys.exit(0)
-              match_new = re.search(r"(## (?:New )?Contributors.*)", auto, re.DOTALL)
-              if match_new:
-                  section = match_new.group(1).strip()
-                  with open("RELEASE_NOTES.md", "a") as f:
-                      f.write("\n\n" + section + "\n")
-              else:
-                  contributors = sorted(set(re.findall(r"@([a-zA-Z0-9_-]+)", auto)))
-                  if contributors:
-                      contributor_lines = [f"* @{c}" for c in contributors]
-                      with open("RELEASE_NOTES.md", "a") as f:
-                          f.write("\n\n## Contributors\n" + "\n".join(contributor_lines) + "\n")
-                  match_changelog = re.search(r"(\*\*Full Changelog\*\*:.*)", auto)
-                  if match_changelog:
-                      with open("RELEASE_NOTES.md", "a") as f:
-                          f.write("\n" + match_changelog.group(1).strip() + "\n")
-              ' <<< "$AUTO_NOTES"
-            fi
-          elif [ -n "$AUTO_NOTES" ]; then
-            printf "%s\n" "$AUTO_NOTES" > RELEASE_NOTES.md
-          fi
+          python3 devtools/release_notes.py "$TAG" <<< "$AUTO_NOTES"
 
           NOTES_ARG=""
           if [ -s "RELEASE_NOTES.md" ]; then
