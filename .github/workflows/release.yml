@@ -60,10 +60,14 @@ jobs:
             NOTES_ARG="--generate-notes"
           fi
 
-          # Check if a release for this tag already exists
+          # Check if a release for this tag already exists and inspect its draft status
           EXISTS=false
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          IS_DRAFT=true
+          if RELEASE_DRAFT_STATUS=$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null); then
             EXISTS=true
+            if [ "$RELEASE_DRAFT_STATUS" = "false" ]; then
+              IS_DRAFT=false
+            fi
           fi
 
           if [ "$IS_DISPATCH" = "true" ] && [ "$SHOULD_PROMOTE" = "true" ]; then
@@ -79,6 +83,13 @@ jobs:
               gh release create "$TAG" vacuula.zip --title "$TAG" --draft=false $NOTES_ARG
             fi
             echo "✅ Release $TAG is now publicly published!"
+          elif [ "$EXISTS" = "true" ] && [ "$IS_DRAFT" = "false" ]; then
+            echo "🛡️ Release $TAG is ALREADY PUBLICLY PUBLISHED. Preserving public production status (never demoting to draft)."
+            gh release upload "$TAG" vacuula.zip --clobber
+            if [ -s "RELEASE_NOTES.md" ]; then
+              gh release edit "$TAG" --draft=false --notes-file RELEASE_NOTES.md
+            fi
+            echo "✅ Public release $TAG assets and notes updated successfully!"
           else
             echo "📝 Preparing draft release for $TAG (awaiting manual testing & promotion)..."
             if [ "$EXISTS" = "true" ]; then
