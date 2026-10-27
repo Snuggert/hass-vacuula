@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.8.0] - 2026-10-27
 
-> **Special Thanks:** A huge thank you to **[@veronoicc](https://github.com/veronoicc)** ([#3](https://github.com/Snuggert/hass-vacuula/pull/3)) for this incredible and comprehensive contribution! This release introduces modern room/segment cleaning, new custom actions, server hub diagnostic entities, dynamic options flow, and frontend card polish.
+> **Special Thanks:** A huge thank you to **[@veronoicc](https://github.com/veronoicc)** ([#3](https://github.com/Snuggert/hass-vacuula/pull/3)) for this contribution! This release introduces Hass native room/segment cleaning, new custom actions, server hub diagnostic entities, dynamic options flow, and frontend card polish.
 
 ### Added
 - **New Custom Actions / Services (`custom_components/vacuula/`):**
