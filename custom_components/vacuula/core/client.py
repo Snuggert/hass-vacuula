@@ -370,10 +370,10 @@ class VacuulaApiClient:
         self, serial: str, command: str, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Send raw command or ability to robot."""
-        if params is not None:
-            payload: dict[str, Any] = {"cmd": command, "params": params}
-        elif "." in command:
-            payload = {"ability": command}
+        if "." in command:
+            payload: dict[str, Any] = {"ability": command, **(params or {})}
+        elif params is not None:
+            payload = {"cmd": command, "params": params}
         else:
             payload = {"cmd": command}
         return await self.async_send_command(serial, payload)

@@ -215,8 +215,6 @@ The integration registers the Vacuula Server as a hub device (`DeviceEntryType.S
 
 The integration supports Home Assistant's **Options Flow** (**Settings → Devices & Services → Neato Botvac → Configure**):
 - **Update interval**: Polling fallback slider (5–300s, default `30s`).
-- **Default cleaning mode**: Default fan speed (`turbo` or `eco`).
-- **Default navigation mode**: Default navigation profile (`normal`, `extra_care`, `deep`, or `gentle`).
 
 Changes reload automatically without restarting Home Assistant.
 

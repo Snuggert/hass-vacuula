@@ -19,25 +19,15 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
-    SelectOptionDict,
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
 )
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import VacuulaApiClient, VacuulaApiError
 from .const import (
-    CLEANING_MODES,
-    CONF_DEFAULT_MODE,
-    CONF_DEFAULT_NAV_MODE,
     CONF_SCAN_INTERVAL,
-    DEFAULT_MODE,
-    DEFAULT_NAV_MODE,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_URL,
     DOMAIN,
-    NAVIGATION_MODES,
 )
 
 
@@ -137,13 +127,8 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
                     data_updates={CONF_URL: url},
                 )
 
-        current_url = reconfigure_entry.data.get(CONF_URL)
-        if not current_url and "host" in reconfigure_entry.data:
-            scheme = "https" if reconfigure_entry.data.get("use_ssl") else "http"
-            port = reconfigure_entry.data.get("port", 80)
-            current_url = f"{scheme}://{reconfigure_entry.data['host']}:{port}"
+        current_url = reconfigure_entry.data.get(CONF_URL, DEFAULT_URL)
         return self.async_show_form(
-            step_id="reconfigure",
             data_schema=vol.Schema(
                 {vol.Required(CONF_URL, default=current_url or DEFAULT_URL): str}
             ),
@@ -210,14 +195,11 @@ class VacuulaConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Get the options flow for this handler."""
-        return VacuulaOptionsFlowHandler(config_entry)
+        return VacuulaOptionsFlowHandler()
 
 
 class VacuulaOptionsFlowHandler(OptionsFlow):
     """Handle Vacuula options."""
-
-    def __init__(self, config_entry: ConfigEntry | None = None) -> None:
-        """Initialize options flow."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -228,8 +210,6 @@ class VacuulaOptionsFlowHandler(OptionsFlow):
 
         options = self.config_entry.options
         scan_interval = options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-        default_mode = options.get(CONF_DEFAULT_MODE, DEFAULT_MODE)
-        default_nav_mode = options.get(CONF_DEFAULT_NAV_MODE, DEFAULT_NAV_MODE)
 
         schema = vol.Schema(
             {
@@ -239,28 +219,6 @@ class VacuulaOptionsFlowHandler(OptionsFlow):
                         max=300,
                         step=5,
                         mode=NumberSelectorMode.SLIDER,
-                    )
-                ),
-                vol.Optional(CONF_DEFAULT_MODE, default=default_mode): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(value=m, label=m.capitalize())
-                            for m in CLEANING_MODES
-                        ],
-                        mode=SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Optional(
-                    CONF_DEFAULT_NAV_MODE, default=default_nav_mode
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(
-                                value=n, label=n.replace("_", " ").capitalize()
-                            )
-                            for n in NAVIGATION_MODES
-                        ],
-                        mode=SelectSelectorMode.DROPDOWN,
                     )
                 ),
             }

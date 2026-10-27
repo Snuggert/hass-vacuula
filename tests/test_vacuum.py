@@ -489,6 +489,12 @@ async def test_vacuum_segments(hass: HomeAssistant) -> None:
     await entity_missing.async_clean_segments(["zone-1"])
     client.async_start_zone_cleaning.assert_not_called()
 
+    # Clean segments when no active_map_id on robot
+    robot.active_map_id = None
+    await entity.async_clean_segments(["zone-1"])
+    client.async_start_zone_cleaning.assert_not_called()
+    robot.active_map_id = "map-1"
+
     # Clean segments when no zones on robot
     robot.zones = []
     assert await entity.async_get_segments() == []

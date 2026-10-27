@@ -19,7 +19,6 @@ from .coordinator import VacuulaCoordinator, VacuulaRobotData
 
 TO_REDACT = {
     CONF_URL,
-    "host",
     "serial",
     "serial_number",
     "serialNumber",

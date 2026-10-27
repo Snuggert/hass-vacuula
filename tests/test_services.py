@@ -501,12 +501,15 @@ async def test_client_async_send_raw_command() -> None:
         "SER123", {"cmd": "getRobotState", "params": {"key": "val"}}
     )
 
-    # 2. Ability with dot in command
+    # 2. Ability with dot in command (without and with params)
     await client.async_send_raw_command("SER123", "cleaning.start")
     client.async_send_command.assert_awaited_with(
         "SER123", {"ability": "cleaning.start"}
     )
-
+    await client.async_send_raw_command("SER123", "cleaning.start", {"mode": "turbo"})
+    client.async_send_command.assert_awaited_with(
+        "SER123", {"ability": "cleaning.start", "mode": "turbo"}
+    )
     # 3. Simple cmd
     await client.async_send_raw_command("SER123", "pauseCleaning")
     client.async_send_command.assert_awaited_with("SER123", {"cmd": "pauseCleaning"})

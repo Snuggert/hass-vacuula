@@ -272,7 +272,7 @@ class VacuulaVacuumEntity(VacuulaEntity, StateVacuumEntity):
     async def async_clean_segments(self, segment_ids: list[str], **kwargs: Any) -> None:
         """Clean selected segments/rooms."""
         robot = self._robot
-        if not robot or not robot.zones or not segment_ids:
+        if not robot or not robot.zones or not segment_ids or not robot.active_map_id:
             return
         zone_ids = robot.resolve_zone_ids(segment_ids)
         if not zone_ids:
