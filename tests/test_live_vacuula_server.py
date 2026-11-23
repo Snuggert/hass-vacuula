@@ -8,6 +8,7 @@ from typing import Any
 
 import aiohttp
 import pytest
+import pytest_socket
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula.api import (
@@ -35,6 +36,9 @@ from devtools.server_manager import VacuulaServerManager
 @pytest.fixture(scope="module")
 def _shared_vacuula_server():
     """Start a shared isolated real Vacuula dev server for the module."""
+    # Module-scoped fixtures execute before function-scoped `socket_enabled`, and
+    # HA's setup hook can run after pytest-socket depending on plugin load order.
+    pytest_socket.enable_socket()
     with VacuulaServerManager(
         app_version="1.1.0-b9", min_installer_version="1.1.0-b3"
     ) as srv:
