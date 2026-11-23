@@ -53,6 +53,7 @@ def build_robot_data(
         last_run=prev.last_run if prev else None,
         last_run_id=prev.last_run_id if prev else None,
         last_runmap=prev.last_runmap if prev else None,
+        last_run_floormap=prev.last_run_floormap if prev else None,
         total_runs=prev.total_runs if prev else 0,
         maps_loaded=prev.maps_loaded if prev else False,
         installed_with=installed_with,
@@ -156,6 +157,9 @@ async def async_load_robot_maps_and_runs(
             run_obj = latest_entry.get("run")
             robot.last_run = run_obj if isinstance(run_obj, dict) else latest_entry
             if run_id and (run_id != robot.last_run_id or robot.last_runmap is None):
+                if run_id != robot.last_run_id:
+                    robot.last_runmap = None
+                    robot.last_run_floormap = None
                 robot.last_run_id = run_id
                 need_runmap_id = run_id
 
@@ -241,6 +245,8 @@ async def async_load_robot_maps_and_runs(
         )
     if need_runmap_id:
         tasks["runmap"] = client.async_get_run_detail(serial, need_runmap_id)
+        if need_runmap_id != need_floormap_id:
+            tasks["run_floormap"] = client.async_get_map_detail(serial, need_runmap_id)
 
     if tasks:
         keys = list(tasks.keys())
@@ -270,6 +276,21 @@ async def async_load_robot_maps_and_runs(
                 _LOGGER.debug("Could not fetch runmap %s: %s", need_runmap_id, res)
             elif isinstance(res, dict):
                 robot.last_runmap = res
+
+        if "run_floormap" in fetched:
+            res = fetched["run_floormap"]
+            if isinstance(res, Exception):
+                _LOGGER.debug(
+                    "Could not fetch run floormap %s: %s", need_runmap_id, res
+                )
+            elif isinstance(res, dict) and res:
+                robot.last_run_floormap = res
+        elif (
+            need_runmap_id
+            and need_runmap_id == need_floormap_id
+            and isinstance(robot.floormap, dict)
+        ):
+            robot.last_run_floormap = robot.floormap
 
     robot.maps_loaded = True
     # Pre-warm cropped_zones cache

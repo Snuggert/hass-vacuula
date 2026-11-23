@@ -859,3 +859,78 @@ async def test_coordinator_async_set_active_map(
     assert await coordinator.async_set_active_map("OPS123", "nonexistent") is False
     # Unknown serial returns False
     assert await coordinator.async_set_active_map("UNKNOWN", "map-new") is False
+
+
+async def test_coordinator_fetches_clears_and_handles_last_run_floormap(
+    hass: HomeAssistant,
+) -> None:
+    """Test fetching last_run_floormap, clearing stale cache, and tolerating API errors."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+    )
+    coordinator.data = {"OPS123": robot}
+
+    run1_floormap = {"width": 10, "height": 10, "rle": [[1, 100]]}
+    run1_map = {"width": 10, "height": 10, "rle": [[128, 90], [150, 10]]}
+    run2_map = {"width": 12, "height": 12, "rle": [[128, 134], [150, 10]]}
+    persistent_floormap = {"width": 20, "height": 20, "rle": [[1, 400]]}
+
+    client.async_get_maps.return_value = [
+        {"id": "map-1", "name": "Main", "enabled": True}
+    ]
+    client.async_get_map_boundaries.return_value = []
+    client.async_get_runs.return_value = [
+        {
+            "id": "run-1",
+            "persistent_map": "map-1",
+            "run": {"start_at": "2026-11-20T10:00:00Z"},
+        }
+    ]
+
+    async def _get_map_detail_v1(_serial: str, map_id: str) -> dict[str, Any]:
+        if map_id == "run-1":
+            return run1_floormap
+        return persistent_floormap
+
+    client.async_get_map_detail.side_effect = _get_map_detail_v1
+    client.async_get_run_detail.return_value = run1_map
+
+    await coordinator.async_refresh_maps_and_runs("OPS123")
+    assert robot.last_run_id == "run-1"
+    assert robot.last_run_floormap == run1_floormap
+    assert robot.last_runmap == run1_map
+    assert robot.floormap == persistent_floormap
+
+    # Newer run arrives: stale last_run_floormap is cleared, and API failure is tolerated
+    client.async_get_runs.return_value = [
+        {
+            "id": "run-2",
+            "persistent_map": "map-1",
+            "run": {"start_at": "2026-11-21T10:00:00Z"},
+        }
+    ]
+
+    async def _get_map_detail_v2(_serial: str, map_id: str) -> dict[str, Any]:
+        if map_id == "run-2":
+            raise VacuulaApiError("not found")
+        return persistent_floormap
+
+    client.async_get_map_detail.side_effect = _get_map_detail_v2
+    client.async_get_run_detail.return_value = run2_map
+
+    await coordinator.async_refresh_maps_and_runs("OPS123")
+    assert robot.last_run_id == "run-2"
+    assert robot.last_run_floormap is None
+    assert robot.last_runmap == run2_map

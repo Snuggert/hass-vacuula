@@ -25,7 +25,11 @@ function sanitizeColor(val) {
 
 function sanitizeImgUrl(val) {
   const str = String(val ?? "").trim();
-  if (str.startsWith("/") || /^https?:\/\//i.test(str)) {
+  if (
+    str.startsWith("/") ||
+    /^https?:\/\//i.test(str) ||
+    /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(str)
+  ) {
     return escapeHtml(str);
   }
   return "";
@@ -209,6 +213,9 @@ class VacuulaMapCard extends HTMLElement {
     this._selectedZones = new Set();
     this._initialized = false;
     this._lastRenderSignature = "";
+    this._pathOnlyRunKey = "";
+    this._pathOnlyRunUrl = "";
+    this._pathOnlyRunPendingKey = "";
   }
 
   static getStubConfig(hass) {
@@ -235,6 +242,7 @@ class VacuulaMapCard extends HTMLElement {
       show_zone_chips: true,
       show_controls: true,
       show_modes: true,
+      show_run_basemap: true,
     };
   }
 
@@ -293,7 +301,14 @@ class VacuulaMapCard extends HTMLElement {
       show_alerts: showAlerts,
       show_bin_alert: showBinAlert,
       ...config,
+      show_run_basemap: config.show_run_basemap !== false,
     };
+
+    if (this._config.show_run_basemap) {
+      this._pathOnlyRunKey = "";
+      this._pathOnlyRunUrl = "";
+      this._pathOnlyRunPendingKey = "";
+    }
 
     if (!this._initialized) {
       this._viewMode = this._config.default_view === "run" ? "run" : "floor";
@@ -415,6 +430,9 @@ class VacuulaMapCard extends HTMLElement {
       floor?.attributes?.zones,
       run?.state,
       run?.attributes?.entity_picture,
+      run?.attributes?.run_id,
+      this._pathOnlyRunKey,
+      this._pathOnlyRunUrl,
       batt?.state,
       chg?.state,
       binSensor?.state,
@@ -438,6 +456,7 @@ class VacuulaMapCard extends HTMLElement {
       this._config.show_zone_chips,
       this._config.show_controls,
       this._config.show_modes,
+      this._config.show_run_basemap,
     ]);
   }
 
@@ -1035,6 +1054,49 @@ class VacuulaMapCard extends HTMLElement {
     this._forceUpdate();
   }
 
+  _ensurePathOnlyRunImage(runImgId, runState) {
+    const key = `${runImgId}|${runState?.attributes?.run_id || ""}|${runState?.attributes?.entity_picture || ""}|${runState?.state || ""}`;
+    if (!this._hass || typeof this._hass.callWS !== "function" || !runState) {
+      return key;
+    }
+    if (this._pathOnlyRunKey === key || this._pathOnlyRunPendingKey === key) {
+      return key;
+    }
+
+    this._pathOnlyRunPendingKey = key;
+    if (this._pathOnlyRunKey !== key) {
+      this._pathOnlyRunUrl = "";
+    }
+
+    const serial = runState.attributes?.serial;
+    const msg = {
+      type: "vacuula/get_run_map_image",
+      entity_id: runImgId,
+      include_basemap: false,
+      ...(serial ? { serial } : {}),
+    };
+
+    this._hass
+      .callWS(msg)
+      .then((res) => {
+        if (this._pathOnlyRunPendingKey !== key) return;
+        this._pathOnlyRunPendingKey = "";
+        this._pathOnlyRunKey = key;
+        const b64 = res?.image_base64;
+        this._pathOnlyRunUrl = b64 ? `data:image/png;base64,${b64}` : "";
+        this._forceUpdate();
+      })
+      .catch(() => {
+        if (this._pathOnlyRunPendingKey !== key) return;
+        this._pathOnlyRunPendingKey = "";
+        this._pathOnlyRunKey = key;
+        this._pathOnlyRunUrl = "";
+        this._forceUpdate();
+      });
+
+    return key;
+  }
+
   _updateContent() {
     const root = this.shadowRoot?.getElementById("root");
     if (!root || !this._hass) return;
@@ -1052,7 +1114,29 @@ class VacuulaMapCard extends HTMLElement {
     const runState = this._getState(runImgId);
 
     const activeImgState = this._viewMode === "run" && runState ? runState : floorState || runState;
-    const imgUrl = sanitizeImgUrl(activeImgState?.attributes?.entity_picture || "");
+    const usePathOnlyRun =
+      this._viewMode === "run" &&
+      this._config.show_run_basemap === false &&
+      Boolean(runState) &&
+      typeof this._hass?.callWS === "function";
+
+    let imgUrl = "";
+    let emptyMapText = "No floor map available yet";
+    if (usePathOnlyRun) {
+      const runCacheKey = this._ensurePathOnlyRunImage(runImgId, runState);
+      if (this._pathOnlyRunKey === runCacheKey && this._pathOnlyRunUrl) {
+        imgUrl = sanitizeImgUrl(this._pathOnlyRunUrl);
+      } else {
+        emptyMapText = this._pathOnlyRunPendingKey
+          ? "Loading last run path..."
+          : "No last run path available yet";
+      }
+    } else {
+      imgUrl = sanitizeImgUrl(activeImgState?.attributes?.entity_picture || "");
+      if (this._viewMode === "run" && !imgUrl) {
+        emptyMapText = "No last run map available yet";
+      }
+    }
 
     const zones = floorState?.attributes?.zones || activeImgState?.attributes?.zones || [];
 
@@ -1264,15 +1348,21 @@ class VacuulaMapCard extends HTMLElement {
             ? `
               <div class="map-stage">
                 <img class="map-img" src="${imgUrl}" alt="Vacuum Map" />
-                <svg class="zone-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-                  ${svgPolygons}
-                </svg>
-                <div class="zone-pins">
-                  ${zonePins}
-                </div>
+                ${
+                  this._viewMode === "floor"
+                    ? `
+                      <svg class="zone-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+                        ${svgPolygons}
+                      </svg>
+                      <div class="zone-pins">
+                        ${zonePins}
+                      </div>
+                    `
+                    : ""
+                }
               </div>
             `
-            : `<div class="empty-map">No floor map available yet</div>`
+            : `<div class="empty-map">${escapeHtml(emptyMapText)}</div>`
         }
       </div>
 
@@ -1537,6 +1627,11 @@ class VacuulaMapCardEditor extends HTMLElement {
           <input type="checkbox" id="show_toolbar" ${cfg.show_toolbar !== false ? "checked" : ""} />
         </label>
 
+        <label class="row">
+          <span>Show Basemap on Last Run</span>
+          <input type="checkbox" id="show_run_basemap" ${cfg.show_run_basemap !== false ? "checked" : ""} />
+        </label>
+
         <div class="section-header">Alerts & Notifications</div>
         <label class="row">
           <span>Show Alert & Warning Banners</span>
@@ -1608,6 +1703,10 @@ class VacuulaMapCardEditor extends HTMLElement {
     this.shadowRoot.querySelector("#show_toolbar")?.addEventListener("change", (e) => {
       const target = /** @type {HTMLInputElement} */ (e.target);
       this._emit({ ...this._config, show_toolbar: target.checked });
+    });
+    this.shadowRoot.querySelector("#show_run_basemap")?.addEventListener("change", (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      this._emit({ ...this._config, show_run_basemap: target.checked });
     });
     this.shadowRoot.querySelector("#show_alerts")?.addEventListener("change", (e) => {
       const target = /** @type {HTMLInputElement} */ (e.target);

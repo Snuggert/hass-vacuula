@@ -97,6 +97,7 @@ class VacuulaRobotData:
     last_run: dict[str, Any] | None = None
     last_run_id: str | None = None
     last_runmap: dict[str, Any] | None = None
+    last_run_floormap: dict[str, Any] | None = None
     total_runs: int = 0
     maps_loaded: bool = False
     installed_with: str | None = None
@@ -432,3 +433,32 @@ class VacuulaRobotData:
                 self.installed_with, min_installer_version
             ),
         }
+
+
+def select_last_run_render_inputs(
+    robot: VacuulaRobotData,
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]] | None, dict[str, Any] | None]:
+    """Select aligned (floormap, boundaries, runmap) inputs for rendering the last run."""
+    if robot.last_runmap is None:
+        return robot.floormap, robot.boundaries, None
+
+    r_w = robot.last_runmap.get("width")
+    r_h = robot.last_runmap.get("height")
+    if robot.last_run_floormap is not None and (
+        robot.last_run_floormap.get("width"),
+        robot.last_run_floormap.get("height"),
+    ) == (r_w, r_h):
+        boundaries = (
+            robot.boundaries
+            if robot.last_run_id and robot.last_run_id == robot.active_map_id
+            else None
+        )
+        return robot.last_run_floormap, boundaries, robot.last_runmap
+
+    if robot.floormap is not None and (
+        robot.floormap.get("width"),
+        robot.floormap.get("height"),
+    ) == (r_w, r_h):
+        return robot.floormap, robot.boundaries, robot.last_runmap
+
+    return None, None, robot.last_runmap

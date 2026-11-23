@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components import websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, CONF_URL
@@ -32,11 +34,13 @@ from .const import (
     SERVICE_SEND_RAW_COMMAND,
 )
 from .coordinator import VacuulaCoordinator, VacuulaRobotData
+from .core.models import select_last_run_render_inputs
+from .map_renderer import render_map_png
 
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.8.1"
+FRONTEND_VERSION = "0.9.0"
 
 type VacuulaConfigEntry = ConfigEntry[VacuulaCoordinator]
 
@@ -424,6 +428,73 @@ def _async_register_services(hass: HomeAssistant) -> None:
     )
 
 
+_WS_GET_RUN_MAP_IMAGE_SCHEMA: Any = {
+    vol.Required("type"): "vacuula/get_run_map_image",
+    vol.Optional("serial"): cv.string,
+    vol.Optional("entity_id"): cv.entity_id,
+    vol.Optional("include_basemap", default=True): cv.boolean,
+}
+
+
+@websocket_api.websocket_command(_WS_GET_RUN_MAP_IMAGE_SCHEMA)
+@websocket_api.async_response
+async def _ws_get_run_map_image(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Render and return the last run map image as a base64 PNG payload."""
+    serial = msg.get("serial")
+    entity_id = msg.get("entity_id")
+    include_basemap = bool(msg.get("include_basemap", True))
+
+    try:
+        _, robot = _resolve_target_robot(hass, serial, entity_id)
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+
+    if include_basemap:
+        floormap, boundaries, runmap = select_last_run_render_inputs(robot)
+    else:
+        floormap, boundaries, runmap = None, None, robot.last_runmap
+
+    if runmap is None:
+        connection.send_error(
+            msg["id"],
+            "not_found",
+            f"No last run map available for robot {robot.name} ({robot.serial})",
+        )
+        return
+
+    png_bytes = await hass.async_add_executor_job(
+        render_map_png, floormap, boundaries, runmap
+    )
+    if not png_bytes:
+        connection.send_error(
+            msg["id"],
+            "not_found",
+            f"Failed to render last run map for robot {robot.name} ({robot.serial})",
+        )
+        return
+
+    connection.send_result(
+        msg["id"],
+        {
+            "serial": robot.serial,
+            "run_id": robot.last_run_id,
+            "include_basemap": include_basemap,
+            "content_type": "image/png",
+            "image_base64": base64.b64encode(png_bytes).decode("ascii"),
+        },
+    )
+
+
+def _async_register_websocket_commands(hass: HomeAssistant) -> None:
+    """Register Vacuula WebSocket API commands."""
+    websocket_api.async_register_command(hass, _ws_get_run_map_image)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> bool:
     """Set up Vacuula from a config entry."""
     await _async_register_frontend(hass)
@@ -437,6 +508,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VacuulaConfigEntry) -> b
 
     entry.runtime_data = coordinator
     _async_register_services(hass)
+    _async_register_websocket_commands(hass)
 
     # Register Hub device in Device Registry
     device_registry = dr.async_get(hass)

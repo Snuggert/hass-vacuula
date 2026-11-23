@@ -255,3 +255,70 @@ def test_map_renderer_additional_edge_cases() -> None:
     png = render_map_png(map_with_walls_and_zero_res, runmap=runmap_with_docks)
     assert png is not None
     assert png.startswith(b"\x89PNG")
+
+
+def test_render_map_png_dimension_mismatch_falls_back_to_runmap() -> None:
+    """Test that mismatched runmap dimensions render standalone runmap instead of bare floormap."""
+    floormap = {
+        "width": 20,
+        "height": 20,
+        "rle": [[1, 400]],
+    }
+    runmap = {
+        "width": 10,
+        "height": 10,
+        "rle": [[128, 22], [3, 5], [150, 5], [128, 68]],
+    }
+
+    png_floor = render_map_png(floormap)
+    png_run_only = render_map_png(None, runmap=runmap)
+    png_run = render_map_png(floormap, runmap=runmap)
+
+    assert png_floor is not None and png_floor.startswith(b"\x89PNG")
+    assert png_run_only is not None and png_run_only.startswith(b"\x89PNG")
+    assert png_run is not None and png_run.startswith(b"\x89PNG")
+    assert png_run == png_run_only
+    assert png_run != png_floor
+
+
+def test_render_map_png_run_overlay_and_nonstandard_values() -> None:
+    """Test matched floormap + runmap overlay renders non-standard non-background values."""
+    floormap = {
+        "width": 10,
+        "height": 10,
+        "rle": [[1, 100]],
+    }
+    runmap = {
+        "width": 10,
+        "height": 10,
+        "rle": [[128, 30], [50, 10], [150, 5], [128, 55]],
+    }
+
+    png_floor = render_map_png(floormap)
+    png_run = render_map_png(floormap, runmap=runmap)
+
+    assert png_floor is not None and png_floor.startswith(b"\x89PNG")
+    assert png_run is not None and png_run.startswith(b"\x89PNG")
+    assert png_run != png_floor
+
+
+def test_render_map_png_gen4_path_runmap() -> None:
+    """Test standalone Gen4 path runmap auto-crops zero background and renders PNG."""
+    gen4_runmap = {
+        "width": 10,
+        "height": 10,
+        "map_type": "path",
+        "rle": [[0, 44], [1, 2], [255, 54]],
+    }
+
+    c_x0, c_y0, c_w, c_h, w, h = get_crop_box(None, runmap=gen4_runmap, pad=1)
+    assert w == 10
+    assert h == 10
+    assert c_x0 == 3
+    assert c_y0 == 3
+    assert c_w == 4
+    assert c_h == 3
+
+    png = render_map_png(None, runmap=gen4_runmap)
+    assert png is not None
+    assert png.startswith(b"\x89PNG")

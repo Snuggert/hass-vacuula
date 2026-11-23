@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
@@ -12,15 +14,18 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.vacuula import (
     _async_register_frontend,
     _async_register_lovelace_resource,
+    _async_register_websocket_commands,
     async_setup_entry,
     async_unload_entry,
 )
 from custom_components.vacuula.const import (
     DOMAIN,
+    ROBOT_TYPE_GEN3,
     SERVICE_CLEAN_SPOT,
     SERVICE_CLEAN_ZONES,
     SERVICE_REFRESH_MAPS,
 )
+from custom_components.vacuula.coordinator import VacuulaCoordinator, VacuulaRobotData
 
 
 async def test_init_setup_and_unload_entry(hass: HomeAssistant) -> None:
@@ -127,3 +132,122 @@ async def test_lovelace_resource_registration(hass: HomeAssistant) -> None:
     hass.data["lovelace"] = MagicMock()
     del hass.data["lovelace"].resources
     await _async_register_lovelace_resource(hass, "/test/url")
+
+
+async def test_websocket_get_run_map_image(
+    hass: HomeAssistant,
+    hass_ws_client: Any,
+    socket_enabled: None,
+) -> None:
+    """Test vacuula/get_run_map_image WebSocket command variants and errors."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="http://192.168.1.50:8085",
+        data={"url": "http://192.168.1.50:8085"},
+        state=ConfigEntryState.LOADED,
+    )
+    entry.add_to_hass(hass)
+
+    client = AsyncMock()
+    coordinator = VacuulaCoordinator(hass, entry, client)
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        active_map_id="map-1",
+        last_run_id="run-42",
+        floormap={"width": 20, "height": 20, "rle": [[1, 400]]},
+        last_run_floormap={"width": 10, "height": 10, "rle": [[2, 10], [1, 90]]},
+        last_runmap={
+            "width": 10,
+            "height": 10,
+            "rle": [[128, 40], [150, 10], [128, 50]],
+        },
+    )
+    coordinator.data = {"OPS123": robot}
+    entry.runtime_data = coordinator
+
+    hass.states.async_set(
+        "image.neato_d7_last_run_map",
+        "2026-11-21T12:00:00Z",
+        {"serial": "OPS123"},
+    )
+
+    _async_register_websocket_commands(hass)
+    ws_client = await hass_ws_client(hass)
+
+    # 1. include_basemap=True by serial
+    await ws_client.send_json(
+        {
+            "id": 1,
+            "type": "vacuula/get_run_map_image",
+            "serial": "OPS123",
+            "include_basemap": True,
+        }
+    )
+    resp_with_base = await ws_client.receive_json()
+    assert resp_with_base["success"] is True
+    res_with_base = resp_with_base["result"]
+    assert res_with_base["serial"] == "OPS123"
+    assert res_with_base["run_id"] == "run-42"
+    assert res_with_base["include_basemap"] is True
+    assert res_with_base["content_type"] == "image/png"
+    with_basemap_bytes = base64.b64decode(res_with_base["image_base64"])
+    assert with_basemap_bytes.startswith(b"\x89PNG")
+
+    # 2. include_basemap=False by serial
+    await ws_client.send_json(
+        {
+            "id": 2,
+            "type": "vacuula/get_run_map_image",
+            "serial": "OPS123",
+            "include_basemap": False,
+        }
+    )
+    resp_path_only = await ws_client.receive_json()
+    assert resp_path_only["success"] is True
+    res_path_only = resp_path_only["result"]
+    assert res_path_only["include_basemap"] is False
+    path_only_bytes = base64.b64decode(res_path_only["image_base64"])
+    assert path_only_bytes.startswith(b"\x89PNG")
+    assert path_only_bytes != with_basemap_bytes
+
+    # 3. include_basemap=False by entity_id
+    await ws_client.send_json(
+        {
+            "id": 3,
+            "type": "vacuula/get_run_map_image",
+            "entity_id": "image.neato_d7_last_run_map",
+            "include_basemap": False,
+        }
+    )
+    resp_by_entity = await ws_client.receive_json()
+    assert resp_by_entity["success"] is True
+    assert base64.b64decode(resp_by_entity["result"]["image_base64"]) == path_only_bytes
+
+    # 4. Missing last_runmap returns not_found
+    robot.last_runmap = None
+    await ws_client.send_json(
+        {
+            "id": 4,
+            "type": "vacuula/get_run_map_image",
+            "serial": "OPS123",
+            "include_basemap": False,
+        }
+    )
+    resp_missing = await ws_client.receive_json()
+    assert resp_missing["success"] is False
+    assert resp_missing["error"]["code"] == "not_found"
+
+    # 5. Unknown serial returns not_found
+    await ws_client.send_json(
+        {
+            "id": 5,
+            "type": "vacuula/get_run_map_image",
+            "serial": "UNKNOWN",
+        }
+    )
+    resp_unknown = await ws_client.receive_json()
+    assert resp_unknown["success"] is False
+    assert resp_unknown["error"]["code"] == "not_found"

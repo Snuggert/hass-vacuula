@@ -38,6 +38,9 @@ async def test_config_entry_diagnostics_redaction(hass: HomeAssistant) -> None:
         robot_type="neato.gen3",
         connected=True,
         installed_with="1.1.0-b6",
+        floormap={"width": 475, "height": 472, "rle": []},
+        last_run_floormap={"width": 347, "height": 305, "rle": []},
+        last_runmap={"width": 347, "height": 305, "rle": []},
     )
     coordinator.data = {"OPS123-SECRET-SERIAL": robot}
     entry.runtime_data = coordinator
@@ -59,6 +62,9 @@ async def test_config_entry_diagnostics_redaction(hass: HomeAssistant) -> None:
     assert diag["robots"]["robot_1"]["serial"] == "**REDACTED**"
     assert diag["robots"]["robot_1"]["name"] == "Living Room Bot"
     assert diag["robots"]["robot_1"]["installed_with"] == "1.1.0-b6"
+    assert diag["robots"]["robot_1"]["floormap_size"] == [475, 472]
+    assert diag["robots"]["robot_1"]["last_run_floormap_size"] == [347, 305]
+    assert diag["robots"]["robot_1"]["last_runmap_size"] == [347, 305]
 
     # Test when async_get_server_info raises exception
     coordinator.client.async_get_server_info = AsyncMock(
@@ -95,6 +101,9 @@ async def test_device_diagnostics(hass: HomeAssistant) -> None:
     assert diag["serial"] == "**REDACTED**"
     assert diag["name"] == "Basement"
     assert diag["connected"] is False
+    assert diag["floormap_size"] is None
+    assert diag["last_run_floormap_size"] is None
+    assert diag["last_runmap_size"] is None
 
     # Test non-matching device
     device_missing = MagicMock()

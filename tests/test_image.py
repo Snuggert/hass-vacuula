@@ -19,6 +19,7 @@ from custom_components.vacuula.image import (
     VacuulaLastRunMapImage,
     async_setup_entry,
 )
+from custom_components.vacuula.map_renderer import render_map_png
 
 
 def create_mock_coordinator(
@@ -192,3 +193,114 @@ async def test_image_setup_entry(hass: HomeAssistant) -> None:
     types = [type(e).__name__ for e in added_entities]
     assert "VacuulaFloorMapImage" in types
     assert "VacuulaLastRunMapImage" in types
+
+
+async def test_last_run_map_prefers_matched_run_floormap_over_mismatched_floor_map(
+    hass: HomeAssistant,
+) -> None:
+    """Test last run image pairs last_run_floormap with last_runmap over mismatched floormap."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Mappa",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        active_map_id="map-1",
+        last_run_id="run-1",
+        floormap={"width": 20, "height": 20, "rle": [[1, 400]]},
+        last_run_floormap={"width": 10, "height": 10, "rle": [[2, 20], [1, 80]]},
+        last_runmap={
+            "width": 10,
+            "height": 10,
+            "rle": [[128, 40], [150, 10], [128, 50]],
+        },
+    )
+    coordinator, _, _ = create_mock_coordinator(hass, robot)
+    floor_entity = VacuulaFloorMapImage(coordinator, "OPS123")
+    run_entity = VacuulaLastRunMapImage(coordinator, "OPS123")
+
+    floor_png = await floor_entity.async_image()
+    last_run_png = await run_entity.async_image()
+    path_only_png = render_map_png(None, None, robot.last_runmap)
+
+    assert floor_png is not None and floor_png.startswith(b"\x89PNG")
+    assert last_run_png is not None and last_run_png.startswith(b"\x89PNG")
+    assert path_only_png is not None and path_only_png.startswith(b"\x89PNG")
+    assert last_run_png != floor_png
+    assert last_run_png != path_only_png
+
+
+async def test_last_run_map_dimension_mismatch_falls_back_to_standalone_runmap(
+    hass: HomeAssistant,
+) -> None:
+    """Test last run image falls back to standalone runmap when floormap dimensions differ."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Mappa",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        active_map_id="map-1",
+        last_run_id="run-1",
+        floormap={"width": 20, "height": 20, "rle": [[1, 400]]},
+        last_run_floormap=None,
+        last_runmap={
+            "width": 10,
+            "height": 10,
+            "rle": [[128, 40], [150, 10], [128, 50]],
+        },
+    )
+    coordinator, _, _ = create_mock_coordinator(hass, robot)
+    floor_entity = VacuulaFloorMapImage(coordinator, "OPS123")
+    run_entity = VacuulaLastRunMapImage(coordinator, "OPS123")
+
+    floor_png = await floor_entity.async_image()
+    last_run_png = await run_entity.async_image()
+    expected_standalone = render_map_png(None, None, robot.last_runmap)
+
+    assert floor_png is not None and last_run_png is not None
+    assert last_run_png == expected_standalone
+    assert last_run_png != floor_png
+
+
+async def test_last_run_map_cache_invalidation_when_run_maps_arrive(
+    hass: HomeAssistant,
+) -> None:
+    """Test cache key invalidates and re-renders as runmap and last_run_floormap arrive."""
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Mappa",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        active_map_id="map-1",
+        last_run_id="run-1",
+        floormap={"width": 10, "height": 10, "rle": [[1, 100]]},
+        last_runmap=None,
+        last_run_floormap=None,
+    )
+    coordinator, _, _ = create_mock_coordinator(hass, robot)
+    run_entity = VacuulaLastRunMapImage(coordinator, "OPS123")
+    run_entity.entity_id = "image.mappa_last_run_map"
+
+    with patch(
+        "custom_components.vacuula.image.render_map_png",
+        side_effect=[b"png-initial", b"png-with-runmap", b"png-with-run-floormap"],
+    ) as mock_render:
+        assert await run_entity.async_image() == b"png-initial"
+        assert mock_render.call_count == 1
+
+        ts1 = run_entity.image_last_updated
+        robot.last_runmap = {
+            "width": 10,
+            "height": 10,
+            "rle": [[128, 90], [150, 10]],
+        }
+        run_entity._handle_coordinator_update()
+        assert run_entity.image_last_updated != ts1
+        assert await run_entity.async_image() == b"png-with-runmap"
+        assert mock_render.call_count == 2
+
+        ts2 = run_entity.image_last_updated
+        robot.last_run_floormap = {"width": 10, "height": 10, "rle": [[2, 10], [1, 90]]}
+        run_entity._handle_coordinator_update()
+        assert run_entity.image_last_updated != ts2
+        assert await run_entity.async_image() == b"png-with-run-floormap"
+        assert mock_render.call_count == 3

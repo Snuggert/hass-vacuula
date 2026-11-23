@@ -57,8 +57,15 @@ describe("Vacuula Frontend Helper Functions", () => {
     // Malicious protocols rejected
     expect(sanitizeImgUrl("javascript:alert(1)")).toBe("");
     expect(sanitizeImgUrl("data:text/html;base64,...")).toBe("");
+    expect(sanitizeImgUrl("data:image/svg+xml;base64,PHN2Zz4=")).toBe("");
+    expect(sanitizeImgUrl("data:image/png;base64,abc<script>")).toBe("");
     expect(sanitizeImgUrl("")).toBe("");
     expect(sanitizeImgUrl(null)).toBe("");
+
+    // Safe PNG base64 data URI allowed
+    expect(sanitizeImgUrl("data:image/png;base64,iVBORw0KGgo=")).toBe(
+      "data:image/png;base64,iVBORw0KGgo="
+    );
   });
 
   it("formatAlertCode transforms snake_case and removes prefix", () => {
@@ -117,6 +124,7 @@ describe("VacuulaMapCard Custom Element Lifecycle & Config", () => {
     expect(card._config.show_zone_chips).toBe(true);
     expect(card._config.show_controls).toBe(true);
     expect(card._config.show_modes).toBe(true);
+    expect(card._config.show_run_basemap).toBe(true);
   });
 
   it("respects custom config options", () => {
@@ -130,6 +138,7 @@ describe("VacuulaMapCard Custom Element Lifecycle & Config", () => {
       show_header: false,
       show_battery: false,
       show_controls: false,
+      show_run_basemap: false,
     });
     expect(card._config.default_view).toBe("run");
     expect(card._config.map_height).toBe("compact");
@@ -139,6 +148,7 @@ describe("VacuulaMapCard Custom Element Lifecycle & Config", () => {
     expect(card._config.show_header).toBe(false);
     expect(card._config.show_battery).toBe(false);
     expect(card._config.show_controls).toBe(false);
+    expect(card._config.show_run_basemap).toBe(false);
   });
 
   it("getCardSize calculates size based on map_height", () => {
@@ -176,6 +186,7 @@ describe("VacuulaMapCard Custom Element Lifecycle & Config", () => {
     expect(stub.expand_on_desktop).toBe(true);
     expect(stub.show_alerts).toBe(true);
     expect(stub.show_bin_alert).toBe(true);
+    expect(stub.show_run_basemap).toBe(true);
   });
 
   it("getConfigElement returns vacuula-map-card-editor element", () => {
@@ -507,6 +518,83 @@ describe("VacuulaMapCard DOM Rendering and Interaction", () => {
       option: "Ground Floor",
     });
   });
+
+  it("hides floor zone polygons and pins in run view while preserving zone chips", () => {
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    expect(root.querySelector(".zone-svg")).not.toBeNull();
+    expect(root.querySelector(".zone-pins")).not.toBeNull();
+    expect(root.querySelectorAll(".zone-chip").length).toBe(2);
+
+    el(root, "#tab-run").click();
+    expect(root.querySelector(".zone-svg")).toBeNull();
+    expect(root.querySelector(".zone-pins")).toBeNull();
+    expect(root.querySelectorAll(".zone-chip").length).toBe(2);
+  });
+
+  it("uses run entity_picture by default without calling callWS when show_run_basemap is true", () => {
+    const callWSMock = vi.fn();
+    mockHass.callWS = callWSMock;
+    card.hass = { ...mockHass };
+
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    el(root, "#tab-run").click();
+
+    expect(callWSMock).not.toHaveBeenCalled();
+    const img = el(root, "img.map-img");
+    expect(img.getAttribute("src")).toBe("/api/image_proxy/image.neato_d7_last_run_map");
+  });
+
+  it("fetches path-only run image via WebSocket when show_run_basemap is false", async () => {
+    const callWSMock = vi.fn().mockResolvedValue({ image_base64: "iVBORw0KGgo=" });
+    mockHass.callWS = callWSMock;
+    mockHass.states["image.neato_d7_last_run_map"].attributes.serial = "OPS123";
+    mockHass.states["image.neato_d7_last_run_map"].attributes.run_id = "run-42";
+
+    card.setConfig({ entity: "vacuum.neato_d7", show_run_basemap: false });
+    card.hass = { ...mockHass };
+
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    el(root, "#tab-run").click();
+
+    expect(callWSMock).toHaveBeenCalledTimes(1);
+    expect(callWSMock).toHaveBeenCalledWith({
+      type: "vacuula/get_run_map_image",
+      entity_id: "image.neato_d7_last_run_map",
+      include_basemap: false,
+      serial: "OPS123",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const img = el(root, "img.map-img");
+    expect(img.getAttribute("src")).toBe("data:image/png;base64,iVBORw0KGgo=");
+
+    // Toggling floor -> run uses cached data URL for the same run without re-fetching
+    el(root, "#tab-floor").click();
+    el(root, "#tab-run").click();
+    expect(callWSMock).toHaveBeenCalledTimes(1);
+
+    // Rejection on a newer run renders empty-map fallback text
+    callWSMock.mockRejectedValueOnce(new Error("not_found"));
+    mockHass.states["image.neato_d7_last_run_map"] = {
+      state: "2026-10-25T13:00:00Z",
+      attributes: {
+        entity_picture: "/api/image_proxy/image.neato_d7_last_run_map?v=2",
+        serial: "OPS123",
+        run_id: "run-43",
+      },
+    };
+    card.hass = { ...mockHass };
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(callWSMock).toHaveBeenCalledTimes(2);
+    expect(root.querySelector(".empty-map")?.textContent).toContain(
+      "No last run path available yet"
+    );
+  });
 });
 
 describe("VacuulaMapCardEditor Custom Element", () => {
@@ -561,6 +649,11 @@ describe("VacuulaMapCardEditor Custom Element", () => {
       root.querySelector("#expand_on_desktop")
     );
     expect(expandCheckbox.checked).toBe(true);
+
+    const basemapCheckbox = /** @type {HTMLInputElement} */ (
+      root.querySelector("#show_run_basemap")
+    );
+    expect(basemapCheckbox.checked).toBe(true);
   });
 
   it("dispatches config-changed event when inputs are modified", () => {
@@ -581,6 +674,13 @@ describe("VacuulaMapCardEditor Custom Element", () => {
 
     expect(emittedConfig).not.toBeNull();
     expect(emittedConfig?.expand_on_desktop).toBe(false);
+
+    const basemapCheckbox = /** @type {HTMLInputElement} */ (
+      root.querySelector("#show_run_basemap")
+    );
+    basemapCheckbox.checked = false;
+    basemapCheckbox.dispatchEvent(new Event("change"));
+    expect(emittedConfig?.show_run_basemap).toBe(false);
 
     const titleInput = /** @type {HTMLInputElement} */ (root.querySelector("#title"));
     titleInput.value = "New Title";

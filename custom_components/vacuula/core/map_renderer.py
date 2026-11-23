@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import struct
 import zlib
 from typing import Any
@@ -177,7 +178,7 @@ def _update_bbox_from_rle(
     rle: list[list[int]],
     width: int,
     total: int,
-    ignore_val: int,
+    ignore_vals: set[int],
     min_x: int,
     min_y: int,
     max_x: int,
@@ -193,7 +194,7 @@ def _update_bbox_from_rle(
             count = min(max(0, int(pair[1])), total - idx)
             if count <= 0:
                 continue
-            if val != ignore_val:
+            if val not in ignore_vals:
                 y0, x0 = divmod(idx, width)
                 y1, x1 = divmod(idx + count - 1, width)
                 if y0 < min_y:
@@ -232,7 +233,7 @@ def get_crop_box(
 
     if floormap and isinstance(floormap.get("rle"), list):
         min_x, min_y, max_x, max_y = _update_bbox_from_rle(
-            floormap["rle"], width, total, 0, min_x, min_y, max_x, max_y
+            floormap["rle"], width, total, {0}, min_x, min_y, max_x, max_y
         )
 
     if runmap and isinstance(runmap.get("rle"), list):
@@ -240,7 +241,14 @@ def get_crop_box(
         r_height = int(runmap.get("height", height))
         if r_width == width and r_height == height:
             min_x, min_y, max_x, max_y = _update_bbox_from_rle(
-                runmap["rle"], width, total, 128, min_x, min_y, max_x, max_y
+                runmap["rle"],
+                width,
+                total,
+                _get_runmap_background_values(runmap),
+                min_x,
+                min_y,
+                max_x,
+                max_y,
             )
 
     if min_x <= max_x and min_y <= max_y:
@@ -299,12 +307,41 @@ def compute_cropped_zones(
     return result
 
 
+def _get_runmap_background_values(runmap: dict[str, Any]) -> set[int]:
+    """Return raw RLE background pixel values for a Gen3 or Gen4 runmap."""
+    legend = runmap.get("legend")
+    if isinstance(legend, dict):
+        bg_keys: set[int] = set()
+        for k, v in legend.items():
+            if str(v).strip().lower() == "background":
+                with contextlib.suppress(TypeError, ValueError):
+                    bg_keys.add(int(k))
+        if bg_keys:
+            return bg_keys
+    if runmap.get("map_type") == "path":
+        return {0, 255}
+    return {128}
+
+
 def render_map_png(
     floormap: dict[str, Any] | None,
     boundaries: list[dict[str, Any]] | None = None,
     runmap: dict[str, Any] | None = None,
 ) -> bytes | None:
     """Render a Vacuula floor map and/or run map into a cropped 2x high-DPI RGBA PNG."""
+    if floormap and runmap and isinstance(runmap.get("rle"), list):
+        f_w = int(floormap.get("width", 0))
+        f_h = int(floormap.get("height", 0))
+        r_w = int(runmap.get("width", 0))
+        r_h = int(runmap.get("height", 0))
+        if (
+            (r_w != f_w or r_h != f_h)
+            and 0 < r_w <= MAX_MAP_DIM
+            and 0 < r_h <= MAX_MAP_DIM
+        ):
+            floormap = None
+            boundaries = None
+
     base_map = floormap or runmap
     if not base_map:
         return None
@@ -386,6 +423,7 @@ def render_map_png(
         r_width = int(runmap.get("width", width))
         r_height = int(runmap.get("height", height))
         if r_width == width and r_height == height:
+            bg_vals = _get_runmap_background_values(runmap)
             idx = 0
             for pair in runmap["rle"]:
                 if idx >= total:
@@ -395,7 +433,7 @@ def render_map_png(
                     count = min(max(0, int(pair[1])), total - idx)
                     if count <= 0:
                         continue
-                    if val != 128:
+                    if val not in bg_vals:
                         y0, x0 = divmod(idx, width)
                         y1, x1 = divmod(idx + count - 1, width)
                         if y0 < min_y:
@@ -410,14 +448,7 @@ def render_map_png(
                         else:
                             min_x = 0
                             max_x = width - 1
-                        if val == 3:  # Cleaned area (semi-transparent cyan overlay)
-                            for c_idx in range(idx, idx + count):
-                                p = c_idx * 4
-                                rgba[p] = int(rgba[p] * 0.45 + 30.8)
-                                rgba[p + 1] = int(rgba[p + 1] * 0.45 + 103.95)
-                                rgba[p + 2] = int(rgba[p + 2] * 0.45 + 136.4)
-                                rgba[p + 3] = 255
-                        elif val == 150:  # Robot path (#0ea5e9)
+                        if val == 150:  # Robot path (#0ea5e9)
                             rgba[idx * 4 : (idx + count) * 4] = (
                                 b"\x0e\xa5\xe9\xff" * count
                             )
@@ -425,6 +456,13 @@ def render_map_png(
                             rgba[idx * 4 : (idx + count) * 4] = (
                                 b"\x22\xc5\x5e\xff" * count
                             )
+                        else:  # Cleaned area (val == 3 or other Gen3/Gen4 path values)
+                            for c_idx in range(idx, idx + count):
+                                p = c_idx * 4
+                                rgba[p] = int(rgba[p] * 0.45 + 30.8)
+                                rgba[p + 1] = int(rgba[p + 1] * 0.45 + 103.95)
+                                rgba[p + 2] = int(rgba[p + 2] * 0.45 + 136.4)
+                                rgba[p + 3] = 255
                     idx += count
 
     # Draw zone outlines and no-go lines on top of run overlay so borders stay sharp

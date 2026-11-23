@@ -47,6 +47,21 @@ const mockHass = {
     }
     if (data.states) applyPayload(data);
   },
+  callWS: async (msg) => {
+    logMsg(`callWS: ${msg?.type || "unknown"} ${JSON.stringify(msg || {})}`);
+    const res = await fetch("/api/sandbox/ws", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg || {}),
+    });
+    const data = await res.json();
+    if (!res.ok || data?.error) {
+      const errMsg = data?.error?.message || `WebSocket command failed (${res.status})`;
+      logMsg(`[error] ws error: ${errMsg}`);
+      throw new Error(errMsg);
+    }
+    return data;
+  },
 };
 
 function selectRobot(serial) {

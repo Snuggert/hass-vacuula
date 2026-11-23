@@ -188,10 +188,18 @@ def resolve_or_clone_vacuula_repo(
             clone_url,
             clone_target,
         )
-        subprocess.run(
-            ["git", "clone", "--depth", "50", clone_url, str(clone_target)],
-            check=True,
-        )
+        for attempt in range(1, 3):
+            try:
+                subprocess.run(
+                    ["git", "clone", "--depth", "50", clone_url, str(clone_target)],
+                    check=True,
+                )
+                break
+            except subprocess.CalledProcessError:
+                shutil.rmtree(clone_target, ignore_errors=True)
+                if attempt == 2:
+                    raise
+                time.sleep(2.0)
         return clone_target
 
 
@@ -365,7 +373,7 @@ vacuula_server.main()
 """
         launcher_path.write_text(launcher_content, encoding="utf-8")
 
-    def start(self, timeout: float = 15.0) -> None:
+    def start(self, timeout: float = 25.0) -> None:
         """Start the Vacuula dev server and wait until healthy."""
         if self.is_running:
             return
@@ -386,12 +394,17 @@ vacuula_server.main()
 
         # Ensure upstream server venv is synced safely under interprocess lock
         with _interprocess_lock():
-            if not (self.server_dir / ".venv").is_dir():
-                subprocess.run(
-                    ["uv", "sync", "--project", str(self.server_dir)],
-                    check=True,
-                    capture_output=True,
-                )
+            venv_dir = self.server_dir / ".venv"
+            if not venv_dir.is_dir():
+                try:
+                    subprocess.run(
+                        ["uv", "sync", "--project", str(self.server_dir)],
+                        check=True,
+                        capture_output=True,
+                    )
+                except Exception:
+                    shutil.rmtree(venv_dir, ignore_errors=True)
+                    raise
 
         cmd = [
             "uv",
@@ -451,7 +464,7 @@ vacuula_server.main()
         time.sleep(0.08)
 
         if self.db_path and self.db_path.is_file():
-            with sqlite3.connect(self.db_path) as conn:
+            with contextlib.closing(sqlite3.connect(self.db_path)) as conn, conn:
                 conn.execute("PRAGMA foreign_keys = ON")
                 for table in (
                     "gen3__run",
@@ -488,6 +501,10 @@ vacuula_server.main()
                 with contextlib.suppress(OSError):
                     self._process.kill()
                     self._process.wait(timeout=2.0)
+            for stream in (self._process.stdout, self._process.stderr):
+                if stream is not None:
+                    with contextlib.suppress(OSError):
+                        stream.close()
             self._process = None
             logger.info("Vacuula dev server stopped.")
 
@@ -535,6 +552,9 @@ vacuula_server.main()
 
         run_dir = self.data_dir / "uploads" / "maps" / serial / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "floormap.json").write_text(
+            json.dumps(floormap_payload), encoding="utf-8"
+        )
         (run_dir / "runmap.json").write_text(
             json.dumps(runmap_payload), encoding="utf-8"
         )
@@ -554,7 +574,7 @@ vacuula_server.main()
             "delocalized": False,
         }
 
-        with sqlite3.connect(self.db_path) as conn:
+        with contextlib.closing(sqlite3.connect(self.db_path)) as conn, conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO persistent_map (id, robot, name, enabled, in_maps_list, base)
@@ -566,6 +586,20 @@ vacuula_server.main()
                     map_name,
                     1,
                     1,
+                    json.dumps(floormap_payload["base"]),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO persistent_map (id, robot, name, enabled, in_maps_list, base)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    serial,
+                    run_id,
+                    0,
+                    0,
                     json.dumps(floormap_payload["base"]),
                 ),
             )

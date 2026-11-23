@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-11-23
+
+### Added
+- **Configurable Path-Only Last Run View (`custom_components/vacuula/frontend/vacuula-map-card.js`):** Added the `show_run_basemap` card configuration option (default `true`) and corresponding **Show Basemap on Last Run** visual editor toggle, allowing users to opt into rendering a clean path-only view in the **Last Run** tab.
+- **Run Map WebSocket API (`custom_components/vacuula/__init__.py` & `manifest.json`):** Added the `vacuula/get_run_map_image` Home Assistant WebSocket command (`after_dependencies` updated to include `websocket_api`) to render matched-basemap or path-only last run PNGs on demand.
+- **Developer Sandbox WebSocket Bridge (`devtools/sandbox.py` & `devtools/static/sandbox.js`):** Added `/api/sandbox/ws` and `mockHass.callWS` support so path-only run previews work end-to-end in the local developer workbench.
+- **Map Dimension Diagnostics (`custom_components/vacuula/diagnostics.py`):** Added non-PII `floormap_size`, `last_run_floormap_size`, and `last_runmap_size` fields to per-robot diagnostics output for easier map alignment troubleshooting.
+
+### Fixed
+- **Last Run Map Basemap Pairing & Rendering (Fixes [#5](https://github.com/Snuggert/hass-vacuula/issues/5)):** Fixed `image.<robot>_last_run_map` returning the floor plan image instead of the cleaning run when persistent and run map dimensions differed or drifted:
+  - Concurrently fetches each run's matched `floormap.json` (`/api/robot/{serial}/maps/{run_id}`) into `last_run_floormap` and clears stale run maps when `last_run_id` advances.
+  - Pairs aligned `(floormap, boundaries, runmap)` inputs via `select_last_run_render_inputs()`, falling back cleanly to standalone `runmap` rendering on dimension mismatch instead of silently dropping the run overlay.
+  - Handles Gen3/Gen4 runmap background values and non-standard path codes consistently in `get_crop_box()` and `render_map_png()`, and hides persistent floor-plan zone polygons/pins in **Last Run** view while keeping zone chips interactive.
+- **CI Step Summary & Dev Server Resource Cleanup (`.github/workflows/validate.yml` & `devtools/server_manager.py`):** Added `set +e` before `set -o pipefail` in CI pytest coverage execution so failure summaries always post, closed SQLite connections and subprocess pipes to eliminate `ResourceWarning`s, added clone retries and partial `.venv` cleanup, and seeded per-run `floormap.json` fixtures.
+
 ## [0.8.1] - 2026-10-27
 
 ### Added
@@ -160,6 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.9.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.1...v0.7.2

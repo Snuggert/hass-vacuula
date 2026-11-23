@@ -24,6 +24,12 @@ def test_extract_changelog_notes() -> None:
     assert "### Fixed" in notes_081
     assert "## [0.8.1]" not in notes_081
 
+    notes_090 = extract_changelog_notes(root / "CHANGELOG.md", "v0.9.0")
+    assert "show_run_basemap" in notes_090
+    assert "### Added" in notes_090
+    assert "### Fixed" in notes_090
+    assert "## [0.9.0]" not in notes_090
+
 
 def test_extract_contributors_section_with_new_contributors() -> None:
     """Verify extracting New Contributors section from GitHub auto-notes."""

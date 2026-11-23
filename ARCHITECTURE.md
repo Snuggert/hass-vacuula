@@ -1,4 +1,4 @@
-# Architecture & Technical Design: `hass-vacuula` (`v0.8.1`)
+# Architecture & Technical Design: `hass-vacuula` (`v0.9.0`)
 
 ## 1. Overview & Goals
 `hass-vacuula` is a zero-dependency Home Assistant custom integration (distributable via **HACS**) that connects a local [Vacuula](https://github.com/vacuula/vacuula) server instance to Home Assistant. Because a single Vacuula server can manage multiple Neato robots across both **Gen3** (`D3`–`D7`, e.g., `BotVacD7Connected`) and **Gen4** (`D800`, `D8`–`D10`) generations, the integration models the **Vacuula Server** as the `ConfigEntry` hub and registers each paired robot as a Home Assistant `DeviceEntry`.
@@ -22,7 +22,7 @@ hass-vacuula/
 │       └── last_run_map.png               # Rendered cleaning coverage & trajectory map
 └── custom_components/
     └── vacuula/
-        ├── __init__.py                    # ConfigEntry setup, static frontend registration, actions
+        ├── __init__.py                    # ConfigEntry setup, static frontend registration, actions & WebSocket API
         ├── manifest.json                  # Integration manifest (zeroconf: _vacuula._tcp.local.)
         ├── const.py                       # Domain constants, enums, and command mappings
         ├── api.py                         # Async HTTP + SSE client with per-robot asyncio.Lock
@@ -96,12 +96,12 @@ Both generations use `POST /api/robot/{serial}/command`, abstracted behind [`Vac
    - Decodes Vacuula's run-length encoded (`rle`) floor grid (`0`=unknown, `1`=free floor, `2`=wall) onto a dark-slate (`#181c24`) RGBA canvas.
    - Input is bounded before allocation: maps larger than `MAX_MAP_DIM` (`4096×4096`) are rejected, and each RLE run is capped at the remaining expected buffer length, so a malformed or hostile `count` can never trigger a multi-gigabyte allocation.
    - Rasterizes named room zone polygons (`type == "polygon"`) using scanline alpha blending (`alpha=0.40`) restricted to free-floor pixels so walls stay crisp.
-   - Overlays `runmap.json` coverage (`val == 3` cyan tint, `val == 150` trajectory path) when rendering `image.<robot>_last_run_map`.
+   - Fetches each run's matched `floormap.json` (`/api/robot/{serial}/maps/{run_id}`), pairs dimensions safely via `select_last_run_render_inputs()`, overlays `runmap.json` coverage (`val == 3` cyan tint, `val == 150` trajectory path, plus non-background Gen3/Gen4 path values), and falls back to standalone `runmap` rendering when persistent/run dimensions differ.
    - Draws polygon borders (`thickness=1`), red No-Go lines (`thickness=2`), and the green dock pin *on top* of the coverage layer.
    - Auto-crops to the non-empty bounding box (`pad=16` pixels), applies 2× nearest-neighbor high-DPI upscaling (`_upscale_2x`), and encodes a standards-compliant RGBA PNG using only Python's standard library (`zlib` + `struct`).
 2. **Cropped Coordinate Normalization (`compute_cropped_zones`)**:
    - Computes the exact `[0..1]` normalized centroid (`x`, `y`) and polygon vertices (`points`) relative to the **cropped** bounding box and exposes them in the `zones` attribute of `image.<robot>_floor_map` and `image.<robot>_last_run_map`.
-   - [`vacuula-map-card.js`](custom_components/vacuula/frontend/vacuula-map-card.js) uses these normalized coordinates to position interactive SVG polygon highlights and clickable room pills directly over the `image.<robot>_floor_map` / `image.<robot>_last_run_map` image with pixel-accurate alignment.
+   - [`vacuula-map-card.js`](custom_components/vacuula/frontend/vacuula-map-card.js) uses these normalized coordinates to position interactive SVG polygon highlights and clickable room pills over `image.<robot>_floor_map` in `Floor Map` view (hiding polygon/pin overlays in `Last Run` view while keeping zone chips interactive). When `show_run_basemap: false`, `Last Run` requests a path-only PNG via WebSocket command `vacuula/get_run_map_image`.
 3. **Zero-Flicker Shadow DOM State Diffing**:
    - Because Home Assistant invokes `set hass(hass)` on custom cards whenever *any* entity in the home changes state, `VacuulaMapCard._computeSignature()` computes a lightweight state signature from only the target robot's vacuum, map images, schedule switch, and telemetry sensors, updating the DOM only when the robot's own state or user selection changes.
    - The signature includes the full `zones` attribute and display names, so renaming or recoloring a room on the Vacuula server re-renders the card.
@@ -115,7 +115,7 @@ Data rendered or requested by the integration originates from the Vacuula server
 
 | Area | Safeguard |
 | :--- | :--- |
-| **Lovelace card ([`vacuula-map-card.js`](custom_components/vacuula/frontend/vacuula-map-card.js))** | Every interpolated value is passed through `escapeHtml()` (`&`, `<`, `>`, `"`, `'`) before being assigned to `innerHTML` (card and editor). Zone colors used in inline `style` attributes are validated by `sanitizeColor()` (hex or named colors only, falling back to `#38bdf8`). Map image URLs are restricted by `sanitizeImgUrl()` to relative or `http(s)` URLs, blocking `javascript:`/`data:` URIs. |
+| **Lovelace card ([`vacuula-map-card.js`](custom_components/vacuula/frontend/vacuula-map-card.js))** | Every interpolated value is passed through `escapeHtml()` (`&`, `<`, `>`, `"`, `'`) before being assigned to `innerHTML` (card and editor). Zone colors used in inline `style` attributes are validated by `sanitizeColor()` (hex or named colors only, falling back to `#38bdf8`). Map image URLs are restricted by `sanitizeImgUrl()` to relative paths, `http(s)` URLs, or strictly validated `data:image/png;base64,[A-Za-z0-9+/=]+` URIs, blocking `javascript:`, `data:text/html`, and `data:image/svg+xml`. |
 | **API client ([`api.py`](custom_components/vacuula/api.py))** | `serial`, `map_id`, and `run_id` are percent-encoded per path segment (`_seg()`), and empty, `.`, and `..` segments are rejected to prevent path traversal on the server. Connection errors, timeouts, and invalid JSON are all wrapped in `VacuulaApiError`. |
 | **Error surfacing** | `VacuulaApiError` subclasses `HomeAssistantError`, so failed entity commands and actions show a UI notification instead of an unhandled traceback. |
 | **Map renderer ([`map_renderer.py`](custom_components/vacuula/map_renderer.py))** | Map dimensions are bounded by `MAX_MAP_DIM`, and RLE runs are capped (see §5). |

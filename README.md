@@ -161,6 +161,7 @@ type: custom:vacuula-map-card
 entity: vacuum.mappa
 title: Mappa
 default_view: floor       # 'floor' (Floor Map) or 'run' (Last Run)
+show_run_basemap: true    # Show run floorplan basemap in Last Run view (false = path only)
 show_zone_labels: true    # Show clickable room pins & zone chip bar
 show_controls: true       # Show Start / Pause / Dock / Locate + Power & Nav dropdowns
 ```
@@ -175,7 +176,7 @@ Entities are organized into primary controls, **Configuration**, and **Diagnosti
 | :--- | :--- | :---: | :---: | :--- |
 | `vacuum` | `vacuum.<robot>` | Primary | No | Start, pause, stop, return to dock, locate, spot clean, fan speed (`eco` / `turbo`), and modern Home Assistant room/segment cleaning (`clean_spot`, `get_segments`, `clean_segments`). Exposes `available_zones`, `zone_boundaries`, `cleanable_zones`, `maps`, and `active_map_name` attributes. |
 | `image` | `image.<robot>_floor_map` | Primary | **Yes** | High-DPI cropped PNG of the active floorplan with colored room polygons, No-Go lines, and dock location. |
-| `image` | `image.<robot>_last_run_map` | Primary | **Yes** | High-DPI cropped PNG overlaying the latest cleaning coverage and trajectory onto the floorplan. |
+| `image` | `image.<robot>_last_run_map` | Primary | **Yes** | High-DPI cropped PNG overlaying the latest cleaning coverage and trajectory onto the run's matched floorplan (or standalone run path if dimensions differ). |
 | `select` | `select.<robot>_target_zone` | Primary | No | Target zone used when `vacuum.start` or *Clean selected zone* is called: `all` (full map) or any discovered room name on the active floorplan. |
 | `button` | `button.<robot>_clean_selected_zone` | Primary | No | Clean whichever zone is currently selected by `select.<robot>_target_zone` (or full house if set to `all`). |
 | `button` | `button.<robot>_clean_<zone>` | Primary | No | Auto-generated per-room button for every named polygon boundary on the active map (e.g. *Clean Diningroom*, *Clean Office*). |
@@ -188,6 +189,7 @@ Entities are organized into primary controls, **Configuration**, and **Diagnosti
 | `switch` | `switch.<robot>_schedule` | Config | No | Enables or disables the robot's internal cleaning schedule (Gen3). |
 | `select` | `select.<robot>_navigation_mode` | Config | No | Selects navigation profile (`normal`, `extra_care`, `deep` on Gen3; `normal`, `gentle`, `deep` on Gen4). |
 | `select` | `select.<robot>_cleaning_mode` | Config | No | Selects Gen3 cleaning category: `map` (persistent map with No-Go lines) vs `house` (unmapped clean). |
+| `select` | `select.<robot>_selected_map` | Config | **Yes** | Switches the active persistent floor plan when multiple floor maps exist on the robot. |
 | `button` | `button.<robot>_refresh_maps` | Config | **Yes** | Reloads floor maps, room boundaries, and run history from the Vacuula server. |
 | `button` | `button.<robot>_explore_map` | Config | No | Starts an initial map-exploration run on Gen4 robots. |
 | `binary_sensor` | `binary_sensor.<robot>_connected` | Diagnostic | **Yes** | Live WebSocket connectivity between the Vacuula server and the robot (`connectivity`). |
@@ -291,6 +293,31 @@ data:
   command: "getRobotState"  # or Gen4 ability like "state.show"
   params: {}                # optional parameters dictionary
 ```
+
+### `vacuula.select_map`
+Select the active persistent floor plan on a robot by map name or ID:
+
+```yaml
+action: vacuula.select_map
+data:
+  entity_id: vacuum.mappa
+  map_name: "Ground Floor"
+```
+
+## WebSocket API
+
+### `vacuula/get_run_map_image`
+Used by `custom:vacuula-map-card` (and available to custom frontend panels) to render the latest cleaning run PNG on demand with or without its floorplan basemap:
+
+```json
+{
+  "type": "vacuula/get_run_map_image",
+  "entity_id": "image.mappa_last_run_map",
+  "include_basemap": false
+}
+```
+
+Accepts either `serial` or `entity_id` (plus optional `include_basemap`, default `true`), returning `{ "serial", "run_id", "include_basemap", "content_type", "image_base64" }`.
 
 ---
 

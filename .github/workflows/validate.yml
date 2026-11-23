@@ -139,6 +139,7 @@ jobs:
       - name: Run Pytest with Coverage
         shell: bash
         run: |
+          set +e
           set -o pipefail
           pytest tests/ -n auto --cov=custom_components.vacuula --cov-report=term-missing -v --tb=short 2>&1 | tee pytest.log
           PYTEST_STATUS=${PIPESTATUS[0]}

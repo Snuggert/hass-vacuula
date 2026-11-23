@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from typing import Any
 
 import aiohttp
@@ -26,6 +27,7 @@ from custom_components.vacuula.coordinator import (
     VacuulaCoordinator,
     is_installer_outdated,
 )
+from custom_components.vacuula.map_renderer import render_map_png
 from devtools.sandbox import VacuulaDevSandbox
 from devtools.server_manager import VacuulaServerManager
 
@@ -238,6 +240,16 @@ async def test_live_zone_cleaning_and_seeded_maps(
         assert len(runs) == 1
         runmap = await client.async_get_run_detail(robot.serial, runs[0]["id"])
         assert runmap["width"] == 64
+
+        run_floormap = await client.async_get_map_detail(robot.serial, runs[0]["id"])
+        assert run_floormap["width"] == 64
+        assert isinstance(run_floormap["rle"], list)
+
+        floor_png = render_map_png(floormap)
+        run_png = render_map_png(run_floormap, runmap=runmap)
+        assert floor_png is not None and floor_png.startswith(b"\x89PNG")
+        assert run_png is not None and run_png.startswith(b"\x89PNG")
+        assert run_png != floor_png
 
         res = await client.async_start_zone_cleaning(
             serial=robot.serial,
@@ -554,6 +566,34 @@ async def test_live_standalone_sandbox_end_to_end(
                     ev_data["states"]["binary_sensor.sandbox_d7_dust_bin_full"]["state"]
                     == "off"
                 )
+
+            # 7. Verify WebSocket bridge endpoint renders matched-basemap vs path-only run PNGs
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/ws",
+                json={
+                    "type": "vacuula/get_run_map_image",
+                    "serial": robot.serial,
+                    "include_basemap": True,
+                },
+            ) as resp:
+                assert resp.status == 200
+                ws_with_base = await resp.json()
+                with_base_png = base64.b64decode(ws_with_base["image_base64"])
+                assert with_base_png.startswith(b"\x89PNG")
+
+            async with session.post(
+                f"{sandbox.sandbox_url}/api/sandbox/ws",
+                json={
+                    "type": "vacuula/get_run_map_image",
+                    "serial": robot.serial,
+                    "include_basemap": False,
+                },
+            ) as resp:
+                assert resp.status == 200
+                ws_path_only = await resp.json()
+                path_only_png = base64.b64decode(ws_path_only["image_base64"])
+                assert path_only_png.startswith(b"\x89PNG")
+                assert path_only_png != with_base_png
     finally:
         await sandbox.async_stop()
 

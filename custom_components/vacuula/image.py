@@ -11,6 +11,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import VacuulaConfigEntry
 from .coordinator import VacuulaCoordinator
+from .core.models import (
+    VacuulaRobotData,
+)
+from .core.models import (
+    select_last_run_render_inputs as _select_last_run_render_inputs,
+)
 from .entity import VacuulaEntity
 from .map_renderer import render_map_png
 
@@ -119,7 +125,9 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
         VacuulaEntity.__init__(self, coordinator, serial, "last_run_map")
         ImageEntity.__init__(self, coordinator.hass)
         self.hass = coordinator.hass
-        self._cached_key: tuple[str | None, str | None, tuple[Any, ...]] | None = None
+        self._cached_key: (
+            tuple[str | None, str | None, bool, bool, tuple[Any, ...]] | None
+        ) = None
         self._cached_png: bytes | None = None
         self._attr_image_last_updated = datetime.now(UTC)
 
@@ -130,7 +138,9 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
             self.coordinator.last_update_success
             and self._robot is not None
             and (
-                self._robot.last_runmap is not None or self._robot.floormap is not None
+                self._robot.last_runmap is not None
+                or self._robot.last_run_floormap is not None
+                or self._robot.floormap is not None
             )
         )
 
@@ -150,16 +160,24 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
             "zones": robot.cropped_zones,
         }
 
+    @staticmethod
+    def _build_cache_key(
+        robot: VacuulaRobotData,
+    ) -> tuple[str | None, str | None, bool, bool, tuple[Any, ...]]:
+        return (
+            robot.active_map_id,
+            robot.last_run_id,
+            robot.last_run_floormap is not None,
+            robot.last_runmap is not None,
+            robot.boundary_signature,
+        )
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Invalidate cache and bump timestamp when last run changes."""
         robot = self._robot
         if robot:
-            new_key = (
-                robot.active_map_id,
-                robot.last_run_id,
-                robot.boundary_signature,
-            )
+            new_key = self._build_cache_key(robot)
             if new_key != self._cached_key:
                 self._attr_image_last_updated = datetime.now(UTC)
         super()._handle_coordinator_update()
@@ -167,14 +185,17 @@ class VacuulaLastRunMapImage(VacuulaEntity, ImageEntity):
     async def async_image(self) -> bytes | None:
         """Return rendered PNG bytes of the latest cleaning run overlaid on the floor map."""
         robot = self._robot
-        if not robot or (not robot.last_runmap and not robot.floormap):
+        if not robot or (
+            not robot.last_runmap and not robot.last_run_floormap and not robot.floormap
+        ):
             return None
-        key = (robot.active_map_id, robot.last_run_id, robot.boundary_signature)
+        key = self._build_cache_key(robot)
         if key == self._cached_key and self._cached_png is not None:
             return self._cached_png
 
+        base_floor, boundaries, runmap = _select_last_run_render_inputs(robot)
         png = await self.hass.async_add_executor_job(
-            render_map_png, robot.floormap, robot.boundaries, robot.last_runmap
+            render_map_png, base_floor, boundaries, runmap
         )
         self._cached_key = key
         self._cached_png = png

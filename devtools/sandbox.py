@@ -10,6 +10,7 @@ alongside an interactive Home Assistant Entity & Device Inspector in the browser
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import json
 import logging
@@ -33,6 +34,7 @@ from custom_components.vacuula.core import (
     VacuulaRobotData,
     render_map_png,
 )
+from custom_components.vacuula.core.models import select_last_run_render_inputs
 
 from .server_manager import REPO_ROOT, VacuulaServerManager
 
@@ -342,6 +344,7 @@ class VacuulaDevSandbox:
         app.router.add_get("/api/sandbox/states", self._handle_get_states)
         app.router.add_get("/api/sandbox/events", self._handle_sse_events)
         app.router.add_post("/api/sandbox/call_service", self._handle_call_service)
+        app.router.add_post("/api/sandbox/ws", self._handle_ws)
         app.router.add_post("/api/sandbox/mock_robot", self._handle_mock_robot)
         app.router.add_get("/api/sandbox/map/{serial}/{kind}.png", self._handle_map_png)
         return app
@@ -674,6 +677,98 @@ class VacuulaDevSandbox:
         self._on_coordinator_update()
         return web.json_response(self._build_state_payload(error=error_msg))
 
+    async def _handle_ws(self, request: web.Request) -> web.Response:
+        """Bridge mockHass.callWS WebSocket commands in the standalone sandbox."""
+        try:
+            msg = await request.json()
+        except ValueError:
+            return web.json_response(
+                {
+                    "error": {
+                        "code": "invalid_json",
+                        "message": "Invalid JSON payload",
+                    }
+                },
+                status=400,
+            )
+
+        if not isinstance(msg, dict) or msg.get("type") != "vacuula/get_run_map_image":
+            return web.json_response(
+                {
+                    "error": {
+                        "code": "unknown_command",
+                        "message": "Unsupported WebSocket command",
+                    }
+                },
+                status=400,
+            )
+
+        robots = self._get_robots_dict()
+        serial = msg.get("serial")
+        if serial is not None:
+            robot = robots.get(str(serial))
+            if robot is None:
+                return web.json_response(
+                    {
+                        "error": {
+                            "code": "not_found",
+                            "message": f"Robot '{serial}' not found",
+                        }
+                    },
+                    status=404,
+                )
+        else:
+            robot = self._resolve_robot(msg)
+            if robot is None:
+                return web.json_response(
+                    {
+                        "error": {
+                            "code": "not_found",
+                            "message": "No robots available",
+                        }
+                    },
+                    status=404,
+                )
+
+        include_basemap = bool(msg.get("include_basemap", True))
+        if include_basemap:
+            floormap, boundaries, runmap = select_last_run_render_inputs(robot)
+        else:
+            floormap, boundaries, runmap = None, None, robot.last_runmap
+
+        if runmap is None:
+            return web.json_response(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "No last run map available",
+                    }
+                },
+                status=404,
+            )
+
+        png = render_map_png(floormap, boundaries, runmap=runmap)
+        if not png:
+            return web.json_response(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Failed to render last run map",
+                    }
+                },
+                status=404,
+            )
+
+        return web.json_response(
+            {
+                "serial": robot.serial,
+                "run_id": robot.last_run_id,
+                "include_basemap": include_basemap,
+                "content_type": "image/png",
+                "image_base64": base64.b64encode(png).decode("ascii"),
+            }
+        )
+
     async def _handle_mock_robot(self, request: web.Request) -> web.Response:
         """Manipulate the underlying MockNeatoRobot hardware state directly from the sandbox UI."""
         payload = await request.json()
@@ -798,11 +893,11 @@ class VacuulaDevSandbox:
             return web.Response(status=404, text="Robot not found")
 
         robot = robots[serial]
-        png = (
-            render_map_png(robot.floormap, robot.boundaries, runmap=robot.last_runmap)
-            if kind == "run"
-            else render_map_png(robot.floormap, robot.boundaries)
-        )
+        if kind == "run":
+            base_floor, boundaries, runmap = select_last_run_render_inputs(robot)
+            png = render_map_png(base_floor, boundaries, runmap=runmap)
+        else:
+            png = render_map_png(robot.floormap, robot.boundaries)
         if not png:
             return web.Response(status=404, text="Map not available")
         return web.Response(

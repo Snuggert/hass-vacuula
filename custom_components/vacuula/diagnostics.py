@@ -34,6 +34,18 @@ TO_REDACT = {
 }
 
 
+def _map_dimensions(payload: dict[str, Any] | None) -> list[int] | None:
+    """Return non-PII [width, height] dimensions for a map payload if valid."""
+    if not isinstance(payload, dict):
+        return None
+    try:
+        width = int(payload["width"])
+        height = int(payload["height"])
+    except KeyError, TypeError, ValueError:
+        return None
+    return [width, height] if width > 0 and height > 0 else None
+
+
 def _serialize_robot(robot: VacuulaRobotData) -> dict[str, Any]:
     """Serialize a VacuulaRobotData instance for diagnostics output."""
     return {
@@ -59,6 +71,9 @@ def _serialize_robot(robot: VacuulaRobotData) -> dict[str, Any]:
             for z in robot.zones
         ],
         "boundaries_count": len(robot.boundaries),
+        "floormap_size": _map_dimensions(robot.floormap),
+        "last_run_floormap_size": _map_dimensions(robot.last_run_floormap),
+        "last_runmap_size": _map_dimensions(robot.last_runmap),
         "total_runs": robot.total_runs,
         "last_run_id": robot.last_run_id,
         "last_run": robot.last_run,
