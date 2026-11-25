@@ -35,6 +35,46 @@ function sanitizeImgUrl(val) {
   return "";
 }
 
+function formatSensorState(hass, stateObj, fallbackUnit = "", maxDecimals = 2) {
+  const rawState = stateObj?.state;
+  if (rawState === undefined || rawState === null) return "";
+  const raw = String(rawState).trim();
+  if (!raw || raw === "unknown" || raw === "unavailable") return "";
+
+  if (typeof hass?.formatEntityState === "function") {
+    try {
+      const formatted = hass.formatEntityState(stateObj);
+      if (formatted !== undefined && formatted !== null && String(formatted).trim() !== "") {
+        return String(formatted);
+      }
+    } catch {
+      // Fall back to local formatting when mock/partial hass fails
+    }
+  }
+
+  const unit = String(stateObj.attributes?.unit_of_measurement ?? fallbackUnit ?? "").trim();
+  const num = Number(raw);
+  if (Number.isFinite(num)) {
+    const entityId = stateObj.entity_id;
+    const entityDp = entityId ? hass?.entities?.[entityId]?.dp : undefined;
+    const precision = typeof entityDp === "number" && entityDp >= 0 ? entityDp : maxDecimals;
+    const lang = typeof hass?.locale?.language === "string" ? hass.locale.language : undefined;
+    let formattedNum;
+    try {
+      formattedNum = new Intl.NumberFormat(lang, {
+        maximumFractionDigits: precision,
+      }).format(num);
+    } catch {
+      formattedNum = new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: precision,
+      }).format(num);
+    }
+    return unit ? `${formattedNum} ${unit}` : formattedNum;
+  }
+
+  return unit ? `${raw} ${unit}` : raw;
+}
+
 function renderAlertIcon(iconType) {
   if (iconType === "bin") {
     return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
@@ -403,8 +443,10 @@ class VacuulaMapCard extends HTMLElement {
       this._getState(`binary_sensor.${slug}_dust_bin_full`) ||
       this._getState(`binary_sensor.${slug}_bin_full`);
     const alertSensor = this._getState(`sensor.${slug}_alert`);
-    const area = this._getState(`sensor.${slug}_last_clean_area`);
-    const dur = this._getState(`sensor.${slug}_last_clean_duration`);
+    const areaEntityId = `sensor.${slug}_last_clean_area`;
+    const durEntityId = `sensor.${slug}_last_clean_duration`;
+    const area = this._getState(areaEntityId);
+    const dur = this._getState(durEntityId);
     const nav = this._getState(`select.${slug}_navigation_mode`);
     const selMap = this._getState(`select.${slug}_selected_map`);
     const sched = this._getState(`switch.${slug}_schedule`);
@@ -439,7 +481,13 @@ class VacuulaMapCard extends HTMLElement {
       binSensor?.attributes?.alert,
       alertSensor?.state,
       area?.state,
+      area?.attributes?.unit_of_measurement,
       dur?.state,
+      dur?.attributes?.unit_of_measurement,
+      this._hass?.entities?.[areaEntityId]?.dp,
+      this._hass?.entities?.[durEntityId]?.dp,
+      this._hass?.locale?.language,
+      this._hass?.locale?.number_format,
       nav?.state,
       sched?.state,
       this._config.title,
@@ -1172,11 +1220,13 @@ class VacuulaMapCard extends HTMLElement {
     const isScheduleOn = schedState?.state === "on";
 
     const lastRunParts = [];
-    if (areaState?.state && !["unknown", "unavailable"].includes(areaState.state)) {
-      lastRunParts.push(`${areaState.state} m²`);
+    const formattedArea = formatSensorState(this._hass, areaState, "m²", 2);
+    if (formattedArea) {
+      lastRunParts.push(formattedArea);
     }
-    if (durState?.state && !["unknown", "unavailable"].includes(durState.state)) {
-      lastRunParts.push(`${durState.state} min`);
+    const formattedDur = formatSensorState(this._hass, durState, "min", 1);
+    if (formattedDur) {
+      lastRunParts.push(formattedDur);
     }
     const subtitleParts = [mapName];
     if (actionStr && actionStr !== "idle") subtitleParts.push(String(actionStr).replace(/_/g, " "));
@@ -1768,6 +1818,7 @@ export {
   escapeHtml,
   sanitizeColor,
   sanitizeImgUrl,
+  formatSensorState,
   formatAlertCode,
   ALERT_INFO_MAP,
 };

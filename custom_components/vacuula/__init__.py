@@ -40,7 +40,7 @@ from .map_renderer import render_map_png
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL = "/vacuula_frontend/vacuula-map-card.js"
-FRONTEND_VERSION = "0.9.0"
+FRONTEND_VERSION = "0.9.1"
 
 type VacuulaConfigEntry = ConfigEntry[VacuulaCoordinator]
 

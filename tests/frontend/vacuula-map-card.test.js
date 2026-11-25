@@ -6,6 +6,7 @@ import {
   VacuulaMapCardEditor,
   escapeHtml,
   formatAlertCode,
+  formatSensorState,
   sanitizeColor,
   sanitizeImgUrl,
 } from "../../custom_components/vacuula/frontend/vacuula-map-card.js";
@@ -86,6 +87,50 @@ describe("Vacuula Frontend Helper Functions", () => {
     expect(ALERT_INFO_MAP.brush_stuck.severity).toBe("error");
     expect(ALERT_INFO_MAP.navigation_stuck.severity).toBe("error");
     expect(ALERT_INFO_MAP.battery_low.severity).toBe("info");
+  });
+
+  it("formatSensorState uses hass.formatEntityState and falls back with unit and precision", () => {
+    const mockFormatHass = {
+      formatEntityState: vi.fn().mockReturnValue("1,829.46 ft²"),
+    };
+    const areaObj = {
+      entity_id: "sensor.neato_d7_last_clean_area",
+      state: "1829.461234",
+      attributes: { unit_of_measurement: "ft²" },
+    };
+    expect(formatSensorState(mockFormatHass, areaObj, "m²", 2)).toBe("1,829.46 ft²");
+    expect(mockFormatHass.formatEntityState).toHaveBeenCalledWith(areaObj);
+
+    // Fallback when hass.formatEntityState is unavailable (e.g., dev sandbox / partial mock)
+    const fallbackHass = { locale: { language: "en-US" } };
+    expect(
+      formatSensorState(
+        fallbackHass,
+        { state: "169.962145479847", attributes: { unit_of_measurement: "ft²" } },
+        "m²",
+        2
+      )
+    ).toBe("169.96 ft²");
+    expect(
+      formatSensorState(
+        fallbackHass,
+        { state: "1829.461234", attributes: { unit_of_measurement: "ft²" } },
+        "m²",
+        2
+      )
+    ).toBe("1,829.46 ft²");
+    expect(
+      formatSensorState(
+        fallbackHass,
+        { state: "169.96214", attributes: { unit_of_measurement: "m²" } },
+        "m²",
+        2
+      )
+    ).toBe("169.96 m²");
+    expect(formatSensorState(fallbackHass, { state: "42.5" }, "m²", 2)).toBe("42.5 m²");
+    expect(formatSensorState(fallbackHass, { state: "unknown" }, "m²", 2)).toBe("");
+    expect(formatSensorState(fallbackHass, { state: "unavailable" }, "m²", 2)).toBe("");
+    expect(formatSensorState(fallbackHass, null, "m²", 2)).toBe("");
   });
 });
 
@@ -594,6 +639,53 @@ describe("VacuulaMapCard DOM Rendering and Interaction", () => {
     expect(root.querySelector(".empty-map")?.textContent).toContain(
       "No last run path available yet"
     );
+  });
+
+  it("formats last clean area and duration via formatEntityState or fallback unit_of_measurement", () => {
+    const root = /** @type {ShadowRoot} */ (card.shadowRoot);
+    mockHass.locale = { language: "en-US" };
+    mockHass.states["sensor.neato_d7_last_clean_area"] = {
+      entity_id: "sensor.neato_d7_last_clean_area",
+      state: "169.962145479847",
+      attributes: { unit_of_measurement: "ft²" },
+    };
+    mockHass.states["sensor.neato_d7_last_clean_duration"] = {
+      entity_id: "sensor.neato_d7_last_clean_duration",
+      state: "67.5",
+      attributes: { unit_of_measurement: "min" },
+    };
+    card.hass = { ...mockHass };
+
+    let subtitle = el(root, ".subtitle").textContent || "";
+    expect(subtitle).toContain("Last: 169.96 ft² · 67.5 min");
+    expect(subtitle).not.toContain("169.962145479847");
+    expect(subtitle).not.toContain("m²");
+
+    // Re-renders when unit_of_measurement changes even if numeric state is unchanged
+    mockHass.states["sensor.neato_d7_last_clean_area"] = {
+      entity_id: "sensor.neato_d7_last_clean_area",
+      state: "169.962145479847",
+      attributes: { unit_of_measurement: "m²" },
+    };
+    card.hass = { ...mockHass };
+    subtitle = el(root, ".subtitle").textContent || "";
+    expect(subtitle).toContain("Last: 169.96 m² · 67.5 min");
+
+    // Delegates to hass.formatEntityState when provided by Home Assistant
+    mockHass.formatEntityState = vi.fn((stateObj) => {
+      if (stateObj.entity_id === "sensor.neato_d7_last_clean_area") {
+        return "1,829.46 ft²";
+      }
+      return `${stateObj.state} min`;
+    });
+    mockHass.states["sensor.neato_d7_last_clean_area"] = {
+      entity_id: "sensor.neato_d7_last_clean_area",
+      state: "1829.461234",
+      attributes: { unit_of_measurement: "ft²" },
+    };
+    card.hass = { ...mockHass };
+    subtitle = el(root, ".subtitle").textContent || "";
+    expect(subtitle).toContain("Last: 1,829.46 ft² · 67.5 min");
   });
 });
 

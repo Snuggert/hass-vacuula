@@ -366,7 +366,7 @@ class VacuulaRobotData:
             val = float(area)
             if val > 500:
                 val = val / 10000.0
-            return round(val, 2)
+            return val
         return None
 
     @property

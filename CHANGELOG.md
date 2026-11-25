@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - 2026-11-25
+
+### Fixed
+- **Unit-System & Precision Formatting for Cleaning Area (`custom_components/vacuula/frontend/vacuula-map-card.js` & `sensor.py`, Fixes [#6](https://github.com/Snuggert/hass-vacuula/issues/6)):**
+  - Updated `vacuula-map-card` to format last cleaning area and duration via Home Assistant's native `hass.formatEntityState()` (with an `Intl.NumberFormat` + `attributes.unit_of_measurement` fallback) instead of hardcoding `m²`/`min` onto unformatted numeric state strings—honoring HA's configured unit system (`m²` / `ft²`), locale separators, and entity display precision.
+  - Updated `_computeSignature()` to track `unit_of_measurement`, entity display precision (`dp`), and locale changes so unit/precision updates re-render immediately.
+  - Retained full internal float precision on `VacuulaLastCleanAreaSensor.native_value` (`suggested_display_precision = 2`) and `VacuulaRobotData.last_clean_area_m2` so unit conversions remain accurate without premature rounding.
+
 ## [0.9.0] - 2026-11-23
 
 ### Added
@@ -175,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Visual showcase in the README, frontend state diffing in the card, 2× high-DPI map rendering, entity categories and diagnostics.
 
+[0.9.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/Snuggert/hass-vacuula/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Snuggert/hass-vacuula/compare/v0.7.2...v0.8.0

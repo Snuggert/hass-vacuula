@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock
 
+import pytest
 from homeassistant.components.sensor import SensorStateClass
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfArea, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.util.unit_conversion import AreaConverter
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vacuula.const import (
@@ -307,3 +312,37 @@ async def test_sensor_setup_entry_includes_server_sensors(hass: HomeAssistant) -
     await async_setup_entry(hass, entry, entities_added.extend)
     assert any(isinstance(e, VacuulaServerVersionSensor) for e in entities_added)
     assert any(isinstance(e, VacuulaConnectedRobotsSensor) for e in entities_added)
+
+
+async def test_last_clean_area_precision_and_us_customary_conversion(
+    hass: HomeAssistant,
+) -> None:
+    """Test last clean area keeps full precision and converts m² to ft² under US customary units."""
+    hass.config.units = US_CUSTOMARY_SYSTEM
+    robot = VacuulaRobotData(
+        serial="OPS123",
+        name="Neato D7",
+        robot_type=ROBOT_TYPE_GEN3,
+        connected=True,
+        last_run={"cleaned_area": 15.789123},
+    )
+    coordinator, _ = create_mock_coordinator(hass, robot)
+    sensor = VacuulaLastCleanAreaSensor(coordinator, "OPS123")
+
+    assert sensor.native_value == 15.789123
+    assert sensor.suggested_display_precision == 2
+
+    component: EntityComponent[VacuulaLastCleanAreaSensor] = EntityComponent(
+        logging.getLogger(__name__), "sensor", hass
+    )
+    await component.async_add_entities([sensor])
+    await hass.async_block_till_done()
+
+    assert sensor.entity_id is not None
+    state = hass.states.get(sensor.entity_id)
+    assert state is not None
+    assert state.attributes["unit_of_measurement"] == UnitOfArea.SQUARE_FEET
+    expected_ft2 = AreaConverter.convert(
+        15.789123, UnitOfArea.SQUARE_METERS, UnitOfArea.SQUARE_FEET
+    )
+    assert float(state.state) == pytest.approx(expected_ft2)

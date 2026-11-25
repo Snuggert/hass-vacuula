@@ -122,7 +122,7 @@ class VacuulaLastCleanAreaSensor(VacuulaEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.AREA
     _attr_native_unit_of_measurement = UnitOfArea.SQUARE_METERS
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 1
+    _attr_suggested_display_precision = 2
 
     def __init__(self, coordinator: VacuulaCoordinator, serial: str) -> None:
         """Initialize the last clean area sensor."""
@@ -140,7 +140,7 @@ class VacuulaLastCleanAreaSensor(VacuulaEntity, SensorEntity):
         if not robot or not robot.last_run:
             return None
         area = robot.last_run.get("cleaned_area")
-        return round(float(area), 2) if area is not None else None
+        return float(area) if area is not None else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
